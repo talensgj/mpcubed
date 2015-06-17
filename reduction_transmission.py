@@ -46,25 +46,25 @@ offset_dec = np.amin(dec_id)
 # Obtain the transmission map.
 transmission, normalization, niter, chi2, flags = make_transmission_map(data, error, dec_id-offset_dec)
 
-tmap = transmission/np.nanmedian(transmission, axis=1, keepdims=True)
-tmap = tmap/np.nanmedian(tmap)
-plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
-plt.colorbar()
-plt.show()
+#tmap = transmission/np.nanmedian(transmission, axis=1, keepdims=True)
+#tmap = tmap/np.nanmedian(tmap)
+#plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
+#plt.colorbar()
+#plt.show()
 
-tmap = transmission/np.nanmean(transmission, axis=1, keepdims=True)
-tmap = tmap/np.nanmean(tmap)
-plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
-plt.colorbar()
-plt.show()
+#tmap = transmission/np.nanmean(transmission, axis=1, keepdims=True)
+#tmap = tmap/np.nanmean(tmap)
+#plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
+#plt.colorbar()
+#plt.show()
 
-tmap = transmission/np.nanmax(transmission, axis=1, keepdims=True)
-tmap = tmap/np.nanmax(tmap)
-plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
-plt.colorbar()
-plt.show()
+#tmap = transmission/np.nanmax(transmission, axis=1, keepdims=True)
+#tmap = tmap/np.nanmax(tmap)
+#plt.imshow(tmap, interpolation='None', aspect='auto', vmin=0.5, vmax=1.5)
+#plt.colorbar()
+#plt.show()
 
-exit()
+#exit()
 
 with h5py.File('/data2/talens/Oct2014LPE_Trans.hdf5') as f:
     

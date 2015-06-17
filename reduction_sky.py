@@ -50,18 +50,15 @@ ind2 = ha_id-offset_ha
 
 # First indices outside of transmission array.
 bad_ind = np.where((ind1 < 0) | (ind2 < 0) | (ind1 >= transmission.shape[0]) | (ind2 >= transmission.shape[1]))
+
 ind1[bad_ind] = 0 # Set to existing index
 ind2[bad_ind] = 0 # Set to existing index
 
 tcurve = transmission[ind1, ind2] 
-tcurve[bad_ind] = np.nan # Set the bad ones to NaN, so everywhere no transmission is known is now NaN
-
-# This now includes all data for which no transmission value was known
-bad_ind = np.where(np.isnan(tcurve))
-
 fcurve = flags_t[ind1, ind2]
-fcurve[np.isnan(fcurve)] = 0 
-fcurve[bad_ind] += 2
+
+tcurve[bad_ind] = np.nan
+fcurve[bad_ind] = 2
 
 plt.hist(fcurve, bins=np.linspace(-0.5,3.5,5), log=True)
 plt.show()

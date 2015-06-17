@@ -39,7 +39,7 @@ def make_transmission_map(data, error, dec_id, fill_value=np.nan): # Need also o
     
     normalization = np.zeros(data.shape[0])
     transmission = np.full((nbins, data.shape[1]), fill_value=fill_value)
-    flags = np.full((nbins, data.shape[1]), fill_value=fill_value)
+    flags = np.full((nbins, data.shape[1]), fill_value=2)
     niter = np.zeros(nbins)
     chi2 = np.zeros(nbins)
     
