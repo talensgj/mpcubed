@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 import healpy
 
-with h5py.File('/data2/talens/Oct2014LPE.hdf5') as f:
+with h5py.File('/data2/talens/Feb2015LPE.hdf5') as f:
 
     stars = f['Stars']
     ascc = stars['ASCC'].value
@@ -23,7 +23,7 @@ with h5py.File('/data2/talens/Oct2014LPE.hdf5') as f:
     lst_id = data['lpstid'].value.astype('int')
     flags = data['Flag'].value
 
-with h5py.File('/data2/talens/Oct2014LPE_Result.hdf5') as f:
+with h5py.File('/data2/talens/Feb2015LPE_Result.hdf5') as f:
     tflux0 = f['Pipeline/tFlux0'].value
     etflux0 = f['Pipeline/etFlux0'].value
     myflags = f['Pipeline/MyFlags'].value
@@ -35,7 +35,7 @@ etflux0[here] = np.nan
 
 # Modify the LST indices.
 lst_id = np.mod(lst_id-13500/2, 13500) # bad periodicity hack...
-jd_id = np.floor(jd).astype('int')-2456931
+jd_id = np.floor(jd).astype('int')-2457054
 time_id = np.ravel_multi_index((jd_id, lst_id), (31, 13500)) # I think this is unique (but only because we don't observe 24hours), but it's not ordered. NEED AN ALTERNATIVE
 _, time_id = np.unique(time_id, return_inverse=True)
 
@@ -51,7 +51,7 @@ print len(np.unique(binnum)), np.ptp(binnum)
 
 sky, normalization, niter, chi2, sflags = make_transmission_map(data, error, binnum-offset_binnum)
 
-with h5py.File('/data2/talens/Oct2014LPE_Result.hdf5') as f:
+with h5py.File('/data2/talens/Feb2015LPE_Result.hdf5') as f:
     tflux0 = f['Pipeline/tFlux0'].value
     etflux0 = f['Pipeline/etFlux0'].value
     myflags = f['Pipeline/MyFlags'].value
@@ -65,7 +65,7 @@ myflags += 4*sflags[binnum, time_id]
 stflux0 = tflux0/scurve
 estflux0 = etflux0/scurve
 
-with h5py.File('/data2/talens/Oct2014LPE_Result.hdf5') as f:
+with h5py.File('/data2/talens/Feb2015LPE_Result.hdf5') as f:
 
     grp = f['Pipeline']
     grp.create_dataset('stFlux0', data=stflux0)

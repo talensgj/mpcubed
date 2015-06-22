@@ -8,7 +8,7 @@ from reduction_functions import make_array, make_transmission_map
 import matplotlib.pyplot as plt
 
 # Read data.
-with h5py.File('/data2/talens/20141009LPE.hdf5') as f:
+with h5py.File('/data2/talens/20150203LPE.hdf5') as f:
 
     stars = f['Stars']
     ascc = stars['ASCC'].value
@@ -46,12 +46,12 @@ offset_dec = np.amin(dec_id)
 # Obtain the transmission map.
 transmission, normalization, niter, chi2, flags = make_transmission_map(data, error, dec_id-offset_dec)
 
-with h5py.File('/data2/talens/Oct2014LPE_Trans.hdf5') as f:
+with h5py.File('/data2/talens/Feb2015LPE_Trans.hdf5') as f:
     
-    dset = f.create_dataset('20141009/Transmission', data=transmission)
+    dset = f.create_dataset('20150203/Transmission', data=transmission)
     dset.attrs['offset_HA'] = offset_ha
     dset.attrs['offset_Dec'] = offset_dec
-    dset = f.create_dataset('20141009/Flags', data=flags)
+    dset = f.create_dataset('20150203/Flags', data=flags)
     dset.attrs['offset_HA'] = offset_ha
     dset.attrs['offset_Dec'] = offset_dec
 
