@@ -25,7 +25,7 @@ with h5py.File('/data2/talens/20150203LPE.hdf5') as f:
     flags = data['Flag'].value
 
 # Set bad data to NaN.
-here, = np.where(flags > 0)
+here, = np.where((flags > 0))
 flux0[here] = np.nan
 eflux0[here] = np.nan
 
@@ -46,6 +46,10 @@ offset_dec = np.amin(dec_id)
 # Obtain the transmission map.
 transmission, normalization, niter, chi2, flags = make_transmission_map(data, error, dec_id-offset_dec)
 
+plt.imshow(transmission/np.nanmedian(transmission, axis=1, keepdims=True), aspect='auto', interpolation='None', vmin=0.5, vmax=1.5)
+plt.show()
+
+exit()
 with h5py.File('/data2/talens/Feb2015LPE_Trans.hdf5') as f:
     
     dset = f.create_dataset('20150203/Transmission', data=transmission)

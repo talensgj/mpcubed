@@ -50,7 +50,7 @@ offset_binnum = np.amin(binnum)
 print len(np.unique(binnum)), np.ptp(binnum)
 
 sky, normalization, niter, chi2, sflags = make_transmission_map(data, error, binnum-offset_binnum)
-
+exit()
 with h5py.File('/data2/talens/Feb2015LPE_Result.hdf5') as f:
     tflux0 = f['Pipeline/tFlux0'].value
     etflux0 = f['Pipeline/etFlux0'].value

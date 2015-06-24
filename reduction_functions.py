@@ -56,7 +56,7 @@ def make_transmission_map(data, error, dec_id, fill_value=np.nan): # Need also o
         
         # Perform of a single iteration of sysrem.
         c_i, a_j, niter[i], chi2[i] = sysrem(tmp, etmp)
-        
+            
         normalization[select[i]:select[i+1]] = c_i # Not in orginal order...
         transmission[i] = a_j
         
