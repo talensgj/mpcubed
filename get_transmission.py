@@ -48,8 +48,8 @@ def transmission(filename):
         data = f['data']
         for i in range(len(ascc)):
             lst_idx[select[i]:select[i+1]] = data[ascc[i]]['lstidx']
-            flux0[select[i]:select[i+1]] = data[ascc[i]]['flux1']
-            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux1']
+            flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
+            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
 
     # Discretize the ra and dec.
@@ -73,14 +73,14 @@ def transmission(filename):
     error = make_array(eflux0, Nobs, ha_idx-offset_ha)
 
     # Obtain the transmission map.
-    transmission, flags, chi2, npoints, npars, niter = make_transmission_map(data, error, dec_idx-offset_dec)
+    transmission, flags, chi2, npoints, npars, niter = make_transmission_map(data, np.sqrt(data), dec_idx-offset_dec)
 
     # NEED SOME QUALITY CHECKS.
     
-    filename = 'T_' + os.path.basename(filename).split('_')[-1]
+    filename = 'Tpe_' + os.path.basename(filename).split('_')[-1]
     print 'Result:', filename
     with h5py.File(filename) as f:
-        aper = 'aper1'
+        aper = 'aper0'
         grp = f.create_group(aper)
         
         dset = grp.create_dataset('Transmission', data=transmission)
