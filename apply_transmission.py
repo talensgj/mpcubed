@@ -4,60 +4,84 @@
 import h5py
 import numpy as np
 
-with h5py.File('/data2/talens/Feb2015LPE.hdf5') as f:
+import matplotlib.pyplot as plt
 
-    stars = f['Stars']
-    ascc = stars['ASCC'].value
-    ra = stars['RAJ2000'].value
-    dec = stars['DEJ2000'].value
-    Nobs = stars['Nobs'].value.astype('int')
-
-    data = f['Data']
-    jd = data['JDmid'].value
-    lst = data['lpst'].value
-    lst_id = data['lpstid'].value.astype('int')
-    flux0 = data['Flux0'].value
-    eflux0 = data['eFlux0'].value
-    flags = data['Flag'].value
-
-# Create HA indices.
-ra_id = np.floor(ra/15.*3600./6.4).astype('int')
-ha_id = lst_id - np.repeat(ra_id, Nobs)
-ha_id = np.mod(ha_id, 13500)
-
-# Create Dec indices.
-dec_id = np.digitize(dec, bins=np.linspace(-90, 90, 1441))
+def make_idx(variable, range, nbins):
+    
+    bins = np.linspace(range[0], range[1], nbins+1)
+    idx = np.searchsorted(bins, variable)
+    
+    if np.any(idx == 0) | np.any(idx == len(bins)):
+        print 'Warning: there where values out of range.'
+        exit()
+        
+    idx -= 1
+    idx = idx.astype('int')
+    
+    offset = np.amin(idx)
+    length = np.ptp(idx) + 1
+    
+    return idx, length, offset
 
 # Read transmission map.
-with h5py.File('/data2/talens/Feb2015LPE_Trans.hdf5') as f:
-    dset = f['20150203/Transmission']
-    transmission = dset.value
+with h5py.File('/data2/talens/Apr2015LPE/T_20150405LPE.hdf5') as f:
+    dset = f['aper0/Transmission']
+    trans = dset.value
     offset_ha = dset.attrs['offset_HA']
     offset_dec = dset.attrs['offset_Dec']
-    flags_t = f['20150203/Flags'].value
+    flags = f['aper0/Flags'].value
     
-ind1 = np.repeat(dec_id-offset_dec, Nobs)
-ind2 = ha_id-offset_ha
-
-# Find indices outside of transmission array.
-bad_ind = np.where((ind1 < 0) | (ind2 < 0) | (ind1 >= transmission.shape[0]) | (ind2 >= transmission.shape[1]))
-ind1[bad_ind] = 0 # Set to existing index
-ind2[bad_ind] = 0 # Set to existing index
-
-# Expand the map to match the data.
-tcurve = transmission[ind1, ind2] 
-fcurve = flags_t[ind1, ind2]
-
-# Set the values of the bad indices to their defaults.
-tcurve[bad_ind] = np.nan
-fcurve[bad_ind] = 2
-
-tflux0 = flux0/tcurve
-etflux0 = eflux0/tcurve
-
-with h5py.File('/data2/talens/Feb2015LPE_Result.hdf5') as f:
-    grp = f.create_group('Pipeline')
-    grp.create_dataset('tFlux0', data=tflux0)
-    grp.create_dataset('etFlux0', data=etflux0)
-    grp.create_dataset('Transmission', data=tcurve)
-    grp.create_dataset('MyFlags', data=fcurve)
+with h5py.File('/data2/talens/Apr2015LPE/fLC_20150405LPE.hdf5') as f:
+    
+    with h5py.File('/data2/talens/Apr2015LPE/Red_20150405LPE.hdf5') as g:
+    
+        hdr = f['table_header']
+        ascc = hdr['ascc'].value
+        ra = hdr['ra'].value
+        dec = hdr['dec'].value
+        
+        ra_idx, length, offset = make_idx(ra, (0,360), 13500) # hardcoded...
+        dec_idx, length, offset_dec = make_idx(dec, (-90,90), 1440) # hardcoded...
+        
+        data = f['data']
+        for i in range(len(ascc)):
+            lst_idx = data[ascc[i]]['lstidx'].astype('int')
+            flux0 = data[ascc[i]]['flux0']
+            eflux0 = data[ascc[i]]['eflux0']
+            
+            ha_idx = lst_idx - ra_idx[i]
+            ha_idx = np.mod(ha_idx, 13500) # hardcoded...
+            
+            ind_dec = dec_idx[i]-offset_dec
+            ind_ha = ha_idx-offset_ha
+            
+            if (ind_dec < 0) | (ind_dec >= trans.shape[0]):
+                print 'Warning: star outside transmission map.'
+                
+                tcurve = np.full(len(flux0), fill_value=np.nan)
+                tflags = np.full(len(flux0), fill_value=2)
+            
+            elif np.any(ind_ha < 0) | np.any(ind_ha >= trans.shape[1]):
+                print 'Warning: datapoints outside transmission map'
+            
+                badpoints, = np.where((ind_ha < 0) | (ind_ha >= trans.shape[1]))
+                ind_ha[badpoints] = 0
+                
+                tcurve = trans[ind_dec, ind_ha]
+                tflags = flags[ind_dec, ind_ha]
+                
+                tcurve[badpoints] = np.nan
+                tflags[badpoints] = 2
+            
+            else:
+                
+                tcurve = trans[ind_dec, ind_ha]
+                tflags = flags[ind_dec, ind_ha]
+            
+            tflux0 = flux0/tcurve
+            etflux0 = eflux0/tcurve
+    
+            g.create_dataset(ascc[i]+'/tflux0', data=tflux0)
+            g.create_dataset(ascc[i]+'/etflux0', data=etflux0)
+            g.create_dataset(ascc[i]+'/tflags', data=tflags)
+        

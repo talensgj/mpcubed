@@ -6,57 +6,111 @@ import numpy as np
 from reduction_functions import make_array, make_transmission_map
 
 import matplotlib.pyplot as plt
+from time import time
 
-# Read data.
-with h5py.File('/data2/talens/20150203LPE.hdf5') as f:
+import os
+import glob
 
-    stars = f['Stars']
-    ascc = stars['ASCC'].value
-    ra = stars['RAJ2000'].value
-    dec = stars['DEJ2000'].value
-    Nobs = stars['Nobs'].value.astype('int')
-
-    data = f['Data']
-    jd = data['JDmid'].value
-    lst = data['lpst'].value
-    lst_id = data['lpstid'].value.astype('int')
-    flux0 = data['Flux0'].value
-    eflux0 = data['eFlux0'].value
-    flags = data['Flag'].value
-
-# Set bad data to NaN.
-here, = np.where((flags > 0))
-flux0[here] = np.nan
-eflux0[here] = np.nan
-
-# Create HA indices.
-ra_id = np.floor(ra/15.*3600./6.4).astype('int')
-ha_id = lst_id - np.repeat(ra_id, Nobs)
-ha_id = np.mod(ha_id, 13500)
-offset_ha = np.amin(ha_id) # neglects periodicity...
-
-# Cast the data and the errors to arrays suitable for sysrem.
-data = make_array(flux0, Nobs, ha_id-offset_ha) # still neglecting periodicity...
-error = make_array(eflux0, Nobs, ha_id-offset_ha)
-
-# Create Dec indices.
-dec_id = np.digitize(dec, bins=np.linspace(-90, 90, 1441))
-offset_dec = np.amin(dec_id)
-
-# Obtain the transmission map.
-transmission, normalization, niter, chi2, flags = make_transmission_map(data, error, dec_id-offset_dec)
-
-plt.imshow(transmission/np.nanmedian(transmission, axis=1, keepdims=True), aspect='auto', interpolation='None', vmin=0.5, vmax=1.5)
-plt.show()
-
-exit()
-with h5py.File('/data2/talens/Feb2015LPE_Trans.hdf5') as f:
+def make_idx(variable, range, nbins):
     
-    dset = f.create_dataset('20150203/Transmission', data=transmission)
-    dset.attrs['offset_HA'] = offset_ha
-    dset.attrs['offset_Dec'] = offset_dec
-    dset = f.create_dataset('20150203/Flags', data=flags)
-    dset.attrs['offset_HA'] = offset_ha
-    dset.attrs['offset_Dec'] = offset_dec
+    bins = np.linspace(range[0], range[1], nbins+1)
+    idx = np.searchsorted(bins, variable)
+    
+    if np.any(idx == 0) | np.any(idx == len(bins)):
+        print 'Warning: there where values out of range.'
+        exit()
+        
+    idx -= 1
+    idx = idx.astype('int')
+    
+    offset = np.amin(idx)
+    length = np.ptp(idx) + 1
+    
+    return idx, length, offset
+    
+def transmission(filename):
 
+    with h5py.File(filename) as f:
+        
+        hdr = f['table_header']
+        ascc = hdr['ascc'].value
+        ra = hdr['ra'].value
+        dec = hdr['dec'].value
+        Nobs = hdr['nobs'].value.astype('int')
+        
+        select = np.append(0, np.cumsum(Nobs))
+    
+        lst_idx = np.zeros(np.sum(Nobs)).astype('int')
+        flux0 = np.zeros(np.sum(Nobs))
+        eflux0 = np.zeros(np.sum(Nobs))
+        flags = np.zeros(np.sum(Nobs))
+        
+        data = f['data']
+        for i in range(len(ascc)):
+            lst_idx[select[i]:select[i+1]] = data[ascc[i]]['lstidx']
+            flux0[select[i]:select[i+1]] = data[ascc[i]]['flux1']
+            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux1']
+            flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
 
+    # Discretize the ra and dec.
+    ra_idx, length, offset = make_idx(ra, (0,360), 13500) # hardcoded...
+    dec_idx, length, offset_dec = make_idx(dec, (-90,90), 1440) # hardcoded...
+
+    # Create a unique ha idx.
+    ha_idx = lst_idx - np.repeat(ra_idx, Nobs)
+    ha_idx = np.mod(ha_idx, 13500) # hardcoded...
+
+    offset_ha = np.amin(ha_idx)
+    length = np.ptp(ha_idx)
+
+    # Set bad data to NaN.
+    here, = np.where((flags > 0))
+    flux0[here] = np.nan
+    eflux0[here] = np.nan
+
+    # Cast the data and the errors to arrays suitable for sysrem.
+    data = make_array(flux0, Nobs, ha_idx-offset_ha) # still neglecting periodicity...
+    error = make_array(eflux0, Nobs, ha_idx-offset_ha)
+
+    # Obtain the transmission map.
+    transmission, flags, chi2, npoints, npars, niter = make_transmission_map(data, error, dec_idx-offset_dec)
+
+    # NEED SOME QUALITY CHECKS.
+    
+    filename = 'T_' + os.path.basename(filename).split('_')[-1]
+    print 'Result:', filename
+    with h5py.File(filename) as f:
+        aper = 'aper1'
+        grp = f.create_group(aper)
+        
+        dset = grp.create_dataset('Transmission', data=transmission)
+        dset.attrs['offset_HA'] = offset_ha
+        dset.attrs['offset_Dec'] = offset_dec
+        dset = grp.create_dataset('Flags', data=flags)
+        dset.attrs['offset_HA'] = offset_ha
+        dset.attrs['offset_Dec'] = offset_dec
+        dset = grp.create_dataset('chi_sq', data=chi2)
+        dset.attrs['eps'] = 1e-3 # hardcoded...
+        dset = grp.create_dataset('niter', data=niter)
+        dset.attrs['maxiter'] = 50 # hardcoded...
+        grp.create_dataset('npoints', data=npoints)
+        grp.create_dataset('npars', data=npars)
+
+    return 0
+
+if __name__ == '__main__':
+    #import argparse
+    
+    #parser = argparse.ArgumentParser(description='Compute the transmission map for a particular night and camera.')
+    
+    #parser.add_argument('path', type=str, help='the global path for search')
+    #parser.add_argument('-n', '--night', default='', type=str, help='the night to reduce')
+    #parser.add_argument('-c', '--camera',default='', type=str, help='the camera to reduce')
+    
+    #args = parser.parse_args()
+    
+    filelist = glob.glob('/data2/talens/Apr2015LPE/fLC_*')
+    
+    for filename in filelist:
+        print 'Data:', filename
+        transmission(filename)

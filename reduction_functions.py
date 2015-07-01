@@ -32,22 +32,26 @@ def make_transmission_map(data, error, dec_id, fill_value=np.nan): # Need also o
     
     # Partition the array according to the declination bins.
     sort = np.argpartition(dec_id, select[1:-1])
+    isort = np.arange(len(dec_id), dtype='int')[sort]
     data = data[sort]
     error = error[sort]
     
     nbins = len(stars_per_bin)
     
-    normalization = np.zeros(data.shape[0])
     transmission = np.full((nbins, data.shape[1]), fill_value=fill_value)
     flags = np.full((nbins, data.shape[1]), fill_value=2)
-    niter = np.zeros(nbins)
     chi2 = np.zeros(nbins)
+    npoints = np.zeros(nbins)
+    npars = np.zeros(nbins)
+    niter = np.zeros(nbins)
     
     for i in range(nbins):
         
         # Select stars in the current declination bin.
         tmp = data[select[i]:select[i+1]] # Maybe use np.s_ here?
         etmp = error[select[i]:select[i+1]]
+        
+        npoints[i] = np.sum(np.isfinite(tmp))
         
         # Flag data where there are <=5 data points in a column.
         count = np.sum(np.isfinite(tmp), axis=0)
@@ -56,8 +60,8 @@ def make_transmission_map(data, error, dec_id, fill_value=np.nan): # Need also o
         
         # Perform of a single iteration of sysrem.
         c_i, a_j, niter[i], chi2[i] = sysrem(tmp, etmp)
-            
-        normalization[select[i]:select[i+1]] = c_i # Not in orginal order...
         transmission[i] = a_j
         
-    return transmission, normalization, chi2, niter, flags
+        npars[i] = np.sum(np.isfinite(c_i)) + np.sum(np.isfinite(a_j))
+        
+    return transmission, flags, chi2, npoints, npars, niter
