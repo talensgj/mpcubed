@@ -39,6 +39,7 @@ def apply_transmission(filename, reference):
         
         head, tail = os.path.split(filename)
         tail = 'Red_' + tail.split('_')[-1]
+        head = '/data2/talens/Feb2015LPE'
         outfilename = os.path.join(head, tail)
         
         print 'Writing to', outfilename
@@ -56,7 +57,7 @@ def apply_transmission(filename, reference):
             data = f['data']
             for i in range(len(ascc)):
                 
-                if dec_idx[i] != 1152: continue # FOR TESTING MAKES IT DO ONLY ONE DEC BIN!
+                if dec_idx[i] != 1206: continue # FOR TESTING MAKES IT DO ONLY ONE DEC BIN!
                 
                 lst_idx = data[ascc[i]]['lstidx'].astype('int')
                 flux0 = data[ascc[i]]['flux0']
@@ -100,11 +101,9 @@ def apply_transmission(filename, reference):
     
     return 0
 
-filelist = glob.glob('/data2/talens/Apr2015LPE/fLC_*')
+filelist = glob.glob('/data2/mascara/LaPalma/201502??LPE/fLC/fLC_*')
 filelist = np.sort(filelist)
-
-list2 = ['05', '05', '08', '08', '08', '11', '11', '11', '14', '15', '15', '15', '18', '18', '18', '18', '18', '26', '26', '26', '26']
 
 for i in range(len(filelist)):
     print 'Processing', filelist[i]
-    apply_transmission(filelist[i], '/data2/talens/Apr2015LPE/T_201504'+list2[i]+'LPE.hdf5')
+    apply_transmission(filelist[i], '/data2/talens/Feb2015LPE/T_20150203LPE.hdf5')

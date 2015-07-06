@@ -11,6 +11,8 @@ from time import time
 import os
 import glob
 
+from scipy.stats import binned_statistic_2d
+
 def make_idx(variable, range, nbins):
     
     bins = np.linspace(range[0], range[1], nbins+1)
@@ -50,6 +52,7 @@ def transmission(filename):
         
         hdr = f['table_header']
         ascc = hdr['ascc'].value
+        vmag = hdr['vmag'].value
         ra = hdr['ra'].value
         dec = hdr['dec'].value
         Nobs = hdr['nobs'].value.astype('int')
@@ -59,6 +62,8 @@ def transmission(filename):
         lst_idx = np.zeros(np.sum(Nobs)).astype('int')
         flux0 = np.zeros(np.sum(Nobs))
         eflux0 = np.zeros(np.sum(Nobs))
+        x = np.zeros(np.sum(Nobs))
+        y = np.zeros(np.sum(Nobs))
         flags = np.zeros(np.sum(Nobs))
         
         data = f['data']
@@ -68,50 +73,36 @@ def transmission(filename):
             #eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux1']
             eflux0[select[i]:select[i+1]] = window_std(data[ascc[i]]['lstidx'], data[ascc[i]]['flux1'])
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
+            x[select[i]:select[i+1]] = data[ascc[i]]['x']
+            y[select[i]:select[i+1]] = data[ascc[i]]['y']
 
-    # Discretize the ra and dec.
-    ra_idx, length, offset = make_idx(ra, (0,360), 13500) # hardcoded...
-    dec_idx, length, offset_dec = make_idx(dec, (-90,90), 1440) # hardcoded...
-
-    # Create a unique ha idx.
-    ha_idx = lst_idx - np.repeat(ra_idx, Nobs)
-    ha_idx = np.mod(ha_idx, 13500) # hardcoded...
-
-    offset_ha = np.amin(ha_idx)
-    length = np.ptp(ha_idx)
-
-    # Set bad data to NaN.
-    here, = np.where((flags > 0))
-    eflux0[here] = np.nan
-    flux0[np.isnan(eflux0)] = np.nan
-    # Cast the data and the errors to arrays suitable for sysrem.
-    data = make_array(flux0, Nobs, ha_idx-offset_ha) # still neglecting periodicity...
-    error = make_array(eflux0, Nobs, ha_idx-offset_ha)
-
-    # Obtain the transmission map.
-    transmission, flags, chi2, npoints, npars, niter = make_transmission_map(data, error, dec_idx-offset_dec)
-
-    # NEED SOME QUALITY CHECKS.
+    #Create a position index.
+    stat, xedg, yedg, binnum = binned_statistic_2d(x, y, flux0, statistic='count', bins=(np.linspace(0,4008,801),np.linspace(0,2672,601)))
+    print np.amax(stat), np.amin(stat[stat>0])
+    #Create a star index.
+    star_id = np.repeat(np.arange(len(ascc)), Nobs)
     
-    filename = 'Twindow2_' + os.path.basename(filename).split('_')[-1]
-    print 'Result:', filename
-    with h5py.File(filename) as f:
-        aper = 'aper1'
+    # Set bad data to NaN.
+    here, = np.where((flags < 1)&np.isfinite(eflux0))
+    flux0 = flux0[here]
+    eflux0 = eflux0[here]
+    binnum = binnum[here]
+    star_id = star_id[here]
+
+    a_j = np.ones(802*602)
+    for i in range(10):
+        c_i = np.bincount(star_id, flux0*a_j[binnum]/eflux0**2)/np.bincount(star_id, (a_j**2)[binnum]/eflux0**2)
+        a_j = np.bincount(binnum, flux0*c_i[star_id]/eflux0**2)/np.bincount(binnum, (c_i**2)[star_id]/eflux0**2)
         
-        grp = f.create_group(aper)
-        
-        dset = grp.create_dataset('Transmission', data=transmission)
-        dset.attrs['offset_HA'] = offset_ha
-        dset.attrs['offset_Dec'] = offset_dec
-        dset = grp.create_dataset('Flags', data=flags)
-        dset.attrs['offset_HA'] = offset_ha
-        dset.attrs['offset_Dec'] = offset_dec
-        dset = grp.create_dataset('chi_sq', data=chi2)
-        dset.attrs['eps'] = 1e-3 # hardcoded...
-        dset = grp.create_dataset('niter', data=niter)
-        dset.attrs['maxiter'] = 50 # hardcoded...
-        grp.create_dataset('npoints', data=npoints)
-        grp.create_dataset('npars', data=npars)
+    res = np.full((802*602), fill_value=np.nan)
+    res[np.arange(len(a_j))] = a_j
+    res = res.reshape((602,802))
+    
+    plt.semilogy(vmag[np.unique(star_id)], c_i[np.unique(star_id)], '.')
+    plt.show()
+
+    plt.imshow(res, interpolation='None', vmin=0, vmax=2)
+    plt.show()
 
     return 0
 
@@ -126,10 +117,10 @@ if __name__ == '__main__':
     
     #args = parser.parse_args()
     
-    filelist = glob.glob('/data2/mascara/LaPalma/2015020?LPW/fLC/fLC_*.hdf5')
+    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPE/fLC/fLC_*.hdf5')
     filelist = np.sort(filelist)
 
-    filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
+    #filelist = ['/data2/talens/fLC_20150203LPE.hdf5']
 
     for filename in filelist:
         print 'Data:', filename
