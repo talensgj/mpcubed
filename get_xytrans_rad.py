@@ -13,7 +13,7 @@ import glob
 
 from scipy.stats import binned_statistic_2d
 from scipy.optimize import minimize
-import healpy
+
 def make_idx(variable, range, nbins):
     
     bins = np.linspace(range[0], range[1], nbins+1)
@@ -46,7 +46,7 @@ def window_std(lst_idx, array):
     result[args] = np.nan
     
     return result
-    
+
 def fit_cns(pars, vmag, c_i):
     return np.nansum(np.abs(vmag+2.5*np.log10(c_i)-pars))
     
@@ -66,7 +66,7 @@ def transmission(filename):
         
         select = np.append(0, np.cumsum(Nobs))
     
-        lst_idx = np.zeros(np.sum(Nobs)).astype('int')
+        lst = np.zeros(np.sum(Nobs))
         flux0 = np.zeros(np.sum(Nobs))
         eflux0 = np.zeros(np.sum(Nobs))
         x = np.zeros(np.sum(Nobs))
@@ -75,7 +75,7 @@ def transmission(filename):
         
         data = f['data']
         for i in range(len(ascc)):
-            lst_idx[select[i]:select[i+1]] = data[ascc[i]]['lstidx']
+            lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
             eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
             #eflux0[select[i]:select[i+1]] = window_std(data[ascc[i]]['lstidx'], data[ascc[i]]['flux0'])
@@ -83,18 +83,16 @@ def transmission(filename):
             x[select[i]:select[i+1]] = data[ascc[i]]['x']
             y[select[i]:select[i+1]] = data[ascc[i]]['y']
 
-    dec_idx = make_idx(dec, (-90,90), 720)[0]
-
     ha = np.mod(lst*15.-np.repeat(ra,Nobs), 360.)
     dec = np.repeat(dec, Nobs)
-
+    
     #Create a position index.
     #stat, xedg, yedg, binnum = binned_statistic_2d(x, y, flux0, statistic='count', bins=(np.linspace(0,4008,801),np.linspace(0,2672,601)))
-    binnum = healpy.ang2pix(16, (dec+90)*np.pi/180., ha*np.pi/180.)
-    
+    stat, xedg, yedg, binnum = binned_statistic_2d(ha, dec, flux0, statistic='count', bins=(np.linspace(0,360,2701),np.linspace(-90,90,1441)))
+    dec_idx = make_idx(dec, (-90,90), 1440)[0]
     #Create a star index.
     star_id = np.repeat(np.arange(len(ascc)), Nobs)
-    
+
     # Set bad data to NaN.
     here, = np.where((flags < 1)&np.isfinite(eflux0))
     flux0 = flux0[here]
@@ -102,9 +100,9 @@ def transmission(filename):
     binnum = binnum[here]
     star_id = star_id[here]
     dec_idx = dec_idx[np.unique(star_id)]
-    
-    a_j = np.ones(802*602)
-    for j in range(10):
+
+    a_j = np.ones(2702*1442)
+    for i in range(10):
         c_i = np.bincount(star_id, flux0*a_j[binnum]/eflux0**2)/np.bincount(star_id, (a_j**2)[binnum]/eflux0**2)
         
         #res = minimize(fit_cns, [0], args=[vmag[np.unique(star_id)], c_i[np.unique(star_id)]])
@@ -114,10 +112,10 @@ def transmission(filename):
         ##plt.semilogy(x, 10**((x-res.x)/-2.5))
         ##plt.show()
 
-        #for i in np.unique(dec_idx):
-            #res1 = minimize(fit_mlt, [1], args=[vmag[dec_idx==i]-res.x, c_i[dec_idx==i]])
-            #print res1.x
-            #c_i[dec_idx==i] = c_i[dec_idx==i]*(res1.x)**2
+        for i in np.unique(dec_idx):
+            res1 = minimize(fit_mlt, [1], args=[vmag[dec_idx==i]-17, c_i[dec_idx==i]])
+            print res1.x
+            c_i[dec_idx==i] = c_i[dec_idx==i]*(res1.x)**2
         
         
         #plt.semilogy(vmag[np.unique(star_id)], c_i[np.unique(star_id)], '.')
@@ -127,23 +125,12 @@ def transmission(filename):
         
         a_j = np.bincount(binnum, flux0*c_i[star_id]/eflux0**2)/np.bincount(binnum, (c_i**2)[star_id]/eflux0**2)
         
-    #res = np.full((802*602), fill_value=np.nan)
-    #res[np.arange(len(a_j))] = a_j
-    #res = res.reshape((602,802))
-
-    #plt.imshow(res, interpolation='None', vmin=0, vmax=2)
-    #plt.show()
-
-    N = healpy.nside2npix(16)
-    res = np.full(N, fill_value=np.nan)
-    res[np.unique(binnum)] = a_j
-
-    healpy.mollview(res)
+    res = np.full((2702*1442), fill_value=np.nan)
+    res[np.arange(len(a_j))] = a_j
+    res = res.reshape((1442,2702))
+    
+    plt.imshow(res, interpolation='None', vmin=0, vmax=2)
     plt.show()
-
-    
-    
-    
 
     return 0
 
@@ -158,10 +145,10 @@ if __name__ == '__main__':
     
     #args = parser.parse_args()
     
-    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPS/fLC/fLC_*.hdf5')
+    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPW/fLC/fLC_*.hdf5')
     filelist = np.sort(filelist)
 
-    #filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
+    #filelist = ['/data2/talens/fLC_20150203LPN.hdf5']
 
     for filename in filelist:
         print 'Data:', filename
