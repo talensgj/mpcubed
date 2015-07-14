@@ -28,9 +28,51 @@ def make_idx(variable, range, nbins):
     
     return idx, length, offset
 
-def sysrem(ind1, ind2, values, errors, a1=None, a2=None):
+def sysrem(ind1, ind2, values, errors, a1=None, a2=None, maxiter=50, eps=1e-3):
     
-    return a1, a2
+    if a1 is None and a2 is None:
+        
+        a2 = np.ones(len(np.bincount(ind2)))
+        
+    elif a1 is None:
+        
+        pass
+        
+    elif a2 is None:
+        
+        a2 = np.bincount(ind2, values*a1[ind1]/errors**2)/np.bincount(ind2, (a1**2)[ind1]/errors**2)
+        
+    else:
+        
+        print 'You cannot use initial guesses for both parameters.'
+        exit()
+    
+    npoints = len(values)
+    npars = len(np.unique(ind1)) + len(np.unique(ind2))
+    
+    niter = 0
+    chisq = np.zeros(maxiter)
+    chisq_crit = True
+    while (niter < maxiter) & (chisq_crit):
+        
+        a1 = np.bincount(ind1, values*a2[ind2]/errors**2)/np.bincount(ind1, (a2**2)[ind2]/errors**2)
+        a2 = np.bincount(ind2, values*a1[ind1]/errors**2)/np.bincount(ind2, (a1**2)[ind1]/errors**2)
+        
+        chisq[niter] = np.nansum((values-a1[ind1]*a2[ind2])**2/errors**2)/(npoints-npars)
+        
+        if niter == 0:
+            chisq_crit = True
+        else:
+            chisq_crit = np.abs(chisq[niter]-chisq[niter-1]) > eps
+
+        print niter, chisq[niter]
+
+        niter += 1
+    
+    chisq_pbin1 = np.bincount(ind1, (values-a1[ind1]*a2[ind2])**2/errors**2)
+    chisq_pbin2 = np.bincount(ind2, (values-a1[ind1]*a2[ind2])**2/errors**2)
+    
+    return a1, a2, niter, chisq[niter-1], chisq_pbin1, chisq_pbin2, npoints, npars
 
 def transmission(filename):
 
@@ -69,7 +111,7 @@ def transmission(filename):
     ha = np.mod(lst*15.-np.repeat(ra,Nobs), 360.)
     dec = np.repeat(dec, Nobs)
 
-    nside = 1024
+    nside = 64
     filename = 'Tvmag_20150203LPE_ns%i.hdf5'%nside
 
     # Create the indices.
@@ -77,52 +119,19 @@ def transmission(filename):
     binnum = healpy.ang2pix(nside, (dec+90)*np.pi/180., ha*np.pi/180.)
     star_id = np.repeat(np.arange(len(ascc)), Nobs)
     
-    Ngood = np.bincount(star_id, flags<1)
-    plt.plot(Nobs, Ngood, '.')
-    plt.show()
-    
-    Ngood = np.repeat(Ngood, Nobs)
-    
     # Remove bad data.
-    here, = np.where((flags < 1)&np.isfinite(eflux0)&(Ngood>150))
+    here, = np.where((flags < 1)&np.isfinite(eflux0))
     flux0 = flux0[here]
     eflux0 = eflux0[here]
     binnum = binnum[here]
     star_id = star_id[here]
     x = x[here]
     y = y[here]
+    #vmag = vmag[np.unique(star_id)]
     
-    bins = np.unique(binnum)
-    stars = np.unique(star_id)
-    
-    npoints = len(flux0)
-    npars = len(bins)+len(stars)
-    
-    maxiter = 50
-    eps = 1e-3
-    niter = 0
-    chisq_crit = True
-    a_j = np.ones(npix)
-    chisq = np.zeros(maxiter)
-    c_i = 1e7*10**(vmag/-2.5)
-    while (niter < maxiter) & (chisq_crit):
-        
-        a_j = np.bincount(binnum, flux0*c_i[star_id]/eflux0**2)/np.bincount(binnum, (c_i**2)[star_id]/eflux0**2)
-        c_i = np.bincount(star_id, flux0*a_j[binnum]/eflux0**2)/np.bincount(star_id, (a_j**2)[binnum]/eflux0**2)
-        
-        chisq[niter] = np.nansum((flux0-c_i[star_id]*a_j[binnum])**2/eflux0**2)/(npoints-npars)
-        
-        if niter == 0:
-            chisq_crit = True
-        else:
-            chisq_crit = np.abs(chisq[niter]-chisq[niter-1]) > eps
+    a1, a2, niter, chisq, chisq_pbin1, chisq_pbin2, npoints, npars = sysrem(star_id, binnum, flux0, eflux0, a1=1e7*10**(vmag/-2.5))
 
-        print niter, chisq[niter]
-
-        niter += 1
-    
-    chisq_pbin = np.bincount(binnum, (flux0-c_i[star_id]*a_j[binnum])**2/eflux0**2)
-        
+    exit()
     trans = np.full(npix, fill_value=np.nan)
     trans[bins] = a_j[bins]
 
