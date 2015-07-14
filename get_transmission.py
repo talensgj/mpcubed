@@ -129,7 +129,7 @@ if __name__ == '__main__':
     filelist = glob.glob('/data2/mascara/LaPalma/2015020?LPW/fLC/fLC_*.hdf5')
     filelist = np.sort(filelist)
 
-    filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
+    filelist = ['/data2/talens/fLC_20150214LPC.hdf5']
 
     for filename in filelist:
         print 'Data:', filename

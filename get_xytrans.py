@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-import h5py
-import numpy as np
-from reduction_functions import make_array, make_transmission_map
-
-import matplotlib.pyplot as plt
-from time import time
-
 import os
 import glob
 
-from scipy.stats import binned_statistic_2d
-from scipy.optimize import minimize
+import h5py
+import numpy as np
+
 import healpy
+from scipy.stats import binned_statistic_2d
+
+import matplotlib.pyplot as plt
+
 def make_idx(variable, range, nbins):
     
     bins = np.linspace(range[0], range[1], nbins+1)
@@ -30,29 +27,11 @@ def make_idx(variable, range, nbins):
     length = np.ptp(idx) + 1
     
     return idx, length, offset
+
+def sysrem(ind1, ind2, values, errors, a1=None, a2=None):
     
-def window_std(lst_idx, array):
-    
-    if np.isscalar(array):
-        return np.nan
-    
-    slow_id = lst_idx//50
-    result = np.zeros(array.shape)
-    for i in range(270):
-        args, = np.where(slow_id==i)        
-        result[args] = np.std(array[args])
-    
-    args, = np.where(result == 0)
-    result[args] = np.nan
-    
-    return result
-    
-def fit_cns(pars, vmag, c_i):
-    return np.nansum(np.abs(vmag+2.5*np.log10(c_i)-pars))
-    
-def fit_mlt(pars, vmag, c_i):
-    return np.nansum(np.abs(vmag+2.5*np.log10(pars**2*c_i)))
-    
+    return a1, a2
+
 def transmission(filename):
 
     with h5py.File(filename) as f:
@@ -60,13 +39,15 @@ def transmission(filename):
         hdr = f['table_header']
         ascc = hdr['ascc'].value
         vmag = hdr['vmag'].value
+        bmag = hdr['bmag'].value
         ra = hdr['ra'].value
         dec = hdr['dec'].value
         Nobs = hdr['nobs'].value.astype('int')
+        blendval = hdr['blendvalue'].value
         
         select = np.append(0, np.cumsum(Nobs))
     
-        lst_idx = np.zeros(np.sum(Nobs)).astype('int')
+        lst = np.zeros(np.sum(Nobs))
         flux0 = np.zeros(np.sum(Nobs))
         eflux0 = np.zeros(np.sum(Nobs))
         x = np.zeros(np.sum(Nobs))
@@ -75,75 +56,129 @@ def transmission(filename):
         
         data = f['data']
         for i in range(len(ascc)):
-            lst_idx[select[i]:select[i+1]] = data[ascc[i]]['lstidx']
+            lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
             eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
-            #eflux0[select[i]:select[i+1]] = window_std(data[ascc[i]]['lstidx'], data[ascc[i]]['flux0'])
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
             x[select[i]:select[i+1]] = data[ascc[i]]['x']
             y[select[i]:select[i+1]] = data[ascc[i]]['y']
 
-    dec_idx = make_idx(dec, (-90,90), 720)[0]
+    dec_1 = np.copy(dec)
 
+    # 
     ha = np.mod(lst*15.-np.repeat(ra,Nobs), 360.)
     dec = np.repeat(dec, Nobs)
 
-    #Create a position index.
-    #stat, xedg, yedg, binnum = binned_statistic_2d(x, y, flux0, statistic='count', bins=(np.linspace(0,4008,801),np.linspace(0,2672,601)))
-    binnum = healpy.ang2pix(16, (dec+90)*np.pi/180., ha*np.pi/180.)
-    
-    #Create a star index.
+    nside = 1024
+    filename = 'Tvmag_20150203LPE_ns%i.hdf5'%nside
+
+    # Create the indices.
+    npix = healpy.nside2npix(nside)
+    binnum = healpy.ang2pix(nside, (dec+90)*np.pi/180., ha*np.pi/180.)
     star_id = np.repeat(np.arange(len(ascc)), Nobs)
     
-    # Set bad data to NaN.
-    here, = np.where((flags < 1)&np.isfinite(eflux0))
+    Ngood = np.bincount(star_id, flags<1)
+    plt.plot(Nobs, Ngood, '.')
+    plt.show()
+    
+    Ngood = np.repeat(Ngood, Nobs)
+    
+    # Remove bad data.
+    here, = np.where((flags < 1)&np.isfinite(eflux0)&(Ngood>150))
     flux0 = flux0[here]
     eflux0 = eflux0[here]
     binnum = binnum[here]
     star_id = star_id[here]
-    dec_idx = dec_idx[np.unique(star_id)]
+    x = x[here]
+    y = y[here]
     
-    a_j = np.ones(802*602)
-    for j in range(10):
-        c_i = np.bincount(star_id, flux0*a_j[binnum]/eflux0**2)/np.bincount(star_id, (a_j**2)[binnum]/eflux0**2)
-        
-        #res = minimize(fit_cns, [0], args=[vmag[np.unique(star_id)], c_i[np.unique(star_id)]])
-        #print res.x
-        ##plt.semilogy(vmag[np.unique(star_id)], c_i[np.unique(star_id)], '.')
-        ##x = np.linspace(4,8.4,100)
-        ##plt.semilogy(x, 10**((x-res.x)/-2.5))
-        ##plt.show()
-
-        #for i in np.unique(dec_idx):
-            #res1 = minimize(fit_mlt, [1], args=[vmag[dec_idx==i]-res.x, c_i[dec_idx==i]])
-            #print res1.x
-            #c_i[dec_idx==i] = c_i[dec_idx==i]*(res1.x)**2
-        
-        
-        #plt.semilogy(vmag[np.unique(star_id)], c_i[np.unique(star_id)], '.')
-        #x = np.linspace(4,8.4,100)
-        #plt.semilogy(x, 10**((x-res.x)/-2.5))
-        #plt.show()
+    bins = np.unique(binnum)
+    stars = np.unique(star_id)
+    
+    npoints = len(flux0)
+    npars = len(bins)+len(stars)
+    
+    maxiter = 50
+    eps = 1e-3
+    niter = 0
+    chisq_crit = True
+    a_j = np.ones(npix)
+    chisq = np.zeros(maxiter)
+    c_i = 1e7*10**(vmag/-2.5)
+    while (niter < maxiter) & (chisq_crit):
         
         a_j = np.bincount(binnum, flux0*c_i[star_id]/eflux0**2)/np.bincount(binnum, (c_i**2)[star_id]/eflux0**2)
+        c_i = np.bincount(star_id, flux0*a_j[binnum]/eflux0**2)/np.bincount(star_id, (a_j**2)[binnum]/eflux0**2)
         
-    #res = np.full((802*602), fill_value=np.nan)
-    #res[np.arange(len(a_j))] = a_j
-    #res = res.reshape((602,802))
+        chisq[niter] = np.nansum((flux0-c_i[star_id]*a_j[binnum])**2/eflux0**2)/(npoints-npars)
+        
+        if niter == 0:
+            chisq_crit = True
+        else:
+            chisq_crit = np.abs(chisq[niter]-chisq[niter-1]) > eps
 
-    #plt.imshow(res, interpolation='None', vmin=0, vmax=2)
-    #plt.show()
+        print niter, chisq[niter]
 
-    N = healpy.nside2npix(16)
-    res = np.full(N, fill_value=np.nan)
-    res[np.unique(binnum)] = a_j
-
-    healpy.mollview(res)
-    plt.show()
-
+        niter += 1
     
+    chisq_pbin = np.bincount(binnum, (flux0-c_i[star_id]*a_j[binnum])**2/eflux0**2)
+        
+    trans = np.full(npix, fill_value=np.nan)
+    trans[bins] = a_j[bins]
+
+    chisq = np.full(npix, fill_value=np.nan)
+    chisq[bins] = chisq_pbin[bins]
+        
+    count = np.full(npix, fill_value=np.nan)
+    count[bins] = np.bincount(binnum)[bins]
     
+    print np.nanmean(count)
     
+    f = h5py.File(filename)
+    f.create_dataset('ra', data=ra[stars])
+    f.create_dataset('ascc', data=ascc[stars])
+    f.create_dataset('dec', data=dec_1[stars])
+    f.create_dataset('nobs', data=Nobs[stars])
+    f.create_dataset('vmag', data=vmag[stars])
+    f.create_dataset('bmag', data=bmag[stars])
+    f.create_dataset('blendvalue', data=blendval[stars])
+    f.create_dataset('flux', data=c_i[stars])
+    f.create_dataset('count', data=count)
+    f.create_dataset('trans', data=trans)
+    f.create_dataset('chisq', data=chisq)
+    f.close()
+    
+    #  
+    nx = (200, 400, 800)
+    ny = (150, 300, 600)  
+    for nx, ny in zip(nx, ny):
+        print nx, ny
+    
+        count_xy, xedges, yedges, binnum = binned_statistic_2d(x, y, flux0, statistic='count', bins = [np.linspace(50,3958,nx+1), np.linspace(50,2622,ny+1)])
+        a_j = np.bincount(binnum, flux0*c_i[star_id]/eflux0**2)/np.bincount(binnum, (c_i**2)[star_id]/eflux0**2)
+        chisq_pbin = np.bincount(binnum, (flux0-c_i[star_id]*a_j[binnum])**2/eflux0**2)
+        
+        bins = np.unique(binnum)
+        npars = len(bins)+len(stars)
+        
+        trans_xy = np.full((nx+2)*(ny+2), fill_value=np.nan)
+        trans_xy[bins] = a_j[bins]
+        trans_xy = trans_xy.reshape((ny+2,nx+2))
+        
+        chisq_xy = np.full((nx+2)*(ny+2), fill_value=np.nan)
+        chisq_xy[bins] = chisq_pbin[bins]
+        chisq_xy = chisq_xy.reshape((ny+2,nx+2))
+        
+        count_xy = count_xy.T
+            
+        print np.nansum(chisq_xy)/(npoints-npars)
+        
+        f = h5py.File(filename)
+        grp = f.create_group('nx%iny%i'%(nx,ny))
+        grp.create_dataset('count', data=count_xy)
+        grp.create_dataset('trans', data=trans_xy)
+        grp.create_dataset('chisq', data=chisq_xy)
+        f.close()
 
     return 0
 
@@ -158,8 +193,8 @@ if __name__ == '__main__':
     
     #args = parser.parse_args()
     
-    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPS/fLC/fLC_*.hdf5')
-    filelist = np.sort(filelist)
+    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPE/fLC/fLC_*.hdf5')
+    #filelist = np.sort(filelist)
 
     #filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
 
