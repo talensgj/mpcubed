@@ -98,25 +98,3 @@ class HealpixGrid():
         array[:len(values)] = values
         
         return array
-
-ra = np.random.rand(5e6)*360
-dec = np.arccos(np.random.rand(5e6)*2-1)*180/np.pi-90
-
-pg = PolarGrid(135, 144)
-binnum, count = pg.find_gridpoint(ra, dec)
-
-count[count==0] = np.nan
-plt.imshow(count.T, aspect='auto', interpolation='None', origin='lower')
-plt.colorbar()
-plt.show()
-
-hg = HealpixGrid(32)
-binnum, count = hg.find_gridpoint(ra, dec)
-
-healpy.mollview(count)
-plt.show()
-
-
-
-
-
