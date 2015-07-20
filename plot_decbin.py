@@ -49,7 +49,7 @@ def fitsin(pars, x, y, yerr):
     
     return np.nansum(((y-fit)/yerr)**2)
 
-with h5py.File('/data2/talens/fLC_20150203LPC.hdf5') as f:
+with h5py.File('/data2/mascara/LaPalma/20150203LPE/fLC/fLC_20150203LPE.hdf5') as f:
     
     hdr = f['table_header']
     ascc = hdr['ascc'].value
@@ -60,7 +60,7 @@ with h5py.File('/data2/talens/fLC_20150203LPC.hdf5') as f:
     ra_idx, length, offset = make_idx(ra, (0,360), 13500) # hardcoded...
     dec_idx, length, offset_dec = make_idx(dec, (-90,90), 1440) # hardcoded...
     
-    args, = np.where(dec_idx==1127)
+    args, = np.where((dec<28.25)&(dec>28))
     
     data = f['data']
     

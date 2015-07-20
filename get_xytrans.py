@@ -88,6 +88,11 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
         
         a1 = np.bincount(ind1, s*a2[ind2])/np.bincount(ind1, r*(a2**2)[ind2])
         a2 = np.bincount(ind2, s*a1[ind1])/np.bincount(ind2, r*(a1**2)[ind1])
+        
+        # CLIPPING?
+        #res = values-a1[ind1]*a2[ind2]
+        #mask = np.abs(res - np.mean(res)) < 3*np.std(res)
+        
         chisq[niter] = np.sum(r*(values-a1[ind1]*a2[ind2])**2)/(npoints-npars)
         
         if niter == 0:
@@ -124,20 +129,27 @@ def transmission(filename):
         lst = np.zeros(np.sum(Nobs))
         flux0 = np.zeros(np.sum(Nobs))
         eflux0 = np.zeros(np.sum(Nobs))
+        sky = np.zeros(np.sum(Nobs))
+        esky = np.zeros(np.sum(Nobs))
         x = np.zeros(np.sum(Nobs))
         y = np.zeros(np.sum(Nobs))
         flags = np.zeros(np.sum(Nobs))
+        
+        ratio = np.zeros(len(Nobs))
         
         data = f['data']
         for i in range(len(ascc)):
             jd[select[i]:select[i+1]] = data[ascc[i]]['jdmid']
             lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
-            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
-            #eflux0[select[i]:select[i+1]] = index_statistic(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std')
+            #eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
+            eflux0[select[i]:select[i+1]] = index_statistic(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std')
+            sky[select[i]:select[i+1]] = data[ascc[i]]['sky']
+            esky[select[i]:select[i+1]] = data[ascc[i]]['esky']
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
             x[select[i]:select[i+1]] = data[ascc[i]]['x']
             y[select[i]:select[i+1]] = data[ascc[i]]['y']
+            ratio[i] = np.mean(data[ascc[i]]['flux1']/data[ascc[i]]['flux0'])
     
     print 'Done reading.'
 
@@ -154,8 +166,13 @@ def transmission(filename):
     
     print np.percentile(count[count>0], 5), np.percentile(count[count>0], 95)
     
+    Nok = np.bincount(star_id, flags==0)
+    print Nok/Nobs
+    frac = np.repeat(Nok/Nobs, Nobs)
+    Nok = np.repeat(Nok, Nobs)
+    print len(flux0)
     # Remove bad data.
-    here, = np.where((flags < 1))
+    here, = np.where((flags < 1)&(eflux0>0)&(esky/sky<.1))
     jd = jd[here]
     flux0 = flux0[here]
     eflux0 = eflux0[here]
@@ -164,8 +181,22 @@ def transmission(filename):
     binnum = binnum[here]
     star_id = star_id[here]
 
+    print len(flux0)
+
     # Compute the transmission using sysrem.
     a1, a2, niter, chisq, chisq_pbin1, chisq_pbin2, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5))
+
+    trans = hg.put_values_on_grid(a1)
+    
+    healpy.mollview(trans)
+    healpy.graticule(dpar=5)
+    plt.show()
+
+    plt.plot(ratio[np.unique(star_id)], a2[np.unique(star_id)]/(1e7*10**(vmag[np.unique(star_id)]/-2.5)), '.', alpha=.1)
+    plt.show()
+
+    plt.plot(dec_1[np.unique(star_id)], a2[np.unique(star_id)]/(1e7*10**(vmag[np.unique(star_id)]/-2.5)), '.', alpha=.1)
+    plt.show()
 
     fit = a1[binnum]*a2[star_id]
     
@@ -187,19 +218,23 @@ def transmission(filename):
     args = args[::-1]
     
     for i in args:
-        
+        print i
+        if stat1[i] < 1.5: break
+        print 'OK'
         here = star_id==stars[i]
-        
+        print 'OK'
         plt.subplot(211)
         plt.title('ASCC %s, Nobs = %i, Nok = %i, V = %.2f, F/V = %.2f, chisq/Nok= %.2f'%(ascc[i], Nobs[i], Nok[i], vmag[i], stat1[i], stat2[i])) 
         plt.errorbar(jd[here], flux0[here], yerr=eflux0[here], fmt='.')
         plt.plot(jd[here], fit[here])
-        
+        print 'OK'
         plt.subplot(212)
         plt.errorbar(jd[here], flux0[here]-fit[here], yerr=eflux0[here], fmt='.')
-        
-        plt.tight_layout()
-        plt.show()
+        print 'OK'
+        #plt.tight_layout()
+        plt.savefig('0203LPE/wsigmasky/ascc%s.png'%ascc[i])
+        plt.close()
+        #plt.show()
         
     
 
