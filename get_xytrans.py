@@ -13,7 +13,7 @@ from time import time
 
 import matplotlib.pyplot as plt
 
-from coordinate_grids import HealpixGrid
+from coordinate_grids import HealpixGrid, PolarGrid
 
 def make_idx(variable, range, nbins):
     
@@ -32,7 +32,15 @@ def make_idx(variable, range, nbins):
     
     return idx, length, offset
 
-def index_statistic(indices, values, statistic='mean'):
+def sigma_clip(values, niter=5):
+    
+    arr = np.sort(values)
+    n = len(values)
+    
+    return np.mean(arr[n*.05:n*.95])
+    
+
+def index_statistic(indices, values, statistic='mean', keeplength=True):
     
     indices = indices.astype('int')
     
@@ -62,12 +70,15 @@ def index_statistic(indices, values, statistic='mean'):
     elif statistic == 'median':
         result = np.zeros(len(flatcount))
         for i in np.unique(indices):
-            result[i] = np.median(values[indices == i])
-        result = result[a]
+            result[i] = sigma_clip(values[indices == i])
+        #result = result[a]
         
-    return np.repeat(result, flatcount[a])
+    if keeplength:
+        return np.repeat(result, flatcount[a])
+    else:
+        return result
 
-def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
+def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-9, idx=None):
     
     npoints = len(values)
     npars1 = len(np.unique(ind1))
@@ -76,6 +87,10 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
     
     if a2 is None:
         a2 = np.ones(npars2) # WRONG!!!
+    
+    if idx is not None:
+        ref = np.copy(a2)
+        stars = np.unique(ind2)
     
     niter = 0
     chisq = np.zeros(maxiter)
@@ -86,12 +101,11 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
     
     while (niter < maxiter) & (chisq_crit):
         
-        a1 = np.bincount(ind1, s*a2[ind2])/np.bincount(ind1, r*(a2**2)[ind2])
-        a2 = np.bincount(ind2, s*a1[ind1])/np.bincount(ind2, r*(a1**2)[ind1])
+        #a1 = np.bincount(ind1, s*a2[ind2])/np.bincount(ind1, r*(a2**2)[ind2])
+        #a2 = np.bincount(ind2, s*a1[ind1])/np.bincount(ind2, r*(a1**2)[ind1])
         
-        # CLIPPING?
-        #res = values-a1[ind1]*a2[ind2]
-        #mask = np.abs(res - np.mean(res)) < 3*np.std(res)
+        a1 = index_statistic(ind1, values/a2[ind2], statistic='median', keeplength=False)
+        a2 = index_statistic(ind2, values/a1[ind1], statistic='median', keeplength=False)
         
         chisq[niter] = np.sum(r*(values-a1[ind1]*a2[ind2])**2)/(npoints-npars)
         
@@ -101,6 +115,14 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
             chisq_crit = np.abs(chisq[niter]-chisq[niter-1]) > eps
 
         print niter, chisq[niter]
+        
+        if idx is not None:
+            ratio = a2[stars]/ref[stars]
+            median = index_statistic(idx[stars], ratio, statistic='median', keeplength=False)
+            a2[stars] = a2[stars]/median[idx[stars]]
+
+            plt.plot(np.unique(idx), median[np.unique(idx)], '.', alpha=.1)
+            plt.show()
 
         niter += 1
     
@@ -117,43 +139,33 @@ def transmission(filename):
         hdr = f['table_header']
         ascc = hdr['ascc'].value
         vmag = hdr['vmag'].value
-        bmag = hdr['bmag'].value
         ra = hdr['ra'].value
         dec = hdr['dec'].value
         Nobs = hdr['nobs'].value.astype('int')
-        blendval = hdr['blendvalue'].value
         
         select = np.append(0, np.cumsum(Nobs))
     
-        jd = np.zeros(np.sum(Nobs))
         lst = np.zeros(np.sum(Nobs))
         flux0 = np.zeros(np.sum(Nobs))
         eflux0 = np.zeros(np.sum(Nobs))
+        wflux0 = np.zeros(np.sum(Nobs))
         sky = np.zeros(np.sum(Nobs))
-        esky = np.zeros(np.sum(Nobs))
-        x = np.zeros(np.sum(Nobs))
-        y = np.zeros(np.sum(Nobs))
         flags = np.zeros(np.sum(Nobs))
-        
-        ratio = np.zeros(len(Nobs))
         
         data = f['data']
         for i in range(len(ascc)):
-            jd[select[i]:select[i+1]] = data[ascc[i]]['jdmid']
             lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
-            #eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
-            eflux0[select[i]:select[i+1]] = index_statistic(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std')
+            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
+            wflux0[select[i]:select[i+1]] = index_statistic(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std')
             sky[select[i]:select[i+1]] = data[ascc[i]]['sky']
-            esky[select[i]:select[i+1]] = data[ascc[i]]['esky']
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
-            x[select[i]:select[i+1]] = data[ascc[i]]['x']
-            y[select[i]:select[i+1]] = data[ascc[i]]['y']
-            ratio[i] = np.mean(data[ascc[i]]['flux1']/data[ascc[i]]['flux0'])
+    
+    dec_1 = np.copy(dec)
+    
+    eflux0 = np.where(eflux0>wflux0, eflux0, wflux0)
     
     print 'Done reading.'
-
-    dec_1 = np.copy(dec)
 
     # Sky coordinates of data.
     ha = np.mod(lst*15.-np.repeat(ra,Nobs), 360.)
@@ -161,84 +173,40 @@ def transmission(filename):
 
     # Create the indices.
     star_id = np.repeat(np.arange(len(ascc)), Nobs)
-    hg = HealpixGrid(512)
+    #hg = HealpixGrid(128)
+    #binnum, count = hg.find_gridpoint(ha, dec)
+    
+    hg = PolarGrid(1350, 720)
     binnum, count = hg.find_gridpoint(ha, dec)
     
+    print np.sum(count>0)
     print np.percentile(count[count>0], 5), np.percentile(count[count>0], 95)
-    
+
     Nok = np.bincount(star_id, flags==0)
-    print Nok/Nobs
-    frac = np.repeat(Nok/Nobs, Nobs)
+    frac = Nok/Nobs
+    
+    frac = np.repeat(frac, Nobs)
     Nok = np.repeat(Nok, Nobs)
-    print len(flux0)
+
     # Remove bad data.
-    here, = np.where((flags < 1)&(eflux0>0)&(esky/sky<.1))
-    jd = jd[here]
+    here, = np.where((flags < 1)&(eflux0>0)&(flux0>0)&(frac>.95)&(Nok>=50)&(sky>0))
     flux0 = flux0[here]
     eflux0 = eflux0[here]
-    x = x[here]
-    y = y[here]
     binnum = binnum[here]
     star_id = star_id[here]
 
-    print len(flux0)
-
     # Compute the transmission using sysrem.
-    a1, a2, niter, chisq, chisq_pbin1, chisq_pbin2, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5))
-
+    idx = np.digitize(dec_1, bins=np.linspace(-90,90,721))
+    a1, a2, niter, chisq, chisq_pbin1, chisq_pbin2, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5), idx=idx)
+    
     trans = hg.put_values_on_grid(a1)
-    
-    healpy.mollview(trans)
-    healpy.graticule(dpar=5)
+    plt.imshow(trans.T, interpolation='None')
     plt.show()
+    
+    #healpy.mollview(trans, xsize=8000)
+    #plt.show()
 
-    plt.plot(ratio[np.unique(star_id)], a2[np.unique(star_id)]/(1e7*10**(vmag[np.unique(star_id)]/-2.5)), '.', alpha=.1)
-    plt.show()
-
-    plt.plot(dec_1[np.unique(star_id)], a2[np.unique(star_id)]/(1e7*10**(vmag[np.unique(star_id)]/-2.5)), '.', alpha=.1)
-    plt.show()
-
-    fit = a1[binnum]*a2[star_id]
     
-    stars = np.unique(star_id)
-    Nok = np.bincount(star_id)
-    
-    
-    ascc = ascc[stars]
-    Nobs = Nobs[stars]
-    Nok = Nok[stars]
-    vmag = vmag[stars]
-    a2 = a2[stars]
-    chisq_pbin2 = chisq_pbin2[stars]
-    
-    stat1 = a2/(1e7*10**(vmag/-2.5))
-    stat2 = chisq_pbin2/Nok
-    
-    args = np.argsort(stat1)
-    args = args[::-1]
-    
-    for i in args:
-        print i
-        if stat1[i] < 1.5: break
-        print 'OK'
-        here = star_id==stars[i]
-        print 'OK'
-        plt.subplot(211)
-        plt.title('ASCC %s, Nobs = %i, Nok = %i, V = %.2f, F/V = %.2f, chisq/Nok= %.2f'%(ascc[i], Nobs[i], Nok[i], vmag[i], stat1[i], stat2[i])) 
-        plt.errorbar(jd[here], flux0[here], yerr=eflux0[here], fmt='.')
-        plt.plot(jd[here], fit[here])
-        print 'OK'
-        plt.subplot(212)
-        plt.errorbar(jd[here], flux0[here]-fit[here], yerr=eflux0[here], fmt='.')
-        print 'OK'
-        #plt.tight_layout()
-        plt.savefig('0203LPE/wsigmasky/ascc%s.png'%ascc[i])
-        plt.close()
-        #plt.show()
-        
-    
-
-
     return 0
 
 if __name__ == '__main__':
