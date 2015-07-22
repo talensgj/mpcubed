@@ -33,10 +33,11 @@ class PolarGrid():
         
         return ind, count
         
-    def put_values_on_grid(self, values):
+    def put_values_on_grid(self, values, fill_value=0):
         
-        array = np.zeros((self.nx+2)*(self.ny+2))
-        array[:len(values)] = values
+        array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
+        args = np.where(values>0)
+        array[args] = values[args]
         array = array.reshape((self.nx+2, self.ny+2))
     
         return array
@@ -71,7 +72,7 @@ class CartesianGrid():
     def put_values_on_grid(self, values):
         
         array = np.zeros((self.nx+2)*(self.ny+2))
-        array[:len(values)] = values
+        array[len(values)] = values
         array = array.reshape((self.nx+2, self.ny+2))
         
         return array
