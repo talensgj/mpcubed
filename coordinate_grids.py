@@ -33,6 +33,19 @@ class PolarGrid():
         
         return ind, count
         
+    #def grid_coordinates(self, ind=None):
+        
+        #ra = (self.bins1[:-1]+self.bins2[1:])/2.
+        #dec = (self.bins1[:-1]+self.bins2[1:])/2.
+        
+        #ra, dec = np.meshgrid(ra, dec)
+        
+        #if ind is None:
+            #return ra, dec
+        #else:
+            #return ra[ind], dec[ind]
+        
+        
     def put_values_on_grid(self, values, fill_value=0):
         
         array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
@@ -84,18 +97,34 @@ class HealpixGrid():
         self.nside = nside
         self.npix = healpy.nside2npix(self.nside)
     
-    def find_gridpoint(self, ra, dec):
+    def find_gridpoint(self, ra, dec, compact=False):
         
         ind = healpy.ang2pix(self.nside, (dec+90)*np.pi/180., ra*np.pi/180.)
         
-        count = np.bincount(ind)
-        count = self.put_values_on_grid(count)
+        if not compact:
+            return ind
+        else:
+            return np.unique(ind, return_inverse=True)
+            
+    def grid_coordinates(self, ind=None):
+    
+        if ind is None:
+            theta, phi = healpy.pix2ang(self.nside, np.arange(self.npix))
+        else:
+            theta, phi = healpy.pix2ang(self.nside, ind)
+            
+        dec = theta*180./np.pi-90
+        ra = phi*180./np.pi
+            
+        return ra, dec
         
-        return ind, count
+    def put_values_on_grid(self, values, ind=None, fill_value=0):
         
-    def put_values_on_grid(self, values):
+        array = np.full(self.npix, fill_value=fill_value)
         
-        array = np.zeros(self.npix)
-        array[:len(values)] = values
+        if ind is None:
+            array[:len(values)] = values
+        else:
+            array[ind] = values
         
         return array

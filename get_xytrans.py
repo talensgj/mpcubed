@@ -143,7 +143,8 @@ def transmission(filename):
         for i in range(len(ascc)):
             lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
-            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
+            #eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
+            eflux0[select[i]:select[i+1]] = index_statistic(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std')
             sky[select[i]:select[i+1]] = data[ascc[i]]['sky']
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
     
@@ -156,21 +157,22 @@ def transmission(filename):
     dec = np.repeat(dec, Nobs)
 
     # Create the indices.
-    hg = PolarGrid(1350, 720)
-    binnum, count = hg.find_gridpoint(ha, dec)
     star_id = np.repeat(np.arange(len(ascc)), Nobs)
     
-    print np.percentile(count[count>0], 5), np.percentile(count[count>0], 95)
-    
     # Remove bad data.
-    here, = np.where((flags < 1)&(flux0>0)&(sky>0))
+    here, = np.where((flags < 1)&(flux0>0)&(sky>0)&(eflux0>0))
     flux0 = flux0[here]
     eflux0 = eflux0[here]
-    binnum = binnum[here]
+    ha = ha[here]
+    dec = dec[here]
     star_id = star_id[here]
 
+    hg = PolarGrid(13500, 1440)
+    binnum, count = hg.find_gridpoint(ha, dec)
+    print np.percentile(count[count>0], 5), np.percentile(count[count>0], 95)
+
     # Compute the transmission using sysrem.
-    idx = np.digitize(dec_1, np.linspace(-90,90,721))
+    idx = np.digitize(dec_1, np.linspace(-90,90,1441))
     a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5))
     
     trans = hg.put_values_on_grid(a2)
@@ -197,9 +199,8 @@ def transmission(filename):
     plt.show()
     plt.close()
     
-    print '1'
     trans[:,np.unique(idx)] = trans[:,np.unique(idx)]*median[np.unique(idx)]
-    print '2'
+    
     ax = plt.subplot(221)
     plt.imshow(trans[1:-1,1:-1].T, interpolation='None', aspect='auto', origin='lower', vmin=0, vmax=1.5, extent=(0,360,-90,90))
     plt.colorbar().set_label('Transmission')
@@ -207,7 +208,7 @@ def transmission(filename):
     plt.ylim(np.amin(dec), np.amax(dec))
     plt.xlabel('HA [deg]')
     plt.ylabel('Dec [deg]')
-    print '3'
+    
     plt.subplot(222, sharex=ax, sharey=ax)
     plt.imshow(count[1:-1,1:-1].T, interpolation='None', aspect='auto', origin='lower', extent=(0,360,-90,90))
     plt.colorbar().set_label('# points')
@@ -215,25 +216,27 @@ def transmission(filename):
     plt.ylim(np.amin(dec), np.amax(dec))
     plt.xlabel('HA [deg]')
     plt.ylabel('Dec [deg]')
-    print '4'
+    
     plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(chisq_map[1:-1,1:-1].T, interpolation='None', aspect='auto', origin='lower', vmin=0, vmax=np.percentile(chisq_map[np.isfinite(chisq_map)], 95), extent=(0,360,-90,90))
-    plt.colorbar().set_label('chisq')
+    arr = chisq_map[1:-1,1:-1].T/count[1:-1,1:-1].T
+    plt.imshow(arr, interpolation='None', aspect='auto', origin='lower', vmin=0, vmax=np.percentile(arr[np.isfinite(arr)], 98), extent=(0,360,-90,90))
+    plt.colorbar().set_label(r'$\chi^2/N$')
     plt.xlim(np.amin(ha), np.amax(ha))
     plt.ylim(np.amin(dec), np.amax(dec))
     plt.xlabel('HA [deg]')
     plt.ylabel('Dec [deg]')
-    print '5'
+    
     plt.subplot(224)
-    plt.semilogy(vmag[stars], chisq_pbin1[stars], '.', alpha=.1)
+    arr = chisq_pbin1[stars]/np.bincount(star_id)[stars]
+    plt.plot(vmag[stars], arr, '.', alpha=.1)
     plt.xlim(8.4, 2)
-    plt.ylim(1e-2, 1e5)
-    plt.xlabel('chisq')
-    plt.ylabel('F [ADU]')
-    print '6'
+    plt.ylim(0, np.percentile(arr[np.isfinite(arr)], 98))
+    plt.xlabel('V [mag]')
+    plt.ylabel(r'$\chi^2/N$')
+    
     plt.tight_layout()
-    plt.savefig('0203LPE_maps.png')
-    #plt.show()
+    #plt.savefig('0203LPE_maps.png')
+    plt.show()
     
     return 0
 
