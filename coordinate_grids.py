@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 
 class PolarGrid():
     
+    # Does not deal with out of range bins correctly.
+    
     def __init__(self, nx, ny):
         
         self.nx = nx
@@ -16,7 +18,7 @@ class PolarGrid():
         self.bins1 = np.linspace(0, 360, self.nx+1)
         self.bins2 = np.linspace(-90, 90, self.ny+1)
         
-    def find_gridpoint(self, ra, dec):
+    def find_gridpoint(self, ra, dec, compact=False):
         
         ind1 = np.searchsorted(self.bins1, ra, 'right')
         ind2 = np.searchsorted(self.bins2, dec, 'right')
@@ -28,32 +30,38 @@ class PolarGrid():
         
         ind = np.ravel_multi_index([ind1,ind2], (self.nx+2, self.ny+2))
         
-        count = np.bincount(ind)
-        count = self.put_values_on_grid(count)
+        if not compact:
+            return ind
+        else:
+            return np.unique(ind, return_inverse=True)
         
-        return ind, count
+    def grid_coordinates(self, ind=None):
         
-    #def grid_coordinates(self, ind=None):
+        ra = (self.bins1[:-1]+self.bins1[1:])/2.
+        dec = (self.bins2[:-1]+self.bins2[1:])/2.
         
-        #ra = (self.bins1[:-1]+self.bins2[1:])/2.
-        #dec = (self.bins1[:-1]+self.bins2[1:])/2.
+        ra, dec = np.meshgrid(ra, dec)
+        ra = np.ravel(ra)
+        dec = np.ravel(dec)
         
-        #ra, dec = np.meshgrid(ra, dec)
-        
-        #if ind is None:
-            #return ra, dec
-        #else:
-            #return ra[ind], dec[ind]
-        
-        
-    def put_values_on_grid(self, values, fill_value=0):
+        if ind is None:
+            return ra, dec
+        else:
+            return ra[ind], dec[ind]
+            
+    def put_values_on_grid(self, values, ind=None, fill_value=0):
         
         array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
-        args = np.where(values>0)
-        array[args] = values[args]
+        
+        if ind is None:
+            array[:len(values)] = values
+        else:
+            array[ind] = values
+        
         array = array.reshape((self.nx+2, self.ny+2))
-    
+        
         return array
+
     
 class CartesianGrid():
     
@@ -65,7 +73,7 @@ class CartesianGrid():
         self.bins1 = np.linspace(margin, Lx-margin, self.nx+1)
         self.bins2 = np.linspace(margin, Ly-margin, self.ny+1)
         
-    def find_gridpoint(self, x, y):
+    def find_gridpoint(self, x, y, compact=False):
         
         ind1 = np.searchsorted(self.bins1, x, 'right')
         ind2 = np.searchsorted(self.bins2, y, 'right')
@@ -77,18 +85,24 @@ class CartesianGrid():
         
         ind = np.ravel_multi_index([ind1,ind2], (self.nx+2, self.ny+2))
     
-        count = np.bincount(ind)
-        count = self.put_values_on_grid(count)
+        if not compact:
+            return ind
+        else:
+            return np.unique(ind, return_inverse=True)
         
-        return ind, count
+    def put_values_on_grid(self, values, ind=None, fill_value=0):
         
-    def put_values_on_grid(self, values):
+        array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
         
-        array = np.zeros((self.nx+2)*(self.ny+2))
-        array[len(values)] = values
+        if ind is None:
+            array[:len(values)] = values
+        else:
+            array[ind] = values
+        
         array = array.reshape((self.nx+2, self.ny+2))
         
         return array
+
     
 class HealpixGrid():
     
