@@ -4,8 +4,6 @@
 import numpy as np
 import healpy
 
-import matplotlib.pyplot as plt
-
 class PolarGrid():
     
     # Does not deal with out of range bins correctly.

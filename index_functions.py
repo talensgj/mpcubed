@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import numpy
+import numpy as np
 
 def index_statistics(indices, values, statistic='mean', keeplength=False):
     
