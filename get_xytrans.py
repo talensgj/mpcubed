@@ -40,8 +40,8 @@ def transmission(filename):
         for i in range(len(ascc)):
             lst[select[i]:select[i+1]] = data[ascc[i]]['lst']
             flux0[select[i]:select[i+1]] = data[ascc[i]]['flux0']
-            eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
-            #eflux0[select[i]:select[i+1]] = index_statistics(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std', keeplength=True)
+            #eflux0[select[i]:select[i+1]] = data[ascc[i]]['eflux0']
+            eflux0[select[i]:select[i+1]] = index_statistics(data[ascc[i]]['lstidx']//50, data[ascc[i]]['flux0'], statistic='std', keeplength=True)
             sky[select[i]:select[i+1]] = data[ascc[i]]['sky']
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
             x[select[i]:select[i+1]] = data[ascc[i]]['x']
@@ -68,8 +68,14 @@ def transmission(filename):
     y = y[here]
     star_id = star_id[here]
 
-    hg = PolarGrid(2700, 720)
-    bins, binnum = hg.find_gridpoint(ha, dec, compact=True)
+    #hg = PolarGrid(13500, 720)
+    #bins, binnum = hg.find_gridpoint(ha, dec, compact=True)
+    
+    hg = CartesianGrid(800, 600, margin=50)
+    bins, binnum = hg.find_gridpoint(x, y, compact=True)
+    
+    #hg = HealpixGrid(512)
+    #bins, binnum = hg.find_gridpoint(ha, dec, compact=True)
     
     count = index_statistics(binnum, flux0, statistic='count', keeplength=False)
     print np.percentile(count, 5), np.percentile(count, 95)
@@ -77,6 +83,11 @@ def transmission(filename):
     # Compute the transmission using sysrem.
     a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5))
 
+    with h5py.File('/data2/talens/Jul2015/Trans0716LPS_cg800x600m50.hdf5.hdf5') as f:
+        f.create_dataset('binnum', data=bins)
+        f.create_dataset('count', data=count)
+        f.create_dataset('trans', data=a2)
+    exit()
     trans = hg.put_values_on_grid(a2, ind=bins, fill_value=np.nan)
     count = hg.put_values_on_grid(count, ind=bins)
     chisq_map = hg.put_values_on_grid(chisq_pbin2, ind=bins, fill_value=np.nan)
@@ -229,7 +240,7 @@ if __name__ == '__main__':
     
     #args = parser.parse_args()
     
-    filelist = glob.glob('/data2/mascara/LaPalma/20150203LPS/fLC/fLC_*.hdf5')
+    filelist = glob.glob('/data2/talens/Jul2015/fLC_20150716LPS.hdf5')
     #filelist = np.sort(filelist)
 
     #filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
