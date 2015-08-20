@@ -111,7 +111,7 @@ class HealpixGrid():
     
     def find_gridpoint(self, ra, dec, compact=False):
         
-        ind = healpy.ang2pix(self.nside, (dec+90)*np.pi/180., ra*np.pi/180.)
+        ind = healpy.ang2pix(self.nside, (90-dec)*np.pi/180., ra*np.pi/180.)
         
         if not compact:
             return ind
@@ -125,7 +125,7 @@ class HealpixGrid():
         else:
             theta, phi = healpy.pix2ang(self.nside, ind)
             
-        dec = theta*180./np.pi-90
+        dec = 90-theta*180./np.pi
         ra = phi*180./np.pi
             
         return ra, dec

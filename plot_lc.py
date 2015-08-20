@@ -7,81 +7,124 @@ import h5py
 import matplotlib.pyplot as plt
 
 from coordinate_grids import PolarGrid
-
+from index_functions import index_statistics
 import os
 import glob
 
-path = '/data2/talens/Jul2015/'
-date = '20150716'
-ascc = '807144'
+class PlotLC():
+    
+    def __init__(self, path, date, cameras = ['LPN', 'LPE', 'LPS', 'LPW', 'LPC'], colors = ['b', 'r', 'g', 'y', 'c']):
 
-cameras = ['LPN', 'LPE', 'LPS', 'LPW', 'LPC']
-colors = ['b', 'r', 'g', 'y', 'k']
-
-plt.figure(figsize=(16,8))
-ax1 = plt.subplot(311)
-ax2 = plt.subplot(312)
-ax3 = plt.subplot(313)
-
-for camera, color in zip(cameras, colors):
-
-    if os.path.isfile(path+'fLC_'+date+camera+'.hdf5'):
-        with h5py.File(path+'fLC_'+date+camera+'.hdf5', 'r') as f:
-            try: 
-                lc = f['data/'+ascc]
-            except: 
-                print 'Star %s not found on camera %s'%(ascc, camera)
-            else:
-                g = h5py.File(path+'Trans0716'+camera+'_pg2700x720.hdf5', 'r')
-                bins = g['Data/binnum'].value
-                trans = g['Data/trans'].value
-                g.close()
-                
-                pg = PolarGrid(2700, 720)
-                trans = pg.put_values_on_grid(trans, ind=bins, fill_value=np.nan)
-                trans = np.ravel(trans)
-                
-                vmag = f['header/'+ascc]['vmag']
-                ra = f['header/'+ascc]['ra']
-                dec = f['header/'+ascc]['dec']
-                Nobs = f['header/'+ascc]['nobs'].astype('int')
-                ref_jd = np.floor(lc['jdmid'])
-                
-                ha = np.mod(lc['lst']*15.-np.repeat(ra,Nobs), 360.)
-                dec = np.repeat(dec, Nobs)
-                
-                binnum = pg.find_gridpoint(ha, dec)
-                
-                ax1.plot(lc['jdmid']-ref_jd, lc['flux0'], '.', label=camera, c=color)
-                ax2.plot(lc['jdmid']-ref_jd, trans[binnum], '.', c=color)
-                ax3.plot(lc['jdmid']-ref_jd, lc['flux0']/trans[binnum], '.', c=color)
-    else:
-        print 'No data for camera %s.'%camera
+        self.cameras = cameras
+        self.colors = colors
+        self.raw_files = [os.path.join(path, 'fLC_'+date+camera+'.hdf5') for camera in cameras]
+        self.red_files = [os.path.join(path, 'red_'+date+camera+'.hdf5') for camera in cameras]
+        self.figure = False
         
-plt.sca(ax1)
-plt.title('ASCC %s, V = %.2f, RA = %.2f, Dec = %.2f'%(ascc, vmag, ra, dec[0]), size='x-large')
-plt.legend(loc=2)
-plt.xlim(0.25, 0.75)
-plt.xticks(size='large')
-plt.yticks(size='large')
-plt.xlabel('Time [JD-%i]'%ref_jd[0], size='x-large')
-plt.ylabel('Flux', size='x-large')
+    def plot_lightcurve(self, ascc, raw = True, binned = None):
+        
+        self.ascc = ascc
 
-plt.sca(ax2)
-plt.xlim(0.25, 0.75)
-plt.xticks(size='large')
-plt.yticks(size='large')
-plt.xlabel('Time [JD-%i]'%ref_jd[0], size='x-large')
-plt.ylabel('Trans', size='x-large')
+        if not self.figure:
+            self.figure = plt.figure(figsize=(16,4))
+        
+        self.ax1 = plt.subplot(111)
+        
+        for filename, camera, color in zip(self.raw_files, self.cameras, self.colors):
+            with h5py.File(filename, 'r') as f:
+                
+                try:
+                    si = f['header/'+ascc]
+                except:
+                    pass
+                else:
+                    lc = f['data/'+ascc]
+                    jd_ref = np.floor(lc['jdmid'])
+                    
+                    if raw:
+                        plt.plot(lc['jdmid']-jd_ref, lc['flux0'], '.', label=camera, c=color, zorder=0)
+                    elif binned is None:
+                        binned = 50
+                    
+                    if binned is not None:
+                        
+                        jd_bin = index_statistics(lc['lstidx']//binned, lc['jdmid']-jd_ref) 
+                        flux_bin = index_statistics(lc['lstidx']//binned, lc['flux0']) 
+                        eflux_bin = index_statistics(lc['lstidx']//binned, lc['flux0'], statistic='std')/np.sqrt(index_statistics(lc['lstidx']//binned, lc['flux0'], statistic='count'))
+                        
+                        plt.errorbar(jd_bin, flux_bin, yerr=eflux_bin, fmt='o', ecolor='k', c=color, zorder=1, label=camera) 
+                        
+                    
+                    plt.xlim(.25, .75)
+                    plt.legend(loc=2)
+                    plt.xticks(size='large')
+                    plt.yticks(size='large')
+                    plt.xlabel('Time [JD-%i]'%jd_ref[0], size='x-large')
+                    plt.ylabel('Flux', size='x-large')
 
-plt.sca(ax3)
-plt.xlim(0.25, 0.75)
-plt.xticks(size='large')
-plt.yticks(size='large')
-plt.xlabel('Time [JD-%i]'%ref_jd[0], size='x-large')
-plt.ylabel('cFlux', size='x-large')
+    def add_xytrans(self):
+        
+        self.figure.set_size_inches(16,8, forward=True)
+        self.ax1.change_geometry(2,1,1)
+        self.ax2 = plt.subplot(212, sharex=self.ax1)
+        
+        for raw_file, red_file in zip(self.raw_files, self.red_files):
+            
+            with h5py.File(red_file, 'r') as f:
+                trans = f['data/'+self.ascc+'/trans0'].value
+            
+            with h5py.File(raw_file, 'r') as f:
+                
+                try:
+                    si = f['header/'+self.ascc]
+                except:
+                    pass
+                else:
+                    lc = f['data/'+self.ascc]
+                    jd_ref = np.floor(lc['jdmid'])
+                    plt.plot(lc['jdmid']-jd_ref, trans, '.')#, label=camera, c=color, zorder=0)
+        
+        plt.xlim(.25, .75)
+        plt.xticks(size='large')
+        plt.yticks(size='large')
+        plt.xlabel('Time [JD-%i]'%jd_ref[0], size='x-large')
+        plt.ylabel('Trans', size='x-large')
+        
+    def add_skytrans(self):
+        
+        self.figure.set_size_inches(16,12, forward=True)
+        self.ax1.change_geometry(3,1,1)
+        self.ax2.change_geometry(3,1,2)
+        self.ax3 = plt.subplot(313, sharex=self.ax1)
+        
+        for raw_file, red_file in zip(self.raw_files, self.red_files):
+            
+            with h5py.File(red_file, 'r') as f:
+                trans = f['data/'+self.ascc+'/cflux0'].value
+            
+            with h5py.File(raw_file, 'r') as f:
+                
+                try:
+                    si = f['header/'+self.ascc]
+                except:
+                    pass
+                else:
+                    lc = f['data/'+self.ascc]
+                    jd_ref = np.floor(lc['jdmid'])
+                    plt.plot(lc['jdmid']-jd_ref, trans, '.')#, label=camera, c=color, zorder=0)
+        
+        plt.xlim(.25, .75)
+        plt.xticks(size='large')
+        plt.yticks(size='large')
+        plt.xlabel('Time [JD-%i]'%jd_ref[0], size='x-large')
+        plt.ylabel('cFlux', size='x-large')
+        
+    def show(self):
+        plt.tight_layout()
+        plt.show()
 
-plt.tight_layout()
-plt.show()
-plt.close()
-
+obj = PlotLC('/data2/talens/Jul2015', '20150714')
+obj.plot_lightcurve('807144')
+#obj.add_xytrans()
+#obj.add_skytrans()
+obj.show()

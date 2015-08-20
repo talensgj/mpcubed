@@ -18,16 +18,17 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=50, eps=1e-3):
     
     niter = 0
     end_crit = True
+    
     while (niter < maxiter) & (end_crit):
         
         print niter
-        
         a1 = np.bincount(ind1, s*a2[ind2])/np.bincount(ind1, r*(a2**2)[ind2])
         a2 = np.bincount(ind2, s*a1[ind1])/np.bincount(ind2, r*(a1**2)[ind1])
         
         if niter == 0:
             end_crit = True
         else:
+            
             crit1 = np.nanmax(np.abs((a1o-a1)/a1o))
             crit2 = np.nanmax(np.abs((a2o-a2)/a2o))
             print crit1, crit2

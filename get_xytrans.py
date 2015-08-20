@@ -82,24 +82,32 @@ def transmission(filename):
     
     # Compute the transmission using sysrem.
     a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(binnum, star_id, flux0, eflux0, a2=1e7*10**(vmag/-2.5))
-
-    with h5py.File('/data2/talens/Jul2015/Trans0716LPW_pg2700x720.hdf5') as f:
+    
+    with h5py.File('/data2/talens/Jul2015/cam_20150716LPC_pg2700x720.hdf5') as f:
         
-        grp = f.create_group('Header')
+        grp = f.create_group('header')
         grp.attrs['grid'] = 'polar'
         grp.attrs['nx'] = 2700
         grp.attrs['ny'] = 720
+        grp.attrs['margin'] = 0
         grp.attrs['niter'] = niter
         grp.attrs['npoints'] = npoints
         grp.attrs['npars'] = npars
         grp.attrs['chisq'] = chisq
         
-        grp = f.create_group('Data')
+        grp = f.create_group('data')
         grp.create_dataset('binnum', data = bins)
         grp.create_dataset('count', data = count)
         grp.create_dataset('trans', data = a2)
-        grp.create_dataset('chisq', data = chisq_pbin2)
-    
+        grp.create_dataset('chisq_trans', data = chisq_pbin2)
+        
+        stars = np.unique(star_id)
+        grp.create_dataset('ascc', data = ascc[stars])
+        grp.create_dataset('vmag', data = vmag[stars])
+        grp.create_dataset('flux', data = a1[stars])
+        grp.create_dataset('dec', data = dec_1[stars])
+        grp.create_dataset('chisq_flux', data = chisq_pbin1[stars])
+        
     return 0
 
 if __name__ == '__main__':
@@ -113,7 +121,7 @@ if __name__ == '__main__':
     
     #args = parser.parse_args()
     
-    filelist = glob.glob('/data2/talens/Jul2015/fLC_20150716LPW.hdf5')
+    filelist = glob.glob('/data2/talens/Jul2015/fLC_20150716LPC.hdf5')
     #filelist = np.sort(filelist)
 
     #filelist = ['/data2/talens/fLC_20150203LPC.hdf5']

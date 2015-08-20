@@ -26,6 +26,36 @@ def transmission(filename):
         dec = hdr['dec'].value
         Nobs = hdr['nobs'].value.astype('int')
         
+        
+        # Create the indices.
+        hg = HealpixGrid(64)
+        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
+        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
+        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
+        
+        hg = HealpixGrid(32)
+        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
+        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
+        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
+        
+        hg = HealpixGrid(16)
+        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
+        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
+        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
+        
+        plt.xlabel('# Stars')
+        plt.show()
+        exit()
+        
+        ind = np.where(ascc=='807144')
+        here = binnum == binnum[ind]
+        ascc = ascc[here]
+        vmag = vmag[here]
+        ra = ra[here]
+        dec = dec[here]
+        Nobs = Nobs[here]
+        binnum = binnum[here]
+        
         select = np.append(0, np.cumsum(Nobs))
     
         lstidx = np.zeros(np.sum(Nobs))
@@ -44,32 +74,38 @@ def transmission(filename):
             flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
            
         print 'Done reading.'
-        
-        # Create the indices.
-        hg = HealpixGrid(32)
-        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
             
         lstidx = lstidx.astype('int')
         times, lstidx = np.unique(lstidx, return_inverse=True)
-        print len(times)
-        sky_id = np.ravel_multi_index([np.repeat(binnum,Nobs),lstidx], (len(bins), len(times)))
         
         star_id = np.repeat(np.arange(len(ascc)), Nobs)
         
         # Remove bad data.
         here = np.where((flags < 1)&(cflux0>0)&(sky>0)&(eflux0>0))
-        sky_id = sky_id[here]
+        lstidx = lstidx[here]
         star_id = star_id[here]
         cflux0 = cflux0[here]
         eflux0 = eflux0[here]
+        
+        _, lstidx = np.unique(lstidx, return_inverse=True)
             
-        a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(sky_id, star_id, cflux0, np.ones(len(cflux0)), a2=1e7*10**(vmag/-2.5))
+        a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(lstidx, star_id, cflux0, eflux0, a2=1e7*10**(vmag/-2.5))
         
-        array = np.full((len(bins), len(times)), fill_value=np.nan)
-        array[np.unravel_index(sky_id, (len(bins), len(times)))] = a2[sky_id]
+        for i in np.unique(star_id):
+            
+            here = star_id==i
         
-        plt.imshow(array, interpolation='None', origin='lower', aspect='auto', vmin=0, vmax=1.5, cmap=viridis)
-        plt.show()
+            ax = plt.subplot(311)
+            plt.plot(lstidx[here], cflux0[here]/np.median(cflux0[here]), '.')
+            
+            plt.subplot(312, sharex=ax, sharey=ax)
+            plt.plot(np.unique(lstidx), a2/np.median(a2), '.')
+            
+            plt.subplot(313, sharex=ax, sharey=ax)
+            plt.plot(lstidx[here], (cflux0/a2[lstidx])[here]/np.median((cflux0/a2[lstidx])[here]), '.')
+            plt.ylim(.8,1.2)
+            
+            plt.show()
         
         return 0
 
