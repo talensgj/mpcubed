@@ -15,9 +15,62 @@ from index_functions import index_statistics
 from coordinate_grids import HealpixGrid, PolarGrid, CartesianGrid
 from sysrem import sysrem
 
-def transmission(filename):
+from time import time
 
-    with h5py.File(filename) as f, h5py.File('/data2/talens/Jul2015/red_20150714LPC.hdf5') as g:
+#delta_x = par1 - par[ind1]
+#weights = np.exp(-delta_x*delta_x / (2*window**2))
+#weights = weights/errors**2
+#weights = np.sum(weights, axis=1, keepdims=True)
+#a1 = np.dot(weights*(a2**2)[ind2], values/a2[ind2])
+
+
+def smooth(ind1, ind2, par1, values, errors, window, a2=None, maxiter=50, eps=1e-3):
+    
+    if a2 is None:
+        a2 = np.ones(np.amax(ind2)+1)
+    
+    s = values/errors**2
+    r = 1./errors**2
+    
+    niter = 0
+    end_crit = True
+    
+    #delta_x = par1[:,None] - par1[ind1]
+    #weights = np.exp(-delta_x*delta_x / (2*window**2))
+    #weights = weights/errors**2
+    #weights /= np.sum(weights, axis=1, keepdims=True)
+    
+    while (niter < maxiter) & (end_crit):
+        
+        a1 = np.zeros(len(par1))
+        for i in range(len(par1)):
+            weights = np.exp(-(par1-par1[i])**2/(2.*window**2))
+            a1[i] = np.sum(s*a2[ind2]*weights[ind1])/np.sum(r*(a2**2)[ind2]*weights[ind1])
+
+        #temp = weights*(a2**2)[ind2]
+        #temp /= np.sum(temp, axis=1, keepdims=True)
+        #a1 = np.dot(temp, values/a2[ind2])
+
+        a2 = np.bincount(ind2, s*a1[ind1])/np.bincount(ind2, r*(a1**2)[ind1])
+        
+        sol = a1[ind1]*a2[ind2]
+        
+        if niter == 0:
+            end_crit = True
+        else:
+            crit = np.nanmax(np.abs((solo-sol)/solo))
+            end_crit = (crit > eps)
+        
+        solo = np.copy(sol)
+        
+        niter += 1
+        
+    return a1, a2
+    
+
+def skytrans(fLC, red):
+
+    with h5py.File(fLC, 'r') as f:
         
         hdr = f['table_header']
         ascc = hdr['ascc'].value
@@ -26,105 +79,97 @@ def transmission(filename):
         dec = hdr['dec'].value
         Nobs = hdr['nobs'].value.astype('int')
         
+    grid = HealpixGrid(8)
+    bins, binnum = grid.find_gridpoint(ra, dec, compact=True)
+    print len(bins)
+    for ind in [12,25,30,32]:#range(len(bins)):
+        print ind
+        here = binnum == ind
+        ascc_tmp = ascc[here]
+        vmag_tmp = vmag[here]
+        Nobs_tmp = Nobs[here]
         
-        # Create the indices.
-        hg = HealpixGrid(64)
-        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
-        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
-        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
+        select = np.append(0, np.cumsum(Nobs_tmp))
+
+        lstidx = np.zeros(np.sum(Nobs_tmp))
+        sky = np.zeros(np.sum(Nobs_tmp))
+        flags1 = np.zeros(np.sum(Nobs_tmp))
         
-        hg = HealpixGrid(32)
-        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
-        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
-        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
-        
-        hg = HealpixGrid(16)
-        bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
-        count = index_statistics(binnum, vmag, statistic='count', keeplength=False)
-        plt.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step')
-        
-        plt.xlabel('# Stars')
-        plt.show()
-        exit()
-        
-        ind = np.where(ascc=='807144')
-        here = binnum == binnum[ind]
-        ascc = ascc[here]
-        vmag = vmag[here]
-        ra = ra[here]
-        dec = dec[here]
-        Nobs = Nobs[here]
-        binnum = binnum[here]
-        
-        select = np.append(0, np.cumsum(Nobs))
-    
-        lstidx = np.zeros(np.sum(Nobs))
-        cflux0 = np.zeros(np.sum(Nobs))
-        eflux0 = np.zeros(np.sum(Nobs))
-        sky = np.zeros(np.sum(Nobs))
-        flags = np.zeros(np.sum(Nobs))
-        
-        data = f['data']
-        red = g['data']
-        for i in range(len(ascc)):
-            lstidx[select[i]:select[i+1]] = data[ascc[i]]['lstidx']
-            cflux0[select[i]:select[i+1]] = red[ascc[i]+'/cflux0'].value
-            eflux0[select[i]:select[i+1]] = index_statistics(data[ascc[i]]['lstidx']//50, red[ascc[i]+'/cflux0'].value, statistic='std', keeplength=True)
-            sky[select[i]:select[i+1]] = data[ascc[i]]['sky']
-            flags[select[i]:select[i+1]] = data[ascc[i]]['flag']
+        cflux0 = np.zeros(np.sum(Nobs_tmp))
+        ecflux0 = np.zeros(np.sum(Nobs_tmp))
+        scflux0 = np.zeros(np.sum(Nobs_tmp))
+        flags2 = np.zeros(np.sum(Nobs_tmp))
+            
+        with h5py.File(fLC, 'r') as f, h5py.File(red, 'r') as g:
+            
+            lc = f['data']
+            rc = g['data']
+            
+            for i in range(len(ascc_tmp)):
+                lstidx[select[i]:select[i+1]] = lc[ascc_tmp[i]]['lstidx']
+                sky[select[i]:select[i+1]] = lc[ascc_tmp[i]]['sky']
+                flags1[select[i]:select[i+1]] = lc[ascc_tmp[i]]['flag']
+                
+                cflux0[select[i]:select[i+1]] = rc[ascc_tmp[i]]['cflux0']
+                ecflux0[select[i]:select[i+1]] = rc[ascc_tmp[i]]['ecflux0']
+                #scflux0[select[i]:select[i+1]] = rc[ascc_tmp[i]]['scflux0']
+                scflux0[select[i]:select[i+1]] = index_statistics(lc[ascc_tmp[i]]['lstidx']//50, rc[ascc_tmp[i]]['cflux0'], statistic='std', keeplength=True)
+                flags2[select[i]:select[i+1]] = rc[ascc_tmp[i]]['flags']
            
         print 'Done reading.'
-            
+        
         lstidx = lstidx.astype('int')
-        times, lstidx = np.unique(lstidx, return_inverse=True)
         
-        star_id = np.repeat(np.arange(len(ascc)), Nobs)
-        
-        # Remove bad data.
-        here = np.where((flags < 1)&(cflux0>0)&(sky>0)&(eflux0>0))
+        star_id = np.repeat(np.arange(len(ascc_tmp)), Nobs_tmp)
+            
+        here = (flags1<1)&(flags2<1)&(scflux0>0)
+        cflux0 = cflux0[here]
+        ecflux0 = ecflux0[here]
+        scflux0 = scflux0[here]
         lstidx = lstidx[here]
         star_id = star_id[here]
-        cflux0 = cflux0[here]
-        eflux0 = eflux0[here]
+        if len(cflux0) == 0:
+            continue
+        times, lstidx = np.unique(lstidx, return_inverse=True)
         
-        _, lstidx = np.unique(lstidx, return_inverse=True)
-            
-        a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(lstidx, star_id, cflux0, eflux0, a2=1e7*10**(vmag/-2.5))
+        start = time()
+        trans, rf = smooth(lstidx, star_id, times, cflux0, ecflux0, 5., a2=1e7*10**(vmag_tmp/-2.5))
+        print time()-start
         
-        for i in np.unique(star_id):
-            
-            here = star_id==i
+        start = time()
+        a2, a1, niter, chisq, chisq_pbin2, chisq_pbin1, npoints, npars = sysrem(lstidx, star_id, cflux0, ecflux0, a2=1e7*10**(vmag_tmp/-2.5))
+        print time()-start
+        #ax1.plot(a2/np.median(a2), '.', label='phot')
+        #ax2 = plt.subplot(223)
+        #plt.title('phot')
+        #plt.imshow((array/a1).T/a2, interpolation='None', aspect='auto', cmap=viridis, vmin=.8, vmax=1.2)
+        #plt.colorbar()
         
-            ax = plt.subplot(311)
-            plt.plot(lstidx[here], cflux0[here]/np.median(cflux0[here]), '.')
-            
-            plt.subplot(312, sharex=ax, sharey=ax)
-            plt.plot(np.unique(lstidx), a2/np.median(a2), '.')
-            
-            plt.subplot(313, sharex=ax, sharey=ax)
-            plt.plot(lstidx[here], (cflux0/a2[lstidx])[here]/np.median((cflux0/a2[lstidx])[here]), '.')
-            plt.ylim(.8,1.2)
-            
-            plt.show()
+        array = np.full((len(times), len(ascc_tmp)), fill_value=np.nan)
+        array[lstidx, star_id] = cflux0
         
-        return 0
+        plt.subplot(221)
+        plt.plot(a2, '.', label='sysrem')
+        plt.plot(trans, '.', label='smooth 5')
+        
+        plt.subplot(222)
+        plt.imshow((array/np.nanmedian(array, axis=0)).T, interpolation='None', aspect='auto', cmap=viridis, vmin=.8, vmax=1.2)
+        plt.colorbar()
+        
+        plt.subplot(223)
+        plt.title('sysrem')
+        plt.imshow((array/np.outer(a2,a1)).T, interpolation='None', aspect='auto', cmap=viridis, vmin=.8, vmax=1.2)
+        plt.colorbar()
+        
+        plt.subplot(224)
+        plt.title('smooth 5')
+        plt.imshow((array/np.outer(trans, rf)).T, interpolation='None', aspect='auto', cmap=viridis, vmin=.8, vmax=1.2)
+        plt.colorbar()
+        
+        plt.show()
+        plt.close()
+        
+    return 0
 
 if __name__ == '__main__':
-    #import argparse
-    
-    #parser = argparse.ArgumentParser(description='Compute the transmission map for a particular night and camera.')
-    
-    #parser.add_argument('path', type=str, help='the global path for search')
-    #parser.add_argument('-n', '--night', default='', type=str, help='the night to reduce')
-    #parser.add_argument('-c', '--camera',default='', type=str, help='the camera to reduce')
-    
-    #args = parser.parse_args()
-    
-    filelist = glob.glob('/data2/talens/Jul2015/fLC_20150714LPC.hdf5')
-    #filelist = np.sort(filelist)
-
-    #filelist = ['/data2/talens/fLC_20150203LPC.hdf5']
-
-    for filename in filelist:
-        print 'Data:', filename
-        transmission(filename)
+    skytrans('/data2/talens/Jul2015/fLC_20150714LPC.hdf5', '/data2/talens/Jul2015/red_20150714LPC.hdf5')
