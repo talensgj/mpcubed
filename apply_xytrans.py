@@ -70,4 +70,4 @@ def apply_xytrans(fLC, cam):
     
     return 0
     
-apply_xytrans('/data2/talens/Jul2015/fLC_20150716LPW.hdf5', '/data2/talens/Jul2015/cam_20150716LPW_pg2700x720.hdf5')
+apply_xytrans('/data2/talens/Jul2015/fLC_20150715LPC.hdf5', '/data2/talens/Jul2015/cam_20150716LPC_pg2700x720.hdf5')

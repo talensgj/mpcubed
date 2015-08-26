@@ -12,97 +12,97 @@ fLC = '/data2/talens/Jul2015/fLC_20150716LPC.hdf5'
 red = '/data2/talens/Jul2015/red_20150716LPC.hdf5'
 
 from scipy.optimize import minimize
+from scipy.ndimage.filters import gaussian_filter1d
 
-def intrapixel(pars, x, y):
+def intrapixel1(pars, x, y=None, yerr=None):
     
-    fit = pars[0]*(pars[2]*np.cos(2*np.pi*x+pars[1])+1)
+    tmp = np.cos(2*np.pi*(x+pars[0]))
     
-    return np.sum(np.abs(y-fit))
+    fit = (pars[1]*tmp+1)
+    
+    if y is None:
+        return fit
+    elif yerr is None:
+        return np.sum(np.abs((y-fit)))
+    else:
+        return np.sum((y-fit)**2/yerr**2)
 
-def intrapixel_eval(pars, x):
-    fit = pars[0]*(pars[2]*np.cos(2*np.pi*x+pars[1])+1)
-    return fit
+def intrapixel2(pars, x, y=None, yerr=None):
     
+    tmp = x+pars[0]
+    tmp = np.abs(tmp-np.floor(tmp)-.5)
+    tmp = tmp*4-1
     
-def intrapixel1(pars, x, y):
+    fit = (pars[1]*tmp+1)
     
-    fit = pars[0]*np.sin(2*np.pi*x+pars[1])+1
-    
-    return np.sum(np.abs(y-fit))
-    
-def intrapixel1_eval(pars, x):
-    
-    fit = pars[0]*np.sin(2*np.pi*x+pars[1])+1
-    
-    return fit
-    
-    
+    if y is None:
+        return fit
+    elif yerr is None:
+        return np.sum(np.abs((y-fit)))
+    else:
+        return np.sum((y-fit)**2/yerr**2)
+
+
 with h5py.File(fLC, 'r') as f, h5py.File(red, 'r') as g:
     
-    lc = f['data/807144']
-    rc = g['data/807144']
+    ascc = f['table_header/ascc'].value
+    dec = f['table_header/dec'].value
     
-    jd = lc['jdmid']
-    x = lc['y']
-    y = rc['cflux0']
+    decidx = np.searchsorted(np.linspace(-90,90,721), dec)
     
-    mean = index_statistics(lc['lstidx']//50, lc['peak']/lc['flux0'], statistic='mean')
-    
-    slow_idx = lc['lstidx']//50
-    ind, slow_idx = np.unique(slow_idx, return_inverse=True)
-    
-    pars = np.zeros((len(ind),3))
-    fit = np.ones(len(y))
-    for i in range(len(ind)):
-        here = slow_idx == i
+    ascc = ascc[decidx==451]
 
-        res = minimize(intrapixel, [np.mean(y[here]), np.pi/2, .1], args=(x[here], y[here]))
-        fit[here] = intrapixel_eval(res.x, x[here])
-        pars[i] = res.x
-
-    
-    pars1 = np.zeros((len(ind), 2))
-    fit1 = np.ones(len(y))
-    niter = 0
-    while niter < 5:
-    
-        F = np.mean(y/fit1)
-        print F
-        for i in range(len(ind)):
-            here = slow_idx == i
-    
-            res = minimize(intrapixel1, [.1, np.pi/2], args=(x[here], y[here]/F))
-            fit1[here] = intrapixel1_eval(res.x, x[here])
-            pars1[i] = res.x
-            
-        niter += 1
-    
-    fit1 = F*fit1
-    fit2 = fit/np.repeat(pars[:,0], np.bincount(slow_idx))
+    for sid in ascc:
+        print sid
+        lc = f['data/'+sid]
+        rc = g['data/'+sid]
         
-    ax = plt.subplot(311)
-    plt.plot(jd, y, '.', c='k')
-    plt.subplot(312, sharex=ax, sharey=ax)
-    plt.plot(jd, fit, '.', c='b')
-    plt.plot(jd, fit1, '.', c='r')
-    plt.plot(jd, fit2*(np.median(y/fit2)), c='c')
-    plt.subplot(313, sharex=ax)
-    plt.plot(jd, y/fit, '.', c='b')
-    plt.plot(jd, y/fit1, '.', c='r')
-    plt.plot(jd, y/fit2/(np.median(y/fit2)), '.', c='c')
-    plt.show()
+        jd = lc['jdmid']-np.floor(lc['jdmid'])
+        x = lc['y']
+        gauss = gaussian_filter1d(rc['cflux0'], 100)
+        y = rc['cflux0']/gauss
+        
+        pix = np.unique(np.floor(x))
+        
+        fit1 = np.ones(len(y))
+        fit2 = np.ones(len(y))
+        pars1 = np.zeros((len(pix), 2))
+        pars2 = np.zeros((len(pix), 2))
+        
+        for i in range(len(pix)):
+            here = np.floor(x) == pix[i]
+        
+            if np.sum(here) < 25: continue
+        
+            res1 = minimize(intrapixel1, [0.5, 0.5], args=(x[here],y[here]))
+            pars1[i] = res1.x
+            fit1[here] = intrapixel1(res1.x, x[here])
+            
+            res2 = minimize(intrapixel2, [0.5, 0.5], args=(x[here],y[here]))
+            pars2[i] = res2.x
+            fit2[here] = intrapixel2(res2.x, x[here])
+        
+        #plt.plot(jd, y, '.')
+        #plt.plot(jd, fit1, '.')
+        #plt.plot(jd, fit2, '.')
+        #plt.show()
+        
+        ax1 = plt.subplot(221)
+        plt.title('Cosine')
+        plt.plot(pix, pars1[:,0]%.5, '.', c='k')
+        plt.ylabel('phase')
+        ax2 = plt.subplot(222, sharex=ax1, sharey=ax1)
+        plt.title('Sawtooth')
+        plt.plot(pix, pars2[:,0]%.5, '.', c='k')
+        plt.ylim(0,.4)
+        ax3 = plt.subplot(223, sharex=ax1)
+        plt.plot(pix, np.abs(pars1[:,1]), '.', c='k')
+        plt.ylabel('amplitude')
+        plt.xlabel('y position')
+        ax4 = plt.subplot(224, sharex=ax1, sharey=ax3)
+        plt.plot(pix, np.abs(pars2[:,1]), '.', c='k')
+        plt.xlabel('y position')
+        plt.xlim(1630, 1670)
+        plt.ylim(0.,.1)
     
-    plt.subplot(311)
-    plt.plot(pars[:,0], '.', c='b')
-    plt.axhline(F, c='r')
-    plt.subplot(312)
-    plt.plot(np.abs(pars[:,2]), '.', c='b')
-    plt.plot(np.abs(pars1[:,0]), '.', c='r')
-    plt.subplot(313)
-    plt.plot(pars[:,1]%np.pi, '.', c='b')
-    plt.plot(pars1[:,1]%np.pi, '.', c='r')
-    plt.show()
-    
-    plt.plot(np.abs(pars[:,2]), mean, '.', c='b')
-    plt.plot(np.abs(pars1[:,0]), mean, '.', c='r')
     plt.show()

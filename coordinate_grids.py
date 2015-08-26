@@ -15,11 +15,29 @@ class PolarGrid():
         
         self.bins1 = np.linspace(0, 360, self.nx+1)
         self.bins2 = np.linspace(-90, 90, self.ny+1)
+    
+    def find_raidx(self, ra, compact=False):
         
+        ind = np.searchsorted(self.bins1, ra, 'right')
+        
+        if not compact:
+            return ind
+        else: 
+            return np.unique(ind, return_inverse=True)
+        
+    def find_decidx(self, dec, compact=False):
+        
+        ind = np.searchsorted(self.bins2, dec, 'right')
+        
+        if not compact:
+            return ind
+        else: 
+            return np.unique(ind, return_inverse=True)
+    
     def find_gridpoint(self, ra, dec, compact=False):
         
-        ind1 = np.searchsorted(self.bins1, ra, 'right')
-        ind2 = np.searchsorted(self.bins2, dec, 'right')
+        ind1 = self.find_raidx(ra)
+        ind2 = self.find_decidx(dec)
         
         if np.any(ind1==0) | np.any(ind1==self.nx+1):
             print 'Warning 1'
@@ -32,6 +50,20 @@ class PolarGrid():
             return ind
         else:
             return np.unique(ind, return_inverse=True)
+        
+    def find_ra(self, raidx):
+        
+        ra = np.full(self.nx+2, fill_value=np.nan)
+        ra[1:-1] = (self.bins1[:-1]+self.bins1[1:])/2.
+        
+        return ra[raidx]
+        
+    def find_dec(self, decidx):
+        
+        dec = np.full(self.ny+2, fill_value=np.nan)
+        dec[1:-1] = (self.bins2[:-1]+self.bins2[1:])/2.
+        
+        return dec[decidx]
         
     def grid_coordinates(self, ind=None):
         
