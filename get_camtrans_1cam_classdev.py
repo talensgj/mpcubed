@@ -118,17 +118,17 @@ class CameraTransmission():
             staridx = np.repeat(np.arange(len(ascc)), nobs)
             
             # Remove bad datapoints.
-            here = (flux0>0)&(eflux0>0)&(sky>0)&(flags < 1)
+            here = (flux0 > 0)&(eflux0 > 0)&(sky > 0)&(flags < 1)
             flux0 = flux0[here]
             eflux0 = eflux0[here]
             haidx = haidx[here]
             staridx = staridx[here]
             
-            # Make the haidx ascending from 0 and count the number of datapoints at each haidx
+            # Make the haidx ascending from 0 and count the number of datapoints at each haidx.
             haidx, hauni = np.unique(haidx, return_inverse=True)
-            pointcount = index_statistics(haidx, haidx, statistic='count')
+            pointcount = index_statistics(hauni, hauni, statistic='count')
             
-            # Compute the sky transmission curve.
+            # Compute the camera transmission curve.
             camtrans, flux, niter[ind], chisq[ind], chisq_cam, chisq_flux, npoints[ind], npars[ind] = sysrem(hauni, staridx, flux0, eflux0, a2 = (1e7)*10**(vmag/-2.5))
             
             with h5py.File(self.camfile) as f:
@@ -208,7 +208,7 @@ class CameraFile():
         if self.grid == 'polar':
             self._visualize_polar()
             
-        elif self.grid in ['polar', 'cartesian']:
+        elif self.grid in ['healpix', 'cartesian']:
             print 'Grid %s not implemented yet.'%self.grid
             exit()
             
@@ -231,10 +231,13 @@ class CameraFile():
         rcParams['image.interpolation'] = 'none'
         rcParams['image.origin'] = 'lower'
         
+        # Polar grid instance.
         pg = PolarGrid(self.nx, self.ny)
         
+        # Indices of good values to help determine the limits.
         xlim, ylim = np.where(np.isfinite(self.camtrans))
         
+        # Figure showing the transmission map.
         plt.imshow(self.camtrans.T/np.nanmax(self.camtrans), aspect='auto', cmap=viridis, vmin=0, vmax=1)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -265,7 +268,7 @@ class CameraFile():
 
             self._apply_polar()
             
-        elif self.grid in ['polar', 'cartesian']:
+        elif self.grid in ['healpix', 'cartesian']:
             print 'Grid %s not implemented yet.'%self.grid
             exit()
             
@@ -278,12 +281,14 @@ class CameraFile():
         
     def _apply_polar(self):
             
+        # Polar grid instance.
         pg = PolarGrid(self.nx, self.ny)
-            
+        
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'w-') as g:
             
             ascc = f['table_header/ascc'].value
             
+            # Add header to resulting file.
             grp = g.create_group('header')
             grp.attrs['camfile'] = self.camfile
             
@@ -292,31 +297,37 @@ class CameraFile():
                 si = f['header/'+sid]
                 lc = f['data/'+sid]
                 
+                # Find haidx and decidx for the lightcurve.
                 ha = np.mod(lc['lst']*15.-np.repeat(si['ra'], si['nobs'].astype('int')), 360.)
                 haidx = pg.find_raidx(ha)
                 decidx = pg.find_decidx(si['dec'])
             
+                # Find stellar transmission curve and correct flux and eflux.
                 camtrans0 = self.camtrans[haidx, decidx]
                 cflux0 = lc['flux0']/camtrans0
                 ecflux0 = lc['eflux0']/camtrans0
-            
+                
+                # Add also the std of 50 points used in calculating the tranmission.
                 sflux0 = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
                 scflux0 = sflux0/camtrans0
         
+                # Add flags.
                 flags = np.where(np.isnan(camtrans0), 1, 0) # Flag data where no transmission coefficient exists.
                 flags = flags + np.where(self.pointcount[haidx, decidx]<=5, 2, 0) # Flag data where less than 5 datapoints were used to compute the transmission.
-                if self.starcount[decidx] <= 5:
+                if self.starcount[decidx] <= 5: # Flag if the declination bin contained few stars.
                     flags += 4
         
+                # Combine the reduced data in a record array.
                 record = np.rec.fromarrays([camtrans0, cflux0, ecflux0, sflux0, scflux0, flags], names=['camtrans0', 'cflux0', 'ecflux0', 'sflux0', 'scflux0', 'flags'])
                 
+                # Write the result to file.
                 g.create_dataset('data/'+sid, data=record)
 
         return
 
-test = CameraTransmission()
-test.calculate('/data2/talens/Jul2015/fLC_20150716LPE.hdf5', camfile='/data2/talens/Jul2015/camtest.hdf5')
+#test = CameraTransmission()
+#test.calculate('/data2/talens/Jul2015/fLC_20150716LPE.hdf5', camfile='/data2/talens/Jul2015/camtest.hdf5')
 
 test = CameraFile('/data2/talens/Jul2015/camtest.hdf5')
 #test.visualize()
-test.apply('/data2/talens/Jul2015/fLC_20150716LPE.hdf5', redfile='/data2/talens/Jul2015/redtest.hdf5')
+test.apply('/data2/talens/Jul2015/fLC_20150714LPE.hdf5', redfile='/data2/talens/Jul2015/redtest.hdf5')
