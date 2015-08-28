@@ -21,7 +21,31 @@ class CameraTransmission():
         self.margin = margin
 
         return 
-
+        
+    def _read_data(self, ascc, nobs):
+        nstars = len(ascc)
+        ndata = np.sum(nobs)
+        select = np.append(0, np.cumsum(nobs))
+        
+        lst = np.zeros(ndata)
+        flux0 = np.zeros(ndata)
+        eflux0 = np.zeros(ndata)
+        sky = np.zeros(ndata)
+        flags = np.zeros(ndata)
+        
+        with h5py.File(self.fLCfile, 'r') as f:
+        
+            lc = f['data']
+        
+            for i in range(nstars):
+                
+                lst[select[i]:select[i+1]] = lc[ascc[i]]['lst']
+                flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
+                eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
+                flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
+   
+        return lst, flux0, eflux0, sky, flags
 
     def calculate(self, fLCfile, camfile=None):
         
@@ -57,34 +81,7 @@ class CameraTransmission():
             print 'Unknown grid: %s'%self.grid
 
         return
-
-
-    def _read_data(self, ascc, nobs):
-        nstars = len(ascc)
-        ndata = np.sum(nobs)
-        select = np.append(0, np.cumsum(nobs))
         
-        lst = np.zeros(ndata)
-        flux0 = np.zeros(ndata)
-        eflux0 = np.zeros(ndata)
-        sky = np.zeros(ndata)
-        flags = np.zeros(ndata)
-        
-        with h5py.File(self.fLCfile, 'r') as f:
-        
-            lc = f['data']
-        
-            for i in range(nstars):
-                
-                lst[select[i]:select[i+1]] = lc[ascc[i]]['lst']
-                flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
-                eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
-                sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
-                flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
-   
-        return lst, flux0, eflux0, sky, flags
-        
-
     def _calculate_polar(self):
         
         # Polar grid instance.
@@ -123,6 +120,8 @@ class CameraTransmission():
             eflux0 = eflux0[here]
             haidx = haidx[here]
             staridx = staridx[here]
+            
+            if len(flux0) == 0: continue
             
             # Make the haidx ascending from 0 and count the number of datapoints at each haidx.
             haidx, hauni = np.unique(haidx, return_inverse=True)
@@ -173,7 +172,6 @@ class CameraFile():
         
         return
         
-        
     def _read_camfile(self):
         
         with h5py.File(self.camfile, 'r') as f:
@@ -183,23 +181,26 @@ class CameraFile():
             self.ny = f['header'].attrs['ny']
             self.margin = f['header'].attrs['margin']
             
-            self.starcount = np.full(self.ny+2, fill_value=np.nan)
+            self.starcount = np.full(self.ny+2, fill_value=0)
             self.camtrans = np.full((self.nx+2, self.ny+2), fill_value=np.nan)
-            self.pointcount = np.full((self.nx+2, self.ny+2), fill_value=np.nan)
+            self.pointcount = np.full((self.nx+2, self.ny+2), fill_value=0)
             
             decidx = f['header/decidx'].value
             self.starcount[decidx] = f['header/starcount'].value
             
             for ind in decidx:
                 
-                data = f['data/%i'%ind]
-                haidx = data['haidx'].value
-                
-                self.camtrans[haidx, ind] = data['camtrans'].value
-                self.pointcount[haidx, ind] = data['pointcount'].value
-            
+                try:
+                    data = f['data/%i'%ind]
+                except:
+                    pass
+                else:
+                    haidx = data['haidx'].value
+                    
+                    self.camtrans[haidx, ind] = data['camtrans'].value
+                    self.pointcount[haidx, ind] = data['pointcount'].value
+                    
         return
-        
         
     def visualize(self):
         
@@ -218,7 +219,6 @@ class CameraFile():
             
         return
     
-    
     def _visualize_polar(self):
         
         import matplotlib.pyplot as plt
@@ -231,14 +231,12 @@ class CameraFile():
         rcParams['image.interpolation'] = 'none'
         rcParams['image.origin'] = 'lower'
         
-        # Polar grid instance.
-        pg = PolarGrid(self.nx, self.ny)
-        
-        # Indices of good values to help determine the limits.
-        xlim, ylim = np.where(np.isfinite(self.camtrans))
+        array = self.camtrans[1:-1,1:-1]
+        xlim, ylim = np.where(np.isfinite(array))
         
         # Figure showing the transmission map.
-        plt.imshow(self.camtrans.T/np.nanmax(self.camtrans), aspect='auto', cmap=viridis, vmin=0, vmax=1)
+        ax = plt.subplot(111)
+        plt.imshow(array.T/np.nanmax(array), aspect='auto', cmap=viridis, vmin=0, vmax=1)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
         plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
@@ -249,8 +247,7 @@ class CameraFile():
  
         return
         
-    
-    def apply(self, fLCfile, redfile=None):
+    def correct(self, fLCfile, redfile=None):
         
         self.fLCfile = fLCfile
         
@@ -266,7 +263,7 @@ class CameraFile():
             
         if self.grid == 'polar':
 
-            self._apply_polar()
+            self._correct_polar()
             
         elif self.grid in ['healpix', 'cartesian']:
             print 'Grid %s not implemented yet.'%self.grid
@@ -278,8 +275,7 @@ class CameraFile():
         
         return
         
-        
-    def _apply_polar(self):
+    def _correct_polar(self):
             
         # Polar grid instance.
         pg = PolarGrid(self.nx, self.ny)
@@ -324,10 +320,3 @@ class CameraFile():
                 g.create_dataset('data/'+sid, data=record)
 
         return
-
-#test = CameraTransmission()
-#test.calculate('/data2/talens/Jul2015/fLC_20150716LPE.hdf5', camfile='/data2/talens/Jul2015/camtest.hdf5')
-
-test = CameraFile('/data2/talens/Jul2015/camtest.hdf5')
-#test.visualize()
-test.apply('/data2/talens/Jul2015/fLC_20150714LPE.hdf5', redfile='/data2/talens/Jul2015/redtest.hdf5')

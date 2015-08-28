@@ -103,10 +103,28 @@ class CartesianGrid():
         self.bins1 = np.linspace(margin, Lx-margin, self.nx+1)
         self.bins2 = np.linspace(margin, Ly-margin, self.ny+1)
         
+    def find_xidx(self, x, compact=False):
+        
+        ind = np.searchsorted(self.bins1, x, 'right')
+        
+        if not compact:
+            return ind
+        else: 
+            return np.unique(ind, return_inverse=True)
+            
+    def find_yidx(self, y, compact=False):
+        
+        ind = np.searchsorted(self.bins2, y, 'right')
+        
+        if not compact:
+            return ind
+        else: 
+            return np.unique(ind, return_inverse=True)
+        
     def find_gridpoint(self, x, y, compact=False):
         
-        ind1 = np.searchsorted(self.bins1, x, 'right')
-        ind2 = np.searchsorted(self.bins2, y, 'right')
+        ind1 = self.find_xidx(x)
+        ind2 = self.find_yidx(y)
         
         if np.any(ind1==0) | np.any(ind1==self.nx+1):
             print 'Warning 1'
@@ -119,6 +137,21 @@ class CartesianGrid():
             return ind
         else:
             return np.unique(ind, return_inverse=True)
+        
+    def xidx2x(self, xidx):
+        
+        x = np.full(self.nx+2, fill_value=np.nan)
+        x[1:-1] = (self.bins1[:-1]+self.bins1[1:])/2.
+        
+        return x[xidx]
+        
+    def yidx2y(self, yidx):
+        
+        y = np.full(self.ny+2, fill_value=np.nan)
+        y[1:-1] = (self.bins2[:-1]+self.bins2[1:])/2.
+        
+        return y[yidx]
+        
         
     def put_values_on_grid(self, values, ind=None, fill_value=0):
         
