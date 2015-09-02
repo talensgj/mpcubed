@@ -6,6 +6,7 @@ import h5py
 
 import matplotlib.pyplot as plt
 
+from coordinate_grids import PolarGrid
 from index_functions import index_statistics
 
 fLC = '/data2/talens/Jul2015/fLC_20150716LPC.hdf5'
@@ -14,45 +15,62 @@ red = '/data2/talens/Jul2015/red_20150716LPC.hdf5'
 from scipy.optimize import minimize
 from scipy.ndimage.filters import gaussian_filter1d
 
-def intrapixel1(pars, x, y=None, yerr=None):
-    
-    tmp = np.cos(2*np.pi*(x+pars[0]))
-    
-    fit = (pars[1]*tmp+1)
-    
-    if y is None:
-        return fit
-    elif yerr is None:
-        return np.sum(np.abs((y-fit)))
-    else:
-        return np.sum((y-fit)**2/yerr**2)
+from matplotlib import rcParams
+from viridis import viridis 
 
-def intrapixel2(pars, x, y=None, yerr=None):
-    
-    tmp = x+pars[0]
-    tmp = np.abs(tmp-np.floor(tmp)-.5)
-    tmp = tmp*4-1
-    
-    fit = (pars[1]*tmp+1)
-    
-    if y is None:
-        return fit
-    elif yerr is None:
-        return np.sum(np.abs((y-fit)))
-    else:
-        return np.sum((y-fit)**2/yerr**2)
+rcParams['xtick.labelsize'] = 'large'
+rcParams['ytick.labelsize'] = 'large'
+rcParams['axes.labelsize'] = 'x-large'
+rcParams['image.interpolation'] = 'none'
+rcParams['image.origin'] = 'lower'
 
+def solver(lstidx, y, flux, eflux):
+    
+    ind = ((lstidx+25)//50).astype('int')
+    
+    count = np.bincount(ind)
+    idx, = np.where(count>0)
+    
+    cs = np.cos(2*np.pi*y)
+    sn = np.sin(2*np.pi*y)
+    w = 1/eflux**2
+     
+    C = np.bincount(ind, flux*w)/np.bincount(ind, w)
+    a = C/10*np.cos(.5)*np.ones(len(count))
+    b = C/10*np.sin(.5)*np.zeros(len(count))
+    
+    for i in range(50):
+
+        C = np.bincount(ind, (flux-a[ind]*cs-b[ind]*sn)*w)/np.bincount(ind, w)
+        a = np.bincount(ind, (flux-b[ind]*sn-C[ind])*cs*w)/np.bincount(ind, cs**2*w)
+        b = np.bincount(ind, (flux-a[ind]*cs-C[ind])*sn*w)/np.bincount(ind, sn**2*w)
+        
+    #plt.subplot(211)
+    #plt.plot(flux, '.')
+    #plt.plot(a[ind]*cs+b[ind]*sn+C[ind], '.')
+    #plt.subplot(212)
+    #plt.plot(flux/(a[ind]*cs+b[ind]*sn+C[ind]), '.')
+    #plt.show()
+        
+    return a[idx], b[idx], C[idx]
+    
+pg = PolarGrid(13500, 720)
 
 with h5py.File(fLC, 'r') as f, h5py.File(red, 'r') as g:
     
     ascc = f['table_header/ascc'].value
+    ra = f['table_header/ra'].value
     dec = f['table_header/dec'].value
+    vmag = f['table_header/vmag'].value
 
-    pixa = np.array([])
-    deca = np.array([])
-    pars1 = np.array([])
-    pars2 = np.array([])
+    decidx, decuni = pg.find_decidx(dec, compact=True)
 
+    ascc = ascc[decuni==82]
+    ra = ra[decuni==82]
+    dec = dec[decuni==82]
+    vmag = vmag[decuni==82]
+
+    plt.figure(figsize=(16,8))
     for j in range(len(ascc)):
         
         sid = ascc[j]
@@ -60,25 +78,27 @@ with h5py.File(fLC, 'r') as f, h5py.File(red, 'r') as g:
         lc = f['data/'+sid]
         rc = g['data/'+sid]
         
-        x = lc['y']
-        gauss = gaussian_filter1d(rc['cflux0'], 100)
-        y = rc['cflux0']/gauss
+        idx = ((lc['lstidx']+25)//50).astype('int')
+        ha = np.mod(lc['lst']*15.-ra[j], 360.)
+        ha = np.mod(ha-180, 360)
+        ha = np.bincount(idx, ha)/np.bincount(idx)
+        ha = ha[np.unique(idx)]
         
-        pix = np.unique(np.floor(x))
+        a, b, C = solver(lc['lstidx'], lc['y'], lc['flux0'], lc['eflux0'])
         
-        for i in range(len(pix)):
-            here = np.floor(x) == pix[i]
+        plt.subplot(211)
+        plt.plot(ha, np.arctan(b/a), '.', c='k')
+        plt.ylabel('Phase')
+        plt.ylim(0, np.pi)
         
-            if np.sum(here) < 25: continue
+        plt.subplot(212)
+        plt.plot(ha, np.sqrt(a**2+b**2)/C, '.', c='k')
+        plt.ylabel('Amplitude')
         
-            res = minimize(intrapixel1, [0.5, 0.5], args=(x[here],y[here]))
-            pars1 = np.append(pars1, res.x[0])
-            pars2 = np.append(pars2, res.x[0])
-            pixa = np.append(pixa, pix[i])
-            deca = np.append(deca, dec[j])
-
-np.savez('intrapixel.npz', pix=pixa, dec=dec, pars1=pars1, pars2=pars2)
-
-plt.scatter(pixa, dec, c=pars1)
-plt.colorbar()
-plt.show()
+        plt.xlabel('HA [deg]')
+    
+    plt.tight_layout()
+    plt.show()
+        
+      
+        

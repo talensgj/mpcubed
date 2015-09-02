@@ -451,17 +451,17 @@ class SkyFile():
         
         return
         
-        
 #test = SkyTransmission()
-#test.calculate('/data2/talens/Jul2015/fLC_20150715LPN.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150715LPE.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150715LPS.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150715LPW.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150715LPC.hdf5')
+#test.calculate('/data2/talens/Jul2015/fLC_20150714LPN.hdf5')
+#test.calculate('/data2/talens/Jul2015/fLC_20150714LPE.hdf5')
+#test.calculate('/data2/talens/Jul2015/fLC_20150714LPS.hdf5')
+#test.calculate('/data2/talens/Jul2015/fLC_20150714LPW.hdf5')
+#test.calculate('/data2/talens/Jul2015/fLC_20150714LPC.hdf5')
 
-#test = SkyFile('/data2/talens/Jul2015/sky_20150716LPN.hdf5')
-#test.visualize()
-#test.correct()
+for filename in ['sky_20150714LPN.hdf5', 'sky_20150714LPE.hdf5', 'sky_20150714LPS.hdf5', 'sky_20150714LPW.hdf5', 'sky_20150714LPC.hdf5']:
+
+    test = SkyFile('/data2/talens/Jul2015/'+filename)
+    test.correct()
 
 
 

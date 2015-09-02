@@ -320,3 +320,7 @@ class CameraFile():
                 g.create_dataset('data/'+sid, data=record)
 
         return
+
+cf = CameraFile('/data2/talens/Jul2015/cam_20150716LPC.hdf5')
+cf.correct('/data2/talens/Jul2015/fLC_20150715LPC.hdf5')
+cf.correct('/data2/talens/Jul2015/fLC_20150714LPC.hdf5')
