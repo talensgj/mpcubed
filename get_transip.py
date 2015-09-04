@@ -20,7 +20,7 @@ from index_functions import index_statistics
 from sysrem import sysrem
 from intrarem import trans_intrapixel, bin_intrapixel
     
-fLC = '/data2/talens/Jul2015/fLC_20150716LPC.hdf5'
+fLC = '/data2/talens/Jul2015/fLC_20150716LPN.hdf5'
 
 with h5py.File(fLC, 'r') as f:
     
@@ -88,12 +88,14 @@ for ind in range(len(decidx)):
     haidx2 = haidx2[here]
     staridx = staridx[here]
     
+    if len(flux) == 0 : continue
+    
     haidx1, hauni1 = np.unique(haidx1, return_inverse=True)
     haidx2, hauni2 = np.unique(haidx2, return_inverse=True)
     
     F, T, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = trans_intrapixel(staridx, hauni1, hauni2, y, flux, sflux, verbose=True)
     
-    with h5py.File('/data2/talens/Jul2015/transip.hdf5') as f:
+    with h5py.File('/data2/talens/Jul2015/transipN.hdf5') as f:
         
         grp = f.create_group('data/%i'%decidx[ind])
         grp.create_dataset('haidx_cam', data=haidx1)
@@ -102,7 +104,7 @@ for ind in range(len(decidx)):
         grp.create_dataset('a', data=a)
         grp.create_dataset('b', data=b)
 
-with h5py.File('/data2/talens/Jul2015/transip.hdf5') as f:
+with h5py.File('/data2/talens/Jul2015/transipN.hdf5') as f:
 
     grp = f.create_group('header')
 

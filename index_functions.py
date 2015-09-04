@@ -16,13 +16,14 @@ def index_statistics(indices, values, statistic='mean', keeplength=False):
     
     if statistic == 'mean':
         flatsum = np.bincount(indices, values)
-        result = flatsum[a] / flatcount[a]
+        result = flatsum / flatcount
         
     elif statistic == 'std':
+        
         flatsum = np.bincount(indices, values)
         flatsum2 = np.bincount(indices, values ** 2)
         result = np.sqrt(flatsum2[a] / flatcount[a] - (flatsum[a] / flatcount[a]) ** 2)
-        
+
     elif statistic == 'count':
         result = flatcount[a]
         
@@ -43,7 +44,7 @@ def index_statistics(indices, values, statistic='mean', keeplength=False):
         result = result[a]
     
     if not keeplength:    
-        return result
+        return result[a]
     else:
-        return np.repeat(result, flatcount[a])
+        return result[indices]
 
