@@ -18,7 +18,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
+with h5py.File('/data2/talens/Jul2015/transipW.hdf5') as f:
     
     decidx = f['header/decidx'].value
     chisq = f['header/chisq'].value
@@ -32,7 +32,7 @@ with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
     dec = pg.find_dec(decidx)
     
     A = np.full((722, 272), fill_value=np.nan)
-    
+    phi = np.full((722, 272), fill_value=np.nan)
     for ind in range(len(decidx)):
         
         try:
@@ -48,7 +48,7 @@ with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
         b = data['b'].value
         
         A[decidx[ind], haidx_ip] = np.sqrt(a**2+b**2)
-        
+        phi[decidx[ind], haidx_ip] = np.arctan2(b, a)
         
         #ha_cam = pg.find_ra(haidx_cam)
         ##ha_cam = np.mod(ha_cam-180, 360)
@@ -75,13 +75,25 @@ with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
         #plt.close()
 
 A = A[1:-1,1:-1]
+phi = phi[1:-1,1:-1]
 #A = np.roll(A, 135, axis=1)
+#phi = np.roll(phi, 135, axis=1)
 
 xlim, ylim = np.where(np.isfinite(A))
 
 plt.imshow(A, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
 cb = plt.colorbar()
 cb.set_label('Amplitude')
+plt.xlabel('HA')
+plt.ylabel('Dec')
+plt.ylim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+plt.xlim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+plt.show()
+plt.close()
+
+plt.imshow(phi, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
+cb = plt.colorbar()
+cb.set_label('Phase')
 plt.xlabel('HA')
 plt.ylabel('Dec')
 plt.ylim(np.amin(xlim)-.5, np.amax(xlim)+.5)

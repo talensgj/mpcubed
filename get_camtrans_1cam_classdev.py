@@ -321,6 +321,8 @@ class CameraFile():
 
         return
 
-cf = CameraFile('/data2/talens/Jul2015/cam_20150716LPC.hdf5')
-cf.correct('/data2/talens/Jul2015/fLC_20150715LPC.hdf5')
-cf.correct('/data2/talens/Jul2015/fLC_20150714LPC.hdf5')
+#ct = CameraTransmission()
+#ct.calculate('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', '/data2/talens/Jul2015/bugfix.hdf5')
+
+cf = CameraFile('bugfix.hdf5')
+cf.correct('fLC_20150716LPC.hdf5', 'bugfix2.hdf5')

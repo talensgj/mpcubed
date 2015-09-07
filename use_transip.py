@@ -18,7 +18,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
+with h5py.File('/data2/talens/Jul2015/transipS.hdf5') as f:
     
     decidx = f['header/decidx'].value
     chisq = f['header/chisq'].value
@@ -41,7 +41,7 @@ with h5py.File('/data2/talens/Jul2015/transipE.hdf5') as f:
 pg = PolarGrid(13500, 720)
 pg1 = PolarGrid(270, 720)
     
-with h5py.File('/data2/talens/Jul2015/fLC_20150716LPE.hdf5') as f:
+with h5py.File('/data2/talens/Jul2015/fLC_20150715LPS.hdf5') as f:
     
     ascc = f['table_header/ascc'].value
     ra = f['table_header/ra'].value
@@ -52,12 +52,17 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPE.hdf5') as f:
     
     decidx = pg.find_decidx(dec)
     
-    here = decidx == 495
+    #here = decidx == 495
+    #ascc = ascc[here]
+    #ra = ra[here]
+    #dec = dec[here]
+    
+    here = ascc == '1413051'
     ascc = ascc[here]
     ra = ra[here]
     dec = dec[here]
     
-    for i in range(len(ascc)):
+    for i in range(0,len(ascc),100):
         
         lc = f['data/'+ascc[i]]
         
@@ -71,20 +76,18 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPE.hdf5') as f:
         fit1 = camtrans[decidx, haidx_cam]
         fit2 = (a[decidx, haidx_ip]*np.sin(2*np.pi*lc['y'])+b[decidx, haidx_ip]*np.cos(2*np.pi*lc['y'])+1)
         
-        
-        
         plt.figure(figsize=(16,8))
         ax = plt.subplot(311)
-        plt.plot(ha, lc['flux0'], '.')
-        plt.plot(ha, fit*np.median(lc['flux0']/fit), '.')
+        plt.title('ASCC %s'%ascc[i])
+        plt.plot(lc['jdmid'], lc['flux0'], '.')
+        plt.plot(lc['jdmid'], fit*np.median(lc['flux0']/fit), '.')
         plt.ylabel('flux0')
         ax1 = plt.subplot(312, sharex=ax)
-        plt.plot(ha, lc['flux0']/(fit1*np.median(lc['flux0']/fit)), '.')
-        plt.plot(ha, fit2, '.')
+        plt.plot(lc['jdmid'], lc['flux0']/(fit1*np.median(lc['flux0']/fit)), '.')
+        plt.plot(lc['jdmid'], fit2, '.')
         plt.ylabel('camtrans+ip')
-        plt.subplot(313, sharex=ax)
-        #plt.plot(ha, lc['flux0']/(fit*np.median(lc['flux0']/fit)), '.')
-        plt.plot(ha[1:], np.diff(lc['y']), '.')
+        plt.subplot(313, sharex=ax, sharey=ax1)
+        plt.plot(lc['jdmid'], lc['flux0']/(fit*np.median(lc['flux0']/fit)), '.')
         plt.ylabel('cipflux0')
         plt.xlabel('Time [JD]')
         plt.tight_layout()

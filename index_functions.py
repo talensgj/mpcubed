@@ -22,26 +22,23 @@ def index_statistics(indices, values, statistic='mean', keeplength=False):
         
         flatsum = np.bincount(indices, values)
         flatsum2 = np.bincount(indices, values ** 2)
-        result = np.sqrt(flatsum2[a] / flatcount[a] - (flatsum[a] / flatcount[a]) ** 2)
+        result = np.sqrt(flatsum2 / flatcount - (flatsum / flatcount) ** 2)
 
     elif statistic == 'count':
-        result = flatcount[a]
+        result = flatcount
         
     elif statistic == 'sum':
-        flatsum = np.bincount(indices, values)
-        result = flatsum[a]
+        result = np.bincount(indices, values)
         
     elif statistic == 'median':
         result = np.zeros(len(flatcount))
         for i in np.unique(indices):
             result[i] = np.median(values[indices == i])
-        result = result[a]
         
     else:
         result = np.zeros(len(flatcount))
         for i in np.unique(indices):
             result[i] = statistic(values[indices == i])
-        result = result[a]
     
     if not keeplength:    
         return result[a]
