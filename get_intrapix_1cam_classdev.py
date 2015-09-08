@@ -63,7 +63,7 @@ class IntraPixel():
         # Read the stellar header information.
         with h5py.File(self.fLCfile, 'r') as f:
             
-            hdr = f['table_header']
+            hdr = f['header_table']
             self.ascc = hdr['ascc'].value
             self.vmag = hdr['vmag'].value
             self.ra = hdr['ra'].value
@@ -198,7 +198,7 @@ class CameraFile():
                     
         return
     
-    def visualize(self):
+    def visualize(self, wrap=False):
         
         self._read_camfile()
         
@@ -213,10 +213,11 @@ class CameraFile():
         rcParams['image.origin'] = 'lower'
         
         array = self.camtrans[1:-1,1:-1]
+        if wrap: array = np.roll(array, self.nx_cam/2, axis=0)
         array = array.T
         xlim, ylim = np.where(np.isfinite(array))
 
-        plt.imshow(array, aspect='auto', vmin=0, vmax=1, cmap=viridis)
+        plt.imshow(array, aspect='auto', vmin=0, vmax=1.5, cmap=viridis)
         cb = plt.colorbar()
         cb.set_label('camtrans')
         plt.xlabel('HA')
@@ -229,6 +230,7 @@ class CameraFile():
         plt.close()
         
         array = np.sqrt(self.a[1:-1,1:-1]**2+self.b[1:-1,1:-1]**2)
+        if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
         array = array.T
         xlim, ylim = np.where(np.isfinite(array))
 
@@ -245,6 +247,7 @@ class CameraFile():
         plt.close()
         
         array = np.arctan2(self.b[1:-1,1:-1], self.a[1:-1,1:-1])
+        if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
         array = array.T
         xlim, ylim = np.where(np.isfinite(array))
 
@@ -292,13 +295,13 @@ class CameraFile():
         
         with h5py.File(self.fLCfile, 'r') as f:
             
-            ascc = f['table_header/ascc'].value
-            ra = f['table_header/ra'].value
-            dec = f['table_header/dec'].value
+            ascc = f['header_table/ascc'].value
+            ra = f['header_table/ra'].value
+            dec = f['header_table/dec'].value
             
             decidx = pgcam.find_decidx(dec)
     
-            here = ascc == '605365'
+            here = ascc == '1413051'
             ascc = ascc[here]
             ra = ra[here]
             dec = dec[here]
@@ -338,11 +341,8 @@ class CameraFile():
         return
     
 #ip = IntraPixel()
-#ip.calculate('/data2/talens/Jul2015/fLC_20150716LPN.hdf5')
-#ip.calculate('/data2/talens/Jul2015/fLC_20150716LPE.hdf5')
 #ip.calculate('/data2/talens/Jul2015/fLC_20150716LPS.hdf5')
-#ip.calculate('/data2/talens/Jul2015/fLC_20150716LPW.hdf5')
 
-cf = CameraFile('/data2/talens/Jul2015/camip_20150716LPC.hdf5')
-#cf.visualize()
-cf.correct('/data2/talens/Jul2015/fLC_20150715LPC.hdf5')
+#cf = CameraFile('/data2/talens/Jul2015/camip_20150716LPS.hdf5')
+#cf.visualize(True)
+#cf.correct('/data2/talens/Jul2015/fLC_20150716LPS.hdf5')
