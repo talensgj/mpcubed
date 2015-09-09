@@ -48,7 +48,7 @@ class SkyTransmission():
         # Read the stellar header information.
         with h5py.File(self.fLCfile, 'r') as f:
             
-            hdr = f['table_header']
+            hdr = f['header_table']
             self.ascc = hdr['ascc'].value
             self.vmag = hdr['vmag'].value
             self.ra = hdr['ra'].value
@@ -103,8 +103,8 @@ class SkyTransmission():
                     x[select[i]:select[i+1]] = lc[ascc[i]]['x']
                     y[select[i]:select[i+1]] = lc[ascc[i]]['y']
                 
-                cflux0[select[i]:select[i+1]] = rc[ascc[i]]['cflux0']
-                ecflux0[select[i]:select[i+1]] = rc[ascc[i]]['ecflux0']
+                cflux0[select[i]:select[i+1]] = rc[ascc[i]]['ipcflux0']
+                ecflux0[select[i]:select[i+1]] = rc[ascc[i]]['eipcflux0']
                 flags2[select[i]:select[i+1]] = rc[ascc[i]]['flags']
         
         lstidx = lstidx.astype('int')
@@ -417,7 +417,7 @@ class SkyFile():
         
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r+') as g:
             
-            ascc = f['table_header/ascc'].value
+            ascc = f['header_table/ascc'].value
             
             # Add header to resulting file.
             g['header'].attrs['skyfile'] = self.skyfile
@@ -450,24 +450,3 @@ class SkyFile():
                 g.create_dataset('data2/'+sid, data=record)
         
         return
-        
-#test = SkyTransmission()
-#test.calculate('/data2/talens/Jul2015/fLC_20150714LPN.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150714LPE.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150714LPS.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150714LPW.hdf5')
-#test.calculate('/data2/talens/Jul2015/fLC_20150714LPC.hdf5')
-
-for filename in ['sky_20150714LPN.hdf5', 'sky_20150714LPE.hdf5', 'sky_20150714LPS.hdf5', 'sky_20150714LPW.hdf5', 'sky_20150714LPC.hdf5']:
-
-    test = SkyFile('/data2/talens/Jul2015/'+filename)
-    test.correct()
-
-
-
-
-
-
-
-
-

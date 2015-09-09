@@ -52,6 +52,8 @@ class IntraPixel():
     
         self.fLCfile = fLCfile
         
+        print 'Calculating camera transmission and intrapixel variations for:', os.path.split(self.fLCfile)[1]
+        
         # Filename of output file.
         if camfile is None:
             head, tail = os.path.split(self.fLCfile)
@@ -121,7 +123,7 @@ class IntraPixel():
             pointcount_ipx = np.bincount(hauni_ipx)
             
             # Compute the camera transmission curve and fit to the intrapixel variations.
-            flux, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = trans_intrapixel(staridx, hauni_cam, hauni_ipx, y, flux0, eflux0, verbose=True)
+            flux, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = trans_intrapixel(staridx, hauni_cam, hauni_ipx, y, flux0, eflux0)
     
             with h5py.File(self.camfile) as f:
                 
@@ -133,6 +135,7 @@ class IntraPixel():
                 grp.create_dataset('pointcount_ipx', data=pointcount_ipx)
                 grp.create_dataset('a', data=a)
                 grp.create_dataset('b', data=b)
+
 
         with h5py.File(self.camfile) as f:
 
@@ -293,56 +296,58 @@ class CameraFile():
         pgcam = PolarGrid(self.nx_cam, self.ny)
         pgipx = PolarGrid(self.nx_ipx, self.ny)
         
-        with h5py.File(self.fLCfile, 'r') as f:
+        with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'w-') as g:
             
             ascc = f['header_table/ascc'].value
             ra = f['header_table/ra'].value
             dec = f['header_table/dec'].value
             
             decidx = pgcam.find_decidx(dec)
+        
+            # Add header to resulting file.
+            grp = g.create_group('header')
+            grp.attrs['camfile'] = self.camfile
     
-            here = ascc == '1413051'
-            ascc = ascc[here]
-            ra = ra[here]
-            dec = dec[here]
-            decidx = decidx[here]
-    
-            for i in range(0, len(ascc), 100):
+            for i in range(len(ascc)):
                 
                 lc = f['data/'+ascc[i]]
         
+                # Find haidx for the lightcurve.
                 ha = np.mod(lc['lst']*15.-ra[i], 360)
                 haidx_cam = pgcam.find_raidx(ha) 
                 haidx_ipx = pgipx.find_raidx(ha)
                 
+                # Find the camera transmission curve and correct flux and eflux.
                 camtrans0 = self.camtrans[haidx_cam, decidx[i]]
+                cflux0 = lc['flux0']/camtrans0
+                ecflux0 = lc['eflux0']/camtrans0
+                
+                # Find the intrapixel variations and correct cflux and ecflux.
                 intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y'])+self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])+1
+                ipcflux0 = cflux0/intrapix0
+                eipcflux0 = ecflux0/intrapix0
         
-                norm = np.median(lc['flux0']/camtrans0)
+                # Add also the std of 50 points used in calculating the tranmission.
+                sflux0 = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
+                scflux0 = sflux0/camtrans0
+                sipcflux0 = scflux0/intrapix0
         
-                plt.figure(figsize=(16,8))
-                ax = plt.subplot(311)
-                plt.title('ASCC %s'%ascc[i])
-                plt.plot(lc['jdmid'], lc['flux0'], '.')
-                plt.plot(lc['jdmid'], camtrans0*norm, '.')
-                plt.ylabel('flux0')
-                ax1 = plt.subplot(312, sharex=ax)
-                plt.plot(lc['jdmid'], lc['flux0']/(camtrans0*norm), '.')
-                plt.plot(lc['jdmid'], intrapix0, '.')
-                plt.ylabel('cflux0')
-                plt.subplot(313, sharex=ax, sharey=ax1)
-                plt.plot(lc['jdmid'], lc['flux0']/(camtrans0*intrapix0*norm), '.')
-                plt.ylabel('cipflux0')
-                plt.xlabel('Time [JD]')
-                plt.tight_layout()
-                plt.show()
-                plt.close()
+                # Add flags.
+                flags = np.where(np.isnan(camtrans0), 1, 0)
+                flags = flags + np.where(self.pointcount_cam[haidx_cam, decidx[i]]<=5, 2, 0)
+                
+                flags = flags + np.where(np.isnan(intrapix0), 4, 0)
+                #flags = flags + np.where(self.pointcount_sky[haidx_ipx, decidx[i]]<=50, 8, 0)
         
+                if self.starcount[decidx[i]] <= 5:
+                    flags = flags + 16
+                
+                # Combine the reduced data in a record array.
+                arlist = [camtrans0, cflux0, ecflux0, intrapix0, ipcflux0, eipcflux0, sflux0, scflux0, sipcflux0, flags]
+                names = ['camtrans0', 'cflux0', 'ecflux0', 'intrapix0', 'ipcflux0', 'eipcflux0', 'sflux0', 'scflux0', 'sipcflux0', 'flags']
+                record = np.rec.fromarrays(arlist, names=names)
+                
+                # Write the result to file.
+                g.create_dataset('data/'+ascc[i], data=record)
+                
         return
-    
-#ip = IntraPixel()
-#ip.calculate('/data2/talens/Jul2015/fLC_20150716LPS.hdf5')
-
-#cf = CameraFile('/data2/talens/Jul2015/camip_20150716LPS.hdf5')
-#cf.visualize(True)
-#cf.correct('/data2/talens/Jul2015/fLC_20150716LPS.hdf5')
