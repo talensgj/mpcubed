@@ -292,6 +292,7 @@ class SkyFile():
             
             self.starcount = np.full(npix, fill_value=0)
             self.skytrans = np.full((npix, 13500), fill_value=np.nan)
+            self.clouds = np.zeros((npix, 13500), dtype='bool')
             self.pointcount = np.full((npix, 13500), fill_value=0)
             self.chisq_sky = np.full((npix, 13500), fill_value=np.nan)
             
@@ -306,6 +307,14 @@ class SkyFile():
                     pass
                 else:
                     lstidx = data['lstidx'].value
+                    
+                    skytrans = data['skytrans'].value
+                    skytrans /= np.nanmedian(skytrans)
+                    scatter = np.nanmedian(skytrans[skytrans>1]-1)
+                    if scatter < 5e-2:
+                        self.clouds[idx, lstidx] = (skytrans < .8)
+                    else:
+                        self.clouds[idx, lstidx] = True
                     
                     self.skytrans[idx, lstidx] = data['skytrans'].value
                     self.pointcount[idx, lstidx] = data['pointcount'].value
@@ -359,7 +368,8 @@ class SkyFile():
             
             ax = plt.subplot(311)
             plt.title('skyidx = %i'%idx)
-            plt.plot(self.skytrans[idx], '.')
+            plt.plot(np.arange(13500)[~self.clouds[idx]], self.skytrans[idx][~self.clouds[idx]], '.')
+            plt.plot(np.arange(13500)[self.clouds[idx]], self.skytrans[idx][self.clouds[idx]], '.', c='r')
             plt.ylim(0,1.5)
             plt.ylabel('Sky')
             
@@ -369,7 +379,7 @@ class SkyFile():
             
             plt.subplot(313, sharex=ax)
             plt.plot(self.chisq_sky[idx], '.')
-            plt.xlim(np.amin(xlim)-.5, np.amax(xlim+.5))
+            #plt.xlim(np.amin(xlim)-.5, np.amax(xlim+.5))
             plt.ylabel(r'$\chi^2$')
             plt.xlabel('LST [idx]')
             
@@ -409,44 +419,48 @@ class SkyFile():
             exit()
             
         return
-        
+
+
     def _correct_healpix(self):
-        
+    
         # Healpix grid instance.
         hg = HealpixGrid(self.nx)
         
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r+') as g:
             
             ascc = f['header_table/ascc'].value
+            ra = f['header_table/ra'].value
+            dec = f['header_table/dec'].value
+            
+            skyidx = hg.find_gridpoint(ra, dec)
             
             # Add header to resulting file.
             g['header'].attrs['skyfile'] = self.skyfile
-            
-            for sid in ascc:
+            try: del g['data2']
+            except: pass
+            for i in range(len(ascc)):
                 
-                si = f['header/'+sid]
-                lc = f['data/'+sid]
-                rc = g['data/'+sid]
+                lc = f['data/'+ascc[i]]
+                rc = g['data/'+ascc[i]]
                 
-                # Find skyidx for the lightcurve.
-                skyidx = hg.find_gridpoint(si['ra'], si['dec'])
                 lstidx = lc['lstidx'].astype('int')
             
                 # Find stellar transmission curve and correct flux and eflux.
-                skytrans0 = self.skytrans[skyidx, lstidx]
-                scflux0 = rc['cflux0']/skytrans0
-                escflux0 = rc['ecflux0']/skytrans0
+                skytrans0 = self.skytrans[skyidx[i], lstidx]
+                scflux0 = rc['ipcflux0']/skytrans0
+                escflux0 = rc['eipcflux0']/skytrans0
         
                 # Add flags.
                 flags = np.where(np.isnan(skytrans0), 1, 0)
-                flags = flags + np.where(self.pointcount[skyidx, lstidx]<=5, 2, 0) 
-                if self.starcount[skyidx] <= 5:
+                flags = flags + np.where(self.pointcount[skyidx[i], lstidx]<=5, 2, 0) 
+                if self.starcount[skyidx[i]] <= 5:
                     flags += 4
+                flags = flags + np.where(self.clouds[skyidx[i], lstidx], 8, 0)
         
                 # Combine the reduced data in a record array.
                 record = np.rec.fromarrays([skytrans0, scflux0, escflux0, flags], names=['skytrans0', 'scflux0', 'escflux0', 'flags'])
                 
                 # Write the result to file.
-                g.create_dataset('data2/'+sid, data=record)
-        
+                g.create_dataset('data2/'+ascc[i], data=record)
+    
         return
