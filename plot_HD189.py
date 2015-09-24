@@ -17,14 +17,6 @@ from viridis import viridis
 
 from BLS_ms import BLS
 
-def transit_model(t, t0, period, eta, delta, c=10.):
-    
-    t_p = period*np.sin(np.pi*(t-t0)/period)/(np.pi*eta)
-    
-    model = .5*delta*(2-np.tanh(c*(t_p+.5))+np.tanh(c*(t_p-.5)))+(1-delta)
-    
-    return model
-
 rcParams['xtick.labelsize'] = 'large'
 rcParams['ytick.labelsize'] = 'large'
 rcParams['axes.labelsize'] = 'x-large'
@@ -34,107 +26,118 @@ rcParams['image.origin'] = 'lower'
 period = 2.21857312
 t0 = 2453988.80336
 
-filelist1 = glob.glob('/data2/talens/Jul2015/fLC_201507??LPC.hdf5')
-filelist2 = glob.glob('/data2/talens/Jul2015/red_201507??LPC.hdf5')
-filelist1 = np.sort(filelist1)
-filelist2 = np.sort(filelist2)
-
-jdmid = np.array([])
-lst = np.array([])
-lstidx = np.array([])
-flux = np.array([])
-eflux = np.array([])
-sky = np.array([])
-flags1 = np.array([])
-flags2 = np.array([])
-flags3 = np.array([])
-
-for i in range(len(filelist1)):
+def box_model(jd, t0, period, q):
     
-    with h5py.File(filelist1[i], 'r') as f, h5py.File(filelist2[i], 'r') as g:
+    phase = np.mod(jd-t0, period)/period
+    phase = (phase-.5)%1
+    phase = phase-np.floor(phase)
+    
+    here = np.abs(phase-.5) < .5*q 
+    
+    sol = np.ones(len(jd))
+    sol[here] = .98
+    
+    return sol
+
+ar1 = np.array([])
+ar2 = np.array([])
+ar3 = np.array([])
+
+for cam in ['LPC', 'LPE', 'LPW']:
+
+    filelist1 = glob.glob('/data2/talens/Jul2015/fLC_201507??%s.hdf5'%cam)
+    filelist2 = glob.glob('/data2/talens/Jul2015/red_201507??%s.hdf5'%cam)
+    filelist1 = np.sort(filelist1)
+    filelist2 = np.sort(filelist2)
+
+    jdmid = np.array([])
+    lst = np.array([])
+    lstidx = np.array([])
+    flux = np.array([])
+    eflux = np.array([])
+    sky = np.array([])
+    flags1 = np.array([])
+    flags2 = np.array([])
+    flags3 = np.array([])
+
+    for i in range(len(filelist1)):
         
-        try:
-            lc = f['data/807144'].value
+        with h5py.File(filelist1[i], 'r') as f, h5py.File(filelist2[i], 'r') as g:
             
-        except:
-            continue
-        
-        rc1 = g['data/807144'].value
-        rc2 = g['data2/807144'].value
-        
-        jdmid = np.append(jdmid, lc['jdmid'])
-        lst = np.append(lst, lc['lst'])
-        lstidx = np.append(lstidx, lc['lstidx'])
-        flux = np.append(flux, rc2['scflux0'])
-        eflux = np.append(eflux, rc2['escflux0'])
-        sky = np.append(sky, lc['flux1']/lc['flux0'])
-        flags1 = np.append(flags1, lc['flag'])
-        flags2 = np.append(flags2, rc1['flags'])
-        flags3 = np.append(flags3, rc2['flags'])
+            try:
+                lc = f['data/807144'].value
+                
+            except:
+                continue
+            
+            rc1 = g['data/807144'].value
+            rc2 = g['data2/807144'].value
+            
+            jdmid = np.append(jdmid, lc['jdmid'])
+            lst = np.append(lst, lc['lst'])
+            lstidx = np.append(lstidx, lc['lstidx'])
+            flux = np.append(flux, rc2['scflux0'])
+            eflux = np.append(eflux, rc2['escflux0'])
+            sky = np.append(sky, lc['flux1']/lc['flux0'])
+            flags1 = np.append(flags1, lc['flag'])
+            flags2 = np.append(flags2, rc1['flags'])
+            flags3 = np.append(flags3, rc2['flags'])
 
-lstidx = lstidx.astype('int')
-dayidx = np.floor(jdmid).astype('int')
-dayidx = dayidx - np.amin(dayidx)
+    lstidx = lstidx.astype('int')
+    dayidx = np.floor(jdmid).astype('int')
+    dayidx = dayidx - np.amin(dayidx)
 
-here = (flags1 < 1) & (flags2 < 1) & (flags3 < 1)
-
-jdmid = jdmid[here]
-dayidx = dayidx[here]
-lst = lst[here]
-lstidx = lstidx[here]
-flux = flux[here]
-sky = sky[here]
-eflux = eflux[here]
-
-sol = np.zeros(len(flux))
-for i in range(1):
-    F, T = sysrem(dayidx, lstidx, flux-sol, eflux)[:2]
-    sol += F[dayidx]*T[lstidx]
+    here = (flags1 < 1) & (flags2 < 1) & (flags3 < 1)
     
-cflux = flux/sol
-ecflux = eflux/sol
+    jdmid = jdmid[here]
+    lstidx = lstidx[here]
+    dayidx = dayidx[here]
+    flux = flux[here]
+    eflux = eflux[here]
 
-plt.subplot(311)
-plt.plot(lstidx, flux, '.')
-plt.subplot(312)
-plt.plot(T, '.')
-plt.subplot(313)
-plt.plot(lstidx, cflux, '.')
+    sol = np.zeros(len(flux))
+    for i in range(2):
+        a1, a2 = sysrem(dayidx, lstidx, flux-sol, eflux)[:2]
 
+        sol += a1[dayidx]*a2[lstidx]
+    
+    flux /= sol
+    eflux /= sol
+
+    binidx = np.ravel_multi_index((dayidx, lstidx//50), (31, 270))
+
+    count = index_statistics(binidx, flux, statistic='count')
+    bin_jd = index_statistics(binidx, jdmid, statistic='mean')
+    bin_flux = index_statistics(binidx, flux, statistic='mean')
+    bin_eflux = index_statistics(binidx, flux, statistic='std')/np.sqrt(count)
+
+    here = count == 50
+
+    ar1 = np.append(ar1, bin_jd[here])
+    ar2 = np.append(ar2, bin_flux[here])
+    ar3 = np.append(ar3, bin_eflux[here])
+
+    plt.plot(bin_jd[here], bin_flux[here], '.')
+    plt.plot(bin_jd[here], box_model(bin_jd[here], t0, period, .01))
+    
 plt.show()
 
 
-binidx = np.ravel_multi_index((dayidx, lstidx//50), (np.amax(dayidx)+1, 270))
+freq, chisq = BLS(ar1, ar2, ar3)
+arg = np.argmax(chisq)
+print 1/freq[arg]
 
-count = index_statistics(binidx, cflux, statistic='count')
-bin_lst = index_statistics(binidx, lst, statistic='mean')
-bin_jd = index_statistics(binidx, jdmid, statistic='mean')
-bin_cflux = index_statistics(binidx, cflux, statistic='mean')
-bin_ecflux = index_statistics(binidx, cflux, statistic='std')/np.sqrt(count)
-
-ax = plt.subplot(211)
-plt.plot(jdmid, cflux, '.', c='k', zorder=0)
-plt.scatter(bin_jd, bin_cflux, zorder=1, c='r')
-plt.plot(jdmid, sky, '.')
-plt.subplot(212, sharex=ax)
-plt.plot(jdmid, transit_model(jdmid, t0, period, .086, .02), '.')
-plt.plot(bin_jd, transit_model(bin_jd, t0, period, .086, .02), '.')
-plt.show()
-
-here = count == 50
-
-plt.errorbar(bin_jd[here], bin_cflux[here], yerr=bin_ecflux[here], fmt='o')
-plt.plot(bin_jd, transit_model(bin_jd, t0, period, .086, .02), '.')
-plt.ylim(.95, 1.05)
-plt.show()
-exit()
-here = bin_ecflux > 0
-
-freq, chisq = BLS(jdmid, cflux, ecflux)
-plt.plot(freq, chisq, c='b')
-freq, chisq = BLS(bin_jd[here], bin_cflux[here], bin_ecflux[here])
-plt.plot(freq, chisq, c='r')
+plt.subplot(211)
+phase = np.mod(ar1-t0, period)/period
+plt.errorbar(phase, ar2, yerr=ar3, fmt='.')
+plt.subplot(212)
+plt.plot(freq, chisq)
 plt.axvline(1/period, c='k')
+plt.axvline(2/period, c='k')
+plt.axvline(3/period, c='k')
+plt.axvline(1/(2*period), c='k')
+plt.axvline(1/(3*period), c='k')
+plt.axvline(1/(4*period), c='k')
 plt.show()
 
 

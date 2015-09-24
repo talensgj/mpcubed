@@ -26,42 +26,50 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f, h5py.Fil
     dec = f['header_table/dec'].value
     
     #here = (dec>40)&(dec<46)
-    here = (vmag<6.5)&(vmag>5.5)
-    ascc = ascc[here]
-    vmag = vmag[here]
-    nobs = nobs[here]
-    ra = ra[here]
-    dec = dec[here]
+    #here = (vmag<6.5)&(vmag>5.5)
+    #ascc = ascc[here]
+    #vmag = vmag[here]
+    #nobs = nobs[here]
+    #ra = ra[here]
+    #dec = dec[here]
     
-    error = np.zeros(len(ascc))
+    v = np.array([])
+    error = np.array([])
+    
     for i in range(len(ascc)):
-        
+    
         lc = f['data/'+ascc[i]].value
         rc1 = g['data/'+ascc[i]].value
         rc2 = g['data2/'+ascc[i]].value
         
-        xbin = index_statistics(lc['lstidx']//50, lc['x'], statistic='mean')
-        ybin = index_statistics(lc['lstidx']//50, lc['y'], statistic='mean')
-        ebin = index_statistics(lc['lstidx']//50, rc1['cflux0'], statistic='std')/index_statistics(lc['lstidx']//50, rc1['cflux0'], statistic='mean')
+        if ascc[i] == '690978':
+            plt.plot(lc['jdmid'], lc['flux0'], '.')
+            plt.plot(lc['jdmid'], rc1['cflux0'], '.')
+            plt.plot(lc['jdmid'], rc2['scflux0'], '.')
+            plt.show()
         
-        try:
-            plt.scatter(xbin, ybin, c=np.log10(ebin), cmap=viridis)
-        except: pass
+        here = (lc['flag']<1)&(rc1['flags']<1)
         
-        error[i] = np.nanstd(rc1['cflux0'])/np.nanmean(rc1['cflux0'])
+        count = index_statistics(lc['lstidx'][here]//50, lc['x'][here], statistic='count')
+        #xbin = index_statistics(lc['lstidx']//50, lc['x'], statistic='mean')
+        #ybin = index_statistics(lc['lstidx']//50, lc['y'], statistic='mean')
+        ebin = index_statistics(lc['lstidx'][here]//50, rc1['cflux0'][here], statistic='std')/index_statistics(lc['lstidx'][here]//50, rc1['cflux0'][here], statistic='mean')
         
-plt.xlim(0,4008)
-plt.ylim(0,2672)
-plt.show()
+        here = count == 50
+        
+        if np.any(ebin[here]>1e2): print ascc[i]
+        
+        v = np.append(v, [vmag[i]]*sum(here))
+        error = np.append(error, ebin[here])
         
 ax = plt.subplot(221)
-plt.semilogy(vmag, error, '.')
-plt.subplot(222, sharey=ax)
-plt.semilogy(nobs, error, '.')
-plt.subplot(223, sharey=ax)
-plt.semilogy(ra, error, '.')
-plt.subplot(224, sharey=ax)
-plt.semilogy(dec, error, '.')
+plt.semilogy(v, error, '.')
+#plt.subplot(222, sharey=ax)
+#plt.semilogy(nobs, error, '.')
+#plt.subplot(223, sharey=ax)
+#plt.semilogy(ra, error, '.')
+#plt.subplot(224, sharey=ax)
+#plt.semilogy(dec, error, '.')
 plt.show()
 
 

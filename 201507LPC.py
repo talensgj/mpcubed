@@ -10,8 +10,6 @@ from get_skytrans_1cam_classdev import SkyTransmission, SkyFile
 
 filelist = glob.glob('/data2/talens/Jul2015/fLC_201507??LPC.hdf5')
 filelist = np.sort(filelist)
-print filelist
-print len(filelist)
 
 #ip = IntraPixel()
 #ip.calculate('/data2/talens/Jul2015/fLC_20150716LPC.hdf5')
@@ -20,11 +18,9 @@ print len(filelist)
 #for filename in filelist:
     #cf.correct(filename)
     
-#st = SkyTransmission()
+st = SkyTransmission()
 for filename in filelist:
-    #st.calculate(filename)
-    head, tail = os.path.split(filename)
-    tail = 'sky_'+tail.rsplit('_')[-1]
-    skyfile = os.path.join(head, tail)
-    sf = SkyFile(skyfile)
+    print filename
+    st.calculate(filename)
+    sf = SkyFile(st.skyfile)
     sf.correct(filename)

@@ -22,7 +22,9 @@ rcParams['image.origin'] = 'lower'
 
 hg = HealpixGrid(8)
 
-with h5py.File('/data2/talens/Jul2015/fLC_20150714LPC.hdf5', 'r') as f, h5py.File('/data2/talens/Jul2015/red_20150714LPC.hdf5', 'r') as g:
+from coarse_decor import coarse_decorrelation
+
+with h5py.File('/data2/talens/Jul2015/fLC_20150710LPC.hdf5', 'r') as f, h5py.File('/data2/talens/Jul2015/coarsered.hdf5', 'r') as g:
     
     ascc = f['header_table/ascc'].value
     ra = f['header_table/ra'].value
@@ -38,69 +40,54 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150714LPC.hdf5', 'r') as f, h5py.Fil
     dec = dec[here]
     nobs = nobs[here]
     
+    jdmid = np.array([])
     lstidx = np.array([])
-    flux = np.array([])
-    eflux = np.array([])
+    mag = np.array([])
+    emag = np.array([])
     for i in range(len(ascc)):
+        
         lc = f['data/'+ascc[i]]
         rc = g['data/'+ascc[i]]
+        
+        jdmid = np.append(jdmid, lc['jdmid'])
         lstidx = np.append(lstidx, lc['lstidx'])
-        flux = np.append(flux, rc['ipcflux0'])
-        eflux = np.append(eflux, rc['sipcflux0'])
-        #sflux = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
-        #eflux = np.append(eflux, sflux)
+        mag = np.append(mag, rc['ipcflux0'])
+        emag = np.append(emag, 2.5/np.log(10)*lc['eflux0']/lc['flux0'])
     
     lstidx = lstidx.astype('int')
     staridx = np.repeat(np.arange(len(ascc)), nobs)
     
-    here = (flux>0)&(eflux>0)
+    here = np.isfinite(mag) & (emag > 0)
     staridx = staridx[here]
+    jdmid = jdmid[here]
     lstidx = lstidx[here]
-    flux = flux[here]
-    eflux = eflux[here]
+    mag = mag[here]
+    emag = emag[here]
     
-    F, S = sysrem(staridx, lstidx, flux, eflux, verbose=True, eps=1e-6)[:2]
+    lstuni, lstidx = np.unique(lstidx, return_inverse=True)
+    staruni, staridx = np.unique(staridx, return_inverse=True)
     
-    F *= np.nanmedian(S)
-    S /= np.nanmedian(S)
-   
-    array1 = np.full((len(ascc), 13500), fill_value=np.nan)
-    array1[staridx, lstidx] = flux/(F[staridx])
-    array1 = array1[np.argsort(ra)]
+    m, z, sigma1, sigma2 = coarse_decorrelation(staridx, lstidx, mag, emag, verbose=True, maxiter=25)
     
-    array2 = np.full((len(ascc), 13500), fill_value=np.nan)
-    array2[staridx, lstidx] = flux/(F[staridx]*S[lstidx])
-    array2 = array2[np.argsort(ra)]
+    print sigma1
+    print sigma2
     
-    plt.figure(figsize=(16,8))
-    ax = plt.subplot(221)
-    plt.imshow(array1, aspect='auto', cmap=viridis, vmin=.5, vmax=1.5)
-    cb = plt.colorbar()
-    cb.set_label('flux0/F')
-    plt.xlabel('LST [idx]')
-    plt.subplot(222, sharex=ax)
-    plt.plot(S, '.', c='k')
-    plt.ylim(0.5,1.5)
-    plt.xlabel('LST [idx]')
-    plt.ylabel('S')
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(array2, aspect='auto', cmap=viridis, vmin=.5, vmax=1.5)
-    cb = plt.colorbar()
-    plt.xlabel('LST [idx]')
-    cb.set_label('flux0/(F*T)')
-    plt.xlim(np.amin(lstidx)-.5, np.amax(lstidx)+.5)
-    plt.subplot(224)
-    plt.hist(array2[np.isfinite(array2)], bins=np.linspace(0,2,200), histtype='step', lw=2, normed=True)
-    plt.xlabel('flux0/(F*T)')
-    plt.ylabel('PDF')
-    plt.tight_layout()
+    plt.hist(sigma2, bins=np.linspace(0,2,100))
     plt.show()
-    plt.close()
     
+    fit = m[staridx]+z[lstidx]
     
-    
-    
-
+    for i in range(len(ascc)):
+        here = staridx == i
         
+        plt.subplot(211)
+        plt.plot(jdmid[here], mag[here], '.')
+        plt.plot(jdmid[here], fit[here], '.')
+        plt.subplot(212)
         
+        bin_jd = index_statistics(lstidx[here]//50, jdmid[here], statistic='mean')
+        bin_mag = index_statistics(lstidx[here]//50, mag[here]-fit[here], statistic='mean')
         
+        #plt.plot(jdmid[here], mag[here]-fit[here], '.')
+        plt.plot(bin_jd, bin_mag, '.')
+        plt.show()
