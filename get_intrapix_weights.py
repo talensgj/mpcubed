@@ -9,7 +9,7 @@ import numpy as np
 
 from index_functions import index_statistics
 from coordinate_grids import PolarGrid
-from coarse_decor import coarse_positions
+from coarse_dev import coarse_positions
 
 class IntraPixel():
     
@@ -126,7 +126,7 @@ class IntraPixel():
             mag0 = -2.5*np.log10(flux0)
             emag0 = 2.5/np.log(10)*eflux0/flux0
             
-            magnitude, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0)
+            magnitude, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0, verbose=True)
     
             with h5py.File(self.camfile) as f:
                 
@@ -325,7 +325,7 @@ class CameraFile():
                 cflux0 = -2.5*np.log10(lc['flux0'])-camtrans0
                 
                 # Find the intrapixel variations and correct cflux and ecflux.
-                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y'])+self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])+1
+                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y'])+self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])
                 ipcflux0 = cflux0-intrapix0
         
                 # Add also the std of 50 points used in calculating the tranmission.
@@ -337,9 +337,6 @@ class CameraFile():
                 
                 flags = flags + np.where(np.isnan(intrapix0), 4, 0)
                 #flags = flags + np.where(self.pointcount_sky[haidx_ipx, decidx[i]]<=50, 8, 0)
-        
-                if self.starcount[decidx[i]] <= 5:
-                    flags = flags + 16
                 
                 # Combine the reduced data in a record array.
                 arlist = [camtrans0, cflux0, intrapix0, ipcflux0, sflux0, flags]
@@ -350,10 +347,3 @@ class CameraFile():
                 g.create_dataset('data/'+ascc[i], data=record)
                 
         return
-
-#ip = IntraPixel()
-#ip.calculate('/data2/talens/Jul2015/fLC_20150710LPC.hdf5')
-
-#cf = CameraFile('/data2/talens/Jul2015/coarsecam_20150710LPC.hdf5')
-#cf.visualize()
-#cf.correct('/data2/talens/Jul2015/fLC_20150710LPC.hdf5')

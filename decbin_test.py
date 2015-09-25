@@ -4,7 +4,7 @@
 import h5py
 import numpy as np
 
-import intrarem
+from intrarem import trans_intrapixel
 import sysrem
 from coarse_decor import coarse_positions
 
@@ -16,7 +16,7 @@ from scipy.optimize import minimize
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-
+from sysrem_dev import intrarem
 from viridis import viridis 
 
 rcParams['xtick.labelsize'] = 'large'
@@ -80,30 +80,10 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
     smag = 2.5/np.log(10)*sflux/flux
     emag = 2.5/np.log(10)*eflux/flux
     
-    F, T, a, b = intrarem.trans_intrapixel(staridx, haidx1, haidx2, y, flux, eflux)[:4]
-    fit0 = F[staridx]*T[haidx1]*(a[haidx2]*np.sin(2*np.pi*y)+b[haidx2]*np.cos(2*np.pi*y)+1)
+    #F = trans_intrapixel(staridx, haidx1, haidx2, y, flux, eflux)[1]
     
-    m, z, a, b = coarse_positions(staridx, haidx1, haidx2, y, mag, emag, verbose=True, weights=False)
-    fit1 = m[staridx]+z[haidx1]+a[haidx2]*np.sin(2*np.pi*y)+b[haidx2]*np.cos(2*np.pi*y)
+    F = intrarem(staridx, haidx1, haidx2, y, flux, eflux)[1]
     
-    m, z, a, b, sigma1 = coarse_positions(staridx, haidx1, haidx2, y, mag, emag, verbose=True)
-    fit2 = m[staridx]+z[haidx1]+a[haidx2]*np.sin(2*np.pi*y)+b[haidx2]*np.cos(2*np.pi*y)
     
-    for arg in np.unique(staridx):
-        
-        here = staridx == arg
-        
-        ax = plt.subplot(211)
-        plt.plot(mag[here], '.', c='k')
-        plt.plot(-2.5*np.log10(fit0[here]), '.', c='grey')
-        plt.plot(fit1[here], '.', c='r')
-        plt.plot(fit2[here], '.', c='g')
-        plt.subplot(212, sharex=ax)
-        plt.plot(-2.5*np.log10(flux[here]/fit0[here]), '.', c='grey')
-        plt.plot(mag[here]-fit1[here], '.', c='r')
-        plt.plot(mag[here]-fit2[here], '.', c='g')
-        plt.show()
-        plt.close()
-        
         
         

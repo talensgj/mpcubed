@@ -3,7 +3,7 @@
 
 import numpy as np
     
-def solve_err(ind1, res, err, maxiter=100):
+def solve_err(ind1, res, err, maxiter=50, eps=1e-3):
     
     err1 = np.zeros(np.amax(ind1)+1)
     err2 = 2*np.ones(np.amax(ind1)+1)
@@ -35,11 +35,73 @@ def solve_err(ind1, res, err, maxiter=100):
         diff1[here] = diff3[here]
         err2[~here] = err3[~here]
         diff2[~here] = diff3[~here]
-            
+        
+        if np.all((err2-err1) < eps):
+            break
+    
+    err3 = (err2 + err1)/2.
     err3[args1] = 0.
     err3[args2] = 2.
             
     return err3
+
+def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=500, eps=1e-3, verbose=False, use_weights=True):
+    
+    npoints = len(values)
+    npars1 = len(np.unique(ind1))
+    npars2 = len(np.unique(ind2))
+    npars = npars1 + npars2
+    
+    length1 = np.amax(ind1)+1
+    length2 = np.amax(ind2)+1
+    
+    weights = 1./(errors**2)
+    
+    if z is None:
+        z = np.zeros(length2)
+        
+    sigma1 = np.zeros(length1)
+    sigma2 = np.zeros(length2)
+    
+    for niter in range(maxiter):
+        
+        if verbose:
+            print 'niter = %i'%niter
+            
+        m = np.bincount(ind1, weights*(values-z[ind2]))/np.bincount(ind1, weights)
+        z = np.bincount(ind2, weights*(values-m[ind1]))/np.bincount(ind2, weights)
+        
+        if use_weights:
+            res = values - m[ind1] - z[ind2]
+            
+            sigma1 = solve_err(ind1, res, np.sqrt(errors**2+sigma2[ind2]**2))
+            sigma2 = solve_err(ind2, res, np.sqrt(errors**2+sigma1[ind1]**2))
+            
+            weights = 1./(errors**2+sigma1[ind1]**2+sigma2[ind2]**2)
+            
+        sol = m[ind1] + z[ind2]
+        
+        if (niter > 0):
+            
+            critsol = np.nanmax(np.abs(sol-sol_old))
+            crits1 = np.nanmax(np.abs(sigma1-sigma1_old))
+            crits2 = np.nanmax(np.abs(sigma2-sigma2_old))
+            
+            if verbose:
+                print ' critsol = %g, crits1 = %g, crits2 = %g'%(critsol, crits1, crits2)
+            
+            if (critsol < eps):
+                break
+
+        sol_old = np.copy(sol)
+        sigma1_old = np.copy(sigma1)
+        sigma2_old = np.copy(sigma2)
+            
+    chi_tmp = weights*(values - m[ind1] - z[ind2])**2
+    chisq = np.sum(chi_tmp)/(npoints-npars)
+            
+    return m, z, sigma2, niter, chisq, npoints, npars
+
 
 def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verbose=False, use_weights=True):
     
@@ -69,6 +131,7 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verb
         
         m = np.bincount(ind1, weights*(mag-z[ind2]-a[ind3]*sn-b[ind3]*cs))/np.bincount(ind1, weights)
         z = np.bincount(ind2, weights*(mag-m[ind1]-a[ind3]*sn-b[ind3]*cs))/np.bincount(ind2, weights)
+        
         a = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-b[ind3]*cs)*sn)/np.bincount(ind3, weights*sn**2)
         b = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-a[ind3]*sn)*cs)/np.bincount(ind3, weights*cs**2)
         
@@ -85,6 +148,9 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verb
             crita = np.nanmax(np.abs(a-a_old))
             critb = np.nanmax(np.abs(b-b_old))
             
+            if verbose:
+                print ' critm = %g, critz = %g, crita = %g, critb = %g'%(critm, critz, crita, critb)
+            
             if (critm < eps) & (critz < eps) & (crita < eps) & (critb < eps):
                 break
         
@@ -97,65 +163,3 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verb
     chisq = np.sum(chi_tmp)/(npoints-npars)
     
     return m, z, a, b, niter, chisq, npoints, npars
-
-def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=500, eps=1e-3, verbose=False, weights=True):
-    
-    npoints = len(values)
-    npars1 = len(np.unique(ind1))
-    npars2 = len(np.unique(ind2))
-    npars = npars1 + npars2
-    
-    length1 = np.amax(ind1)+1
-    length2 = np.amax(ind2)+1
-    
-    weights1 = 1./(errors**2)
-    weights2 = 1./(errors**2)
-    
-    if z is None:
-        z = np.zeros(length2)
-        
-    sigma1 = np.zeros(length1)
-    sigma2 = np.zeros(length2)
-    
-    for niter in range(maxiter):
-        
-        if verbose:
-            print 'niter = %i'%niter
-            
-        m = np.bincount(ind1, weights1*(values-z[ind2]))/np.bincount(ind1, weights1)
-        z = np.bincount(ind2, weights2*(values-m[ind1]))/np.bincount(ind2, weights2)
-        
-        if weights:
-            res = values - m[ind1] - z[ind2]
-            
-            sigma1 = solve_err(ind1, res, np.sqrt(errors**2+sigma2[ind2]**2))
-            sigma2 = solve_err(ind2, res, np.sqrt(errors**2+sigma1[ind1]**2))
-            
-            weights2 = 1./(errors**2+sigma1[ind1]**2+sigma2[ind2]**2)
-            weights1 = 1./(errors**2+sigma1[ind1]**2+sigma2[ind2]**2)
-        
-        sol = m[ind1] + z[ind2]
-        
-        if (niter > 0):
-            
-            #critm = np.nanmax(np.abs(m-m_old))
-            #critz = np.nanmax(np.abs(z-z_old))
-            #print critm, critz
-            #if (critm < eps) & (critz < eps):
-                #break
-                
-            crit = np.nanmax(np.abs(sol-sol_old))
-            print crit
-            if (crit < eps):
-                break
-                
-        
-        m_old = np.copy(m)
-        z_old = np.copy(z)
-        sol_old = np.copy(sol)
-            
-    chi_tmp = weights*(values - m[ind1] - z[ind2])**2
-    chisq = np.sum(chi_tmp)/(npoints-npars)
-            
-    return m, z, niter, chisq, npoints, npars
-
