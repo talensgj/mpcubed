@@ -464,3 +464,6 @@ class SkyFile():
                 g.create_dataset('data2/'+ascc[i], data=record)
     
         return
+
+sf = SkyFile('sky_20150710LPC.hdf5')
+sf.correct('fLC_20150710LPC.hdf5')

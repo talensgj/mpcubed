@@ -19,7 +19,7 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=500, eps=1e-3, verbose=F
     for niter in range(maxiter):
         
         if verbose:
-            print '  niter = %i'%niter
+            print 'niter = %i'%niter
         
         a1 = np.bincount(ind1, weights*values*a2[ind2])/np.bincount(ind1, weights*(a2**2)[ind2])
         a2 = np.bincount(ind2, weights*values*a1[ind1])/np.bincount(ind2, weights*(a1**2)[ind1])
@@ -30,7 +30,7 @@ def sysrem(ind1, ind2, values, errors, a2=None, maxiter=500, eps=1e-3, verbose=F
             crit2 = np.nanmax(np.abs((a2_old-a2)/a2_old))
             
             if verbose:
-                print '    crit1 = %g, crit2 = %g'%(crit1, crit2)
+                print ' crit1 = %g, crit2 = %g'%(crit1, crit2)
             
             if (crit1 < eps) & (crit2 < eps):
                 break
@@ -60,7 +60,7 @@ def intrarem(ind1, ind2, ind3, y, flux, eflux, maxiter=500, eps=1e-3, verbose=Fa
     T = np.ones(np.amax(ind2)+1)
     a = np.zeros(np.amax(ind3)+1)
     b = np.zeros(np.amax(ind3)+1)
-    
+    sol2 = np.ones(len(flux))
     for niter in range(maxiter):
         
         if verbose:
