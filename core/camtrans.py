@@ -62,7 +62,7 @@ class CameraTransmission():
         # Read the stellar header information.
         with h5py.File(self.fLCfile, 'r') as f:
             
-            hdr = f['table_header']
+            hdr = f['header_table']
             self.ascc = hdr['ascc'].value
             self.vmag = hdr['vmag'].value
             self.ra = hdr['ra'].value
@@ -89,7 +89,7 @@ class CameraTransmission():
         
         # Assign stars to declination bins and count the number of stars in each bin.
         decidx, decuni = pg.find_decidx(self.dec, compact=True)
-        starcount = index_statistics(decuni, decuni, statistic='count')
+        starcount = np.bincount(decuni)
         
         # Create arrays.
         niter = np.zeros(len(decidx), dtype='int')
@@ -125,10 +125,10 @@ class CameraTransmission():
             
             # Make the haidx ascending from 0 and count the number of datapoints at each haidx.
             haidx, hauni = np.unique(haidx, return_inverse=True)
-            pointcount = index_statistics(hauni, hauni, statistic='count')
+            pointcount = np.bincount(hauni)
             
             # Compute the camera transmission curve.
-            camtrans, flux, niter[ind], chisq[ind], chisq_cam, chisq_flux, npoints[ind], npars[ind] = sysrem(hauni, staridx, flux0, eflux0, a2 = (1e7)*10**(vmag/-2.5))
+            flux, camtrans, niter[ind], chisq[ind], npoints[ind], npars[ind] = sysrem(staridx, hauni, flux0, eflux0)
             
             with h5py.File(self.camfile) as f:
                 
@@ -136,7 +136,6 @@ class CameraTransmission():
                 grp.create_dataset('haidx', data=haidx)
                 grp.create_dataset('pointcount', data=pointcount)
                 grp.create_dataset('camtrans', data=camtrans)
-                grp.create_dataset('chisq_cam', data=chisq_cam)
         
         with h5py.File(self.camfile) as f:
             
@@ -153,14 +152,6 @@ class CameraTransmission():
             grp.create_dataset('chisq', data = chisq)
             grp.create_dataset('npoints', data = npoints)
             grp.create_dataset('npars', data = npars)
-        
-            ### NEEDS TO BE INSIDE THE LOOP?
-            #stars = np.unique(star_id)
-            #grp.create_dataset('ascc', data = ascc[stars])
-            #grp.create_dataset('vmag', data = vmag[stars])
-            #grp.create_dataset('flux', data = a1[stars])
-            #grp.create_dataset('dec', data = dec[stars])
-            #grp.create_dataset('chisq_flux', data = chisq_pbin1[stars])
         
         return
         
@@ -202,8 +193,9 @@ class CameraFile():
                     
         return
         
-    def visualize(self):
+    def visualize(self, wrap=False):
         
+        self.wrap = wrap
         self._read_camfile()
             
         if self.grid == 'polar':
@@ -232,9 +224,11 @@ class CameraFile():
         rcParams['image.origin'] = 'lower'
         
         array = self.camtrans[1:-1,1:-1]
+        array = array/np.nanmean(array, axis=0, keepdims=True)
+        if self.wrap: array = np.roll(array, self.nx/2, axis=0)
+        
         xlim, ylim = np.where(np.isfinite(array))
         
-        # Figure showing the transmission map.
         ax = plt.subplot(111)
         plt.imshow(array.T/np.nanmax(array), aspect='auto', cmap=viridis, vmin=0, vmax=1)
         cb = plt.colorbar()
@@ -282,24 +276,26 @@ class CameraFile():
         
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'w-') as g:
             
-            ascc = f['table_header/ascc'].value
+            ascc = f['header_table/ascc'].value
+            ra = f['header_table/ra'].value
+            dec = f['header_table/dec'].value
+            
+            decidx = pg.find_decidx(dec)
             
             # Add header to resulting file.
             grp = g.create_group('header')
             grp.attrs['camfile'] = self.camfile
             
-            for sid in ascc:
+            for i in range(len(ascc)):
                 
-                si = f['header/'+sid]
-                lc = f['data/'+sid]
+                lc = f['data/'+ascc[i]]
                 
-                # Find haidx and decidx for the lightcurve.
-                ha = np.mod(lc['lst']*15.-np.repeat(si['ra'], si['nobs'].astype('int')), 360.)
+                # Find haidx for the lightcurve.
+                ha = np.mod(lc['lst']*15.-ra[i], 360)
                 haidx = pg.find_raidx(ha)
-                decidx = pg.find_decidx(si['dec'])
             
-                # Find stellar transmission curve and correct flux and eflux.
-                camtrans0 = self.camtrans[haidx, decidx]
+                # Find the camera transmission curve and correct flux and eflux.
+                camtrans0 = self.camtrans[haidx, decidx[i]]
                 cflux0 = lc['flux0']/camtrans0
                 ecflux0 = lc['eflux0']/camtrans0
                 
@@ -309,20 +305,14 @@ class CameraFile():
         
                 # Add flags.
                 flags = np.where(np.isnan(camtrans0), 1, 0) # Flag data where no transmission coefficient exists.
-                flags = flags + np.where(self.pointcount[haidx, decidx]<=5, 2, 0) # Flag data where less than 5 datapoints were used to compute the transmission.
-                if self.starcount[decidx] <= 5: # Flag if the declination bin contained few stars.
-                    flags += 4
+                flags = flags + np.where(self.pointcount[haidx, decidx[i]]<=5, 2, 0) # Flag data where less than 5 datapoints were used to compute the transmission.
         
                 # Combine the reduced data in a record array.
-                record = np.rec.fromarrays([camtrans0, cflux0, ecflux0, sflux0, scflux0, flags], names=['camtrans0', 'cflux0', 'ecflux0', 'sflux0', 'scflux0', 'flags'])
+                arlist = [camtrans0, cflux0, ecflux0, sflux0, scflux0, flags]
+                names = ['camtrans0', 'cflux0', 'ecflux0', 'sflux0', 'scflux0', 'flags']
+                record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.
-                g.create_dataset('data/'+sid, data=record)
+                g.create_dataset('data/'+ascc[i], data=record)
 
         return
-
-#ct = CameraTransmission()
-#ct.calculate('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', '/data2/talens/Jul2015/bugfix.hdf5')
-
-cf = CameraFile('bugfix.hdf5')
-cf.correct('fLC_20150716LPC.hdf5', 'bugfix2.hdf5')

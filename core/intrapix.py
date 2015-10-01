@@ -9,7 +9,7 @@ import numpy as np
 
 from index_functions import index_statistics
 from coordinate_grids import PolarGrid
-from intrarem import trans_intrapixel
+from sysrem import intrarem
 
 class IntraPixel():
     
@@ -123,7 +123,7 @@ class IntraPixel():
             pointcount_ipx = np.bincount(hauni_ipx)
             
             # Compute the camera transmission curve and fit to the intrapixel variations.
-            flux, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = trans_intrapixel(staridx, hauni_cam, hauni_ipx, y, flux0, eflux0)
+            flux, camtrans, a, b, niter[ind], chisq[ind], npoints[ind], npars[ind] = intrarem(staridx, hauni_cam, hauni_ipx, y, flux0, eflux0)
     
             with h5py.File(self.camfile) as f:
                 
@@ -135,7 +135,6 @@ class IntraPixel():
                 grp.create_dataset('pointcount_ipx', data=pointcount_ipx)
                 grp.create_dataset('a', data=a)
                 grp.create_dataset('b', data=b)
-
 
         with h5py.File(self.camfile) as f:
 
@@ -216,69 +215,52 @@ class CameraFile():
         rcParams['image.origin'] = 'lower'
         
         array = self.camtrans[1:-1,1:-1]
+        array = array/np.nanmean(array, axis=0, keepdims=True)
         if wrap: array = np.roll(array, self.nx_cam/2, axis=0)
-        array = array.T
+        
         xlim, ylim = np.where(np.isfinite(array))
 
-        plt.imshow(array, aspect='auto', vmin=0, vmax=1.5, cmap=viridis)
+        ax = plt.subplot(111)
+        plt.imshow(array.T/np.nanmax(array), aspect='auto', cmap=viridis, vmin=0, vmax=1)
         cb = plt.colorbar()
-        cb.set_label('camtrans')
-        plt.xlabel('HA')
-        plt.ylabel('Dec')
-        plt.ylim(np.amin(xlim)-.5, np.amax(xlim)+.5)
-        plt.xlim(np.amin(ylim)-.5, np.amax(ylim)+.5)
-        
-        plt.tight_layout()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('HA [idx]')
+        plt.ylabel('Dec [idx]')
+        cb.set_label('Camera')
         plt.show()
-        plt.close()
         
         array = np.sqrt(self.a[1:-1,1:-1]**2+self.b[1:-1,1:-1]**2)
         if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
-        array = array.T
+        
         xlim, ylim = np.where(np.isfinite(array))
 
-        plt.imshow(array, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
+        plt.imshow(array.T, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
         cb = plt.colorbar()
-        cb.set_label('amplitude')
-        plt.xlabel('HA')
-        plt.ylabel('Dec')
-        plt.ylim(np.amin(xlim)-.5, np.amax(xlim)+.5)
-        plt.xlim(np.amin(ylim)-.5, np.amax(ylim)+.5)
-        
-        plt.tight_layout()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('HA [idx]')
+        plt.ylabel('Dec [idx]')
+        cb.set_label('Amplitude')
         plt.show()
-        plt.close()
         
         array = np.arctan2(self.b[1:-1,1:-1], self.a[1:-1,1:-1])
         if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
-        array = array.T
+
         xlim, ylim = np.where(np.isfinite(array))
 
-        plt.imshow(array, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
+        plt.imshow(array.T, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
         cb = plt.colorbar()
-        cb.set_label('phase')
-        plt.xlabel('HA')
-        plt.ylabel('Dec')
-        plt.ylim(np.amin(xlim)-.5, np.amax(xlim)+.5)
-        plt.xlim(np.amin(ylim)-.5, np.amax(ylim)+.5)
-        
-        plt.tight_layout()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('HA [idx]')
+        plt.ylabel('Dec [idx]')
+        cb.set_label('Phase')
         plt.show()
-        plt.close()
        
         return
     
     def correct(self, fLCfile, redfile=None):
-        
-        import matplotlib.pyplot as plt
-        from matplotlib import rcParams
-        from viridis import viridis 
-        
-        rcParams['xtick.labelsize'] = 'large'
-        rcParams['ytick.labelsize'] = 'large'
-        rcParams['axes.labelsize'] = 'x-large'
-        rcParams['image.interpolation'] = 'none'
-        rcParams['image.origin'] = 'lower'
         
         self.fLCfile = fLCfile
         
@@ -323,7 +305,7 @@ class CameraFile():
                 ecflux0 = lc['eflux0']/camtrans0
                 
                 # Find the intrapixel variations and correct cflux and ecflux.
-                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y'])+self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])+1
+                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y']) + self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y']) + 1
                 ipcflux0 = cflux0/intrapix0
                 eipcflux0 = ecflux0/intrapix0
         
@@ -338,9 +320,6 @@ class CameraFile():
                 
                 flags = flags + np.where(np.isnan(intrapix0), 4, 0)
                 #flags = flags + np.where(self.pointcount_sky[haidx_ipx, decidx[i]]<=50, 8, 0)
-        
-                if self.starcount[decidx[i]] <= 5:
-                    flags = flags + 16
                 
                 # Combine the reduced data in a record array.
                 arlist = [camtrans0, cflux0, ecflux0, intrapix0, ipcflux0, eipcflux0, sflux0, scflux0, sipcflux0, flags]
