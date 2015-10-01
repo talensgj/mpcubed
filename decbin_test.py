@@ -4,19 +4,14 @@
 import h5py
 import numpy as np
 
-from intrarem import trans_intrapixel
-import sysrem
-from coarse_decor import coarse_positions
-
 from coordinate_grids import PolarGrid
-
 from index_functions import index_statistics
 
-from scipy.optimize import minimize
+import sysrem_dev
+import coarse_dev
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-from sysrem_dev import intrarem
 from viridis import viridis 
 
 rcParams['xtick.labelsize'] = 'large'
@@ -61,29 +56,53 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
         tmp = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
         sflux = np.append(sflux, tmp)
     
-    ha = np.mod(lst*15.-np.repeat(ra, nobs), 360)
+eflux = sflux
     
-    haidx1 = pg1.find_raidx(ha)
-    haidx2 = pg2.find_raidx(ha)
-    staridx = np.repeat(np.arange(len(ascc)), nobs)
+ha = np.mod(lst*15.-np.repeat(ra, nobs), 360)
+
+haidx1 = pg1.find_raidx(ha)
+haidx2 = pg2.find_raidx(ha)
+staridx = np.repeat(np.arange(len(ascc)), nobs)
+
+here = (flux > 0) & (eflux > 0)
+staridx = staridx[here]
+haidx1 = haidx1[here]
+haidx2 = haidx2[here]
+y = y[here]
+flux = flux[here]
+eflux = eflux[here]
+
+# Sysrem.
+a1, a2, niter, chisq, npoints, npars = sysrem_dev.sysrem(staridx, haidx1, flux, eflux)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+a1, a2, a, b, niter, chisq, npoints, npars = sysrem_dev.intrarem(staridx, haidx1, haidx2, y, flux, eflux)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+plt.show()
     
-    here = (flux>0)&(sflux>0)
-    staridx = staridx[here]
-    haidx1 = haidx1[here]
-    haidx2 = haidx2[here]
-    y = y[here]
-    flux = flux[here]
-    eflux = eflux[here]
-    sflux = sflux[here]
-    
-    mag = -2.5*np.log10(flux)
-    smag = 2.5/np.log(10)*sflux/flux
-    emag = 2.5/np.log(10)*eflux/flux
-    
-    #F = trans_intrapixel(staridx, haidx1, haidx2, y, flux, eflux)[1]
-    
-    F = intrarem(staridx, haidx1, haidx2, y, flux, eflux)[1]
-    
-    
-        
-        
+# Coarse decor.
+mag = -2.5*np.log10(flux)
+emag = 2.5/np.log(10.)*eflux/flux
+
+a1, a2, sigam2, niter, chisq, npoints, npars = coarse_dev.coarse_decorrelation(staridx, haidx1, mag, emag, use_weights=False)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+a1, a2, a, b, niter, chisq, npoints, npars = coarse_dev.coarse_positions(staridx, haidx1, haidx2, y, mag, emag, use_weights=False)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+plt.show()
+
+a1, a2, sigam2, niter, chisq, npoints, npars = coarse_dev.coarse_decorrelation(staridx, haidx1, mag, emag, use_weights=True)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+a1, a2, a, b, niter, chisq, npoints, npars = coarse_dev.coarse_positions(staridx, haidx1, haidx2, y,  mag, emag, use_weights=True)
+print niter, chisq, npoints, npars
+plt.plot(a2, '.')
+
+plt.show()

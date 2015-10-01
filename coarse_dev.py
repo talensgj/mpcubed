@@ -3,7 +3,8 @@
 
 import numpy as np
     
-def solve_err(ind1, res, err, maxiter=50, eps=1e-3):
+    
+def find_sigma(ind1, res, err, maxiter=50, eps=1e-3):
     
     err1 = np.zeros(np.amax(ind1)+1)
     err2 = 2*np.ones(np.amax(ind1)+1)
@@ -44,8 +45,13 @@ def solve_err(ind1, res, err, maxiter=50, eps=1e-3):
     err3[args2] = 2.
             
     return err3
-
-def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=500, eps=1e-3, verbose=False, use_weights=True):
+    
+    
+def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
+    """ 
+    Given data this code will fit a model of the form:
+    values = m[ind1] + z[ind2]
+    """
     
     npoints = len(values)
     npars1 = len(np.unique(ind1))
@@ -73,10 +79,8 @@ def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=500, eps=1e
         
         if use_weights:
             res = values - m[ind1] - z[ind2]
-            
-            sigma1 = solve_err(ind1, res, np.sqrt(errors**2+sigma2[ind2]**2))
-            sigma2 = solve_err(ind2, res, np.sqrt(errors**2+sigma1[ind1]**2))
-            
+            sigma1 = find_sigma(ind1, res, np.sqrt(errors**2+sigma2[ind2]**2))
+            sigma2 = find_sigma(ind2, res, np.sqrt(errors**2+sigma1[ind1]**2))
             weights = 1./(errors**2+sigma1[ind1]**2+sigma2[ind2]**2)
             
         sol = m[ind1] + z[ind2]
@@ -99,11 +103,18 @@ def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=500, eps=1e
             
     chi_tmp = weights*(values - m[ind1] - z[ind2])**2
     chisq = np.sum(chi_tmp)/(npoints-npars)
-            
-    return m, z, sigma2, niter, chisq, npoints, npars
+    
+    if use_weights:
+        return m, z, sigma1, sigma2, niter, chisq, npoints, npars
+    else:
+        return m, z, niter, chisq, npoints, npars
 
 
-def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verbose=False, use_weights=True):
+def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
+    """ 
+    Given data this code will fit a model of the form:
+    mag = m[ind1] + z[ind2] + a[ind3]*np.sin(2*np.pi*y) + b[ind3]*np.cos(2*np.pi*y)
+    """
     
     npoints = len(mag)
     npars1 = len(np.unique(ind1))
@@ -137,8 +148,7 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verb
         
         if use_weights:
             res = mag - m[ind1] - z[ind2] - a[ind3]*sn - b[ind3]*cs
-        
-            sigma = solve_err(ind1, res, emag)
+            sigma = find_sigma(ind1, res, emag)
             weights = 1./(emag**2+sigma[ind1]**2)
         
         if (niter > 0):
@@ -162,4 +172,7 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=500, eps=1e-3, verb
     chi_tmp = weights*(mag - m[ind1] - z[ind2] - a[ind3]*sn - b[ind3]*cs)**2
     chisq = np.sum(chi_tmp)/(npoints-npars)
     
-    return m, z, a, b, niter, chisq, npoints, npars
+    if use_weights:
+        return m, z, a, b, sigma, niter, chisq, npoints, npars
+    else:
+        return m, z, a, b, niter, chisq, npoints, npars
