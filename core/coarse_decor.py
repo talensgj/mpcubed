@@ -47,46 +47,44 @@ def find_sigma(ind1, res, err, maxiter=50, eps=1e-3):
     return err3
     
     
-def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
+def coarse_decorrelation(ind1, ind2, values, errors, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
     """ 
     Given data this code will fit a model of the form:
     values = m[ind1] + z[ind2]
     """
     
+    # Determine the number of datapoints and parameters to fit.
     npoints = len(values)
     npars1 = len(np.unique(ind1))
     npars2 = len(np.unique(ind2))
     npars = npars1 + npars2
     
-    length1 = np.amax(ind1)+1
-    length2 = np.amax(ind2)+1
-    
+    # Create the necessary arrays.
     weights = 1./(errors**2)
+    z = np.zeros(np.amax(ind2)+1)
+    sigma2 = np.zeros(np.amax(ind2)+1)
     
-    if z is None:
-        z = np.zeros(length2)
-        
-    sigma1 = np.zeros(length1)
-    sigma2 = np.zeros(length2)
-    
+    # Start the iterative solution.
     for niter in range(maxiter):
         
         if verbose:
             print 'niter = %i'%niter
-            
+        
+        # Computation of parameters.
         m = np.bincount(ind1, weights*(values-z[ind2]))/np.bincount(ind1, weights)
         z = np.bincount(ind2, weights*(values-m[ind1]))/np.bincount(ind2, weights)
         
         if use_weights:
             res = values - m[ind1] - z[ind2]
-            sigma1 = find_sigma(ind1, res, np.sqrt(errors**2+sigma2[ind2]**2))
-            sigma2 = find_sigma(ind2, res, np.sqrt(errors**2+sigma1[ind1]**2))
-            weights = 1./(errors**2+sigma1[ind1]**2+sigma2[ind2]**2)
+            sigma1 = find_sigma(ind1, res, np.sqrt(errors**2+(sigma2**2)[ind2]))
+            sigma2 = find_sigma(ind2, res, np.sqrt(errors**2+(sigma1**2)[ind1]))
+            weights = 1./(errors**2+(sigma1**2)[ind1]+(sigma2**2)[ind2])
             
         sol = m[ind1] + z[ind2]
         
         if (niter > 0):
             
+            # Check if the solution has converged.
             critsol = np.nanmax(np.abs(sol-sol_old))
             crits1 = np.nanmax(np.abs(sigma1-sigma1_old))
             crits2 = np.nanmax(np.abs(sigma2-sigma2_old))
@@ -100,7 +98,8 @@ def coarse_decorrelation(ind1, ind2, values, errors, z=None, maxiter=100, eps=1e
         sol_old = np.copy(sol)
         sigma1_old = np.copy(sigma1)
         sigma2_old = np.copy(sigma2)
-            
+    
+    # Compute the chi-square value of the solution.
     chi_tmp = weights*(values - m[ind1] - z[ind2])**2
     chisq = np.sum(chi_tmp)/(npoints-npars)
     
@@ -116,30 +115,28 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=100, eps=1e-3, verb
     mag = m[ind1] + z[ind2] + a[ind3]*np.sin(2*np.pi*y) + b[ind3]*np.cos(2*np.pi*y)
     """
     
+    # Determine the number of datapoints and parameters to fit.
     npoints = len(mag)
     npars1 = len(np.unique(ind1))
     npars2 = len(np.unique(ind2))
     npars3 = 2*len(np.unique(ind3))
     npars = npars1 + npars2 + npars3
     
-    length1 = np.amax(ind1)+1
-    length2 = np.amax(ind2)+1
-    length3 = np.amax(ind3)+1
-    
+    # Create the necessary arrays.
+    weights = 1./emag**2
     sn = np.sin(2*np.pi*y)
     cs = np.cos(2*np.pi*y)
+    z = np.zeros(np.amax(ind2)+1)
+    a = np.zeros(np.amax(ind3)+1)
+    b = np.zeros(np.amax(ind3)+1)
     
-    weights = 1./emag**2
-    
-    z = np.zeros(length2)
-    a = np.zeros(length3)
-    b = np.zeros(length3)
-    
+    # Start the iterative solution.
     for niter in range(maxiter):
         
         if verbose:
             print 'niter = %i'%niter
         
+        # Computation of parameters.
         m = np.bincount(ind1, weights*(mag-z[ind2]-a[ind3]*sn-b[ind3]*cs))/np.bincount(ind1, weights)
         z = np.bincount(ind2, weights*(mag-m[ind1]-a[ind3]*sn-b[ind3]*cs))/np.bincount(ind2, weights)
         
@@ -149,10 +146,11 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=100, eps=1e-3, verb
         if use_weights:
             res = mag - m[ind1] - z[ind2] - a[ind3]*sn - b[ind3]*cs
             sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2+sigma[ind1]**2)
+            weights = 1./(emag**2+(sigma**2)[ind1])
         
         if (niter > 0):
-
+            
+            # Check if the solution has converged.
             critm = np.nanmax(np.abs(m-m_old))
             critz = np.nanmax(np.abs(z-z_old))
             crita = np.nanmax(np.abs(a-a_old))
@@ -169,6 +167,7 @@ def coarse_positions(ind1, ind2, ind3, y, mag, emag, maxiter=100, eps=1e-3, verb
         a_old = np.copy(a)
         b_old = np.copy(b)
     
+    # Compute the chi-square value of the solution.
     chi_tmp = weights*(mag - m[ind1] - z[ind2] - a[ind3]*sn - b[ind3]*cs)**2
     chisq = np.sum(chi_tmp)/(npoints-npars)
     

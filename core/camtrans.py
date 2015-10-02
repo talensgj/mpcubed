@@ -13,7 +13,7 @@ from sysrem import sysrem
 
 class CameraTransmission():
     
-    def __init__(self, grid='polar', nx=2700, ny=720, margin=0):
+    def __init__(self, grid='polar', nx=13500, ny=720, margin=0):
     
         self.grid = grid
         self.nx = nx

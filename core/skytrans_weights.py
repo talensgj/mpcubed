@@ -8,10 +8,8 @@ import h5py
 import numpy as np
 
 from index_functions import index_statistics
-from coordinate_grids import HealpixGrid, PolarGrid, CartesianGrid
-from coarse_dev import coarse_decorrelation
-
-import healpy
+from coordinate_grids import HealpixGrid
+from coarse_decor import coarse_decorrelation
 
 class SkyTransmission():
     
@@ -24,6 +22,38 @@ class SkyTransmission():
 
         return 
 
+    def _read_data(self, ascc, nobs):
+        nstars = len(ascc)
+        ndata = np.sum(nobs)
+        select = np.append(0, np.cumsum(nobs))
+        
+        lstidx = np.zeros(ndata)
+        sky = np.zeros(ndata)
+        flags1 = np.zeros(ndata)
+        
+        cmag0 = np.zeros(ndata)
+        ecmag0 = np.zeros(ndata)
+        flags2 = np.zeros(ndata) 
+        
+        with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r') as g:
+        
+            lc = f['data']
+            rc = g['data']
+        
+            for i in range(nstars):
+                
+                lstidx[select[i]:select[i+1]] = lc[ascc[i]]['lstidx']
+                sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
+                flags1[select[i]:select[i+1]] = lc[ascc[i]]['flag']
+                
+                cmag0[select[i]:select[i+1]] = rc[ascc[i]]['ipcmag0']
+                ecmag0[select[i]:select[i+1]] = rc[ascc[i]]['smag0']
+                flags2[select[i]:select[i+1]] = rc[ascc[i]]['flags']
+        
+        lstidx = lstidx.astype('int')
+
+        return lstidx, sky, flags1, cmag0, ecmag0, flags2
+
     def calculate(self, fLCfile, redfile=None, skyfile=None):
         
         self.fLCfile = fLCfile
@@ -31,7 +61,7 @@ class SkyTransmission():
         # Filename of reduced data file.
         if redfile is None:
             head, tail = os.path.split(self.fLCfile)
-            tail = 'coarsered_'+tail.rsplit('_')[-1]
+            tail = 'red_'+tail.rsplit('_')[-1]
             self.redfile = os.path.join(head, tail)
         else:
             self.redfile = redfile
@@ -39,7 +69,7 @@ class SkyTransmission():
         # Filename of output file.
         if skyfile is None:
             head, tail = os.path.split(self.fLCfile)
-            tail = 'coarsesky_'+tail.rsplit('_')[-1]
+            tail = 'sky_'+tail.rsplit('_')[-1]
             self.skyfile = os.path.join(head, tail)
         else:
             self.skyfile = skyfile
@@ -57,12 +87,8 @@ class SkyTransmission():
         # Calculate the transmission.
         if self.grid == 'healpix':
             self._calculate_healpix()
-          
-        elif self.grid == 'cartesian':
-            print 'Grid %s not implemented yet.'%self.grid
-            exit()
              
-        elif self.grid in ['polar']:
+        elif self.grid in ['cartesian', 'polar']:
             print 'Grid %s not implemented yet.'%self.grid
             exit()
             
@@ -71,38 +97,6 @@ class SkyTransmission():
 
         return
 
-    def _read_data(self, ascc, nobs):
-        nstars = len(ascc)
-        ndata = np.sum(nobs)
-        select = np.append(0, np.cumsum(nobs))
-        
-        lstidx = np.zeros(ndata)
-        sky = np.zeros(ndata)
-        flags1 = np.zeros(ndata)
-
-        cflux0 = np.zeros(ndata)
-        ecflux0 = np.zeros(ndata)
-        flags2 = np.zeros(ndata) 
-        
-        with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r') as g:
-        
-            lc = f['data']
-            rc = g['data']
-        
-            for i in range(nstars):
-                
-                lstidx[select[i]:select[i+1]] = lc[ascc[i]]['lstidx']
-                sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
-                flags1[select[i]:select[i+1]] = lc[ascc[i]]['flag']
-                
-                cflux0[select[i]:select[i+1]] = rc[ascc[i]]['ipcflux0']
-                ecflux0[select[i]:select[i+1]] = 2.5/np.log(10)*lc[ascc[i]]['eflux0']/lc[ascc[i]]['flux0']
-                flags2[select[i]:select[i+1]] = rc[ascc[i]]['flags']
-        
-        lstidx = lstidx.astype('int')
-   
-        return lstidx, sky, flags1, cflux0, ecflux0, flags2
-        
     def _calculate_healpix(self):
         
         # Healpix grid instance.
@@ -110,7 +104,7 @@ class SkyTransmission():
         
         # Assign stars to sky bins and count the number of stars in each bin.
         skyidx, skyuni = hg.find_gridpoint(self.ra, self.dec, compact=True)
-        starcount = index_statistics(skyuni, skyuni, statistic='count')
+        starcount = np.bincount(skyuni)
         
         # Create arrays.
         niter = np.zeros(len(skyidx), dtype='int')
@@ -127,30 +121,27 @@ class SkyTransmission():
             nobs = self.nobs[here]
             
             # Read data for these stars.
-            lstidx, sky, flags1, cflux0, ecflux0, flags2 = self._read_data(ascc, nobs)
+            lstidx, sky, flags1, cmag0, ecmag0, flags2 = self._read_data(ascc, nobs)
             
             # Create the staridx
             staridx = np.repeat(np.arange(len(ascc)), nobs)
             
             # Remove bad datapoints.
-            here = (ecflux0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
-            cflux0 = cflux0[here]
-            ecflux0 = ecflux0[here]
+            here = np.isfinite(cmag0)&(ecmag0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
+            cmag0 = cmag0[here]
+            ecmag0 = ecmag0[here]
             lstidx = lstidx[here]
             staridx = staridx[here]
             
-            # If no good data skip this bin. I don't like skipping bins, but if I do I may as well do it better than this.
-            if len(cflux0) == 0:
-                print 'No good data points in this bin.'
-                continue
+            if len(cmag0) == 0: continue
             
             # Make the lstidx ascending from 0 and count the number of datapoints at each lstidx.
             lstidx, lstuni = np.unique(lstidx, return_inverse=True)
-            pointcount = index_statistics(lstuni, lstuni, statistic='count')
+            pointcount = np.bincount(lstuni)
             
             # Compute the sky transmission curve.
-            magnitude, skytrans, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, cflux0, ecflux0, verbose=True)
-            
+            magnitude, skytrans, sigma1, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, cmag0, ecmag0)
+        
             with h5py.File(self.skyfile) as f:
                 
                 grp = f.create_group('data/%i'%skyidx[ind])
@@ -175,7 +166,8 @@ class SkyTransmission():
             grp.create_dataset('npoints', data = npoints)
             grp.create_dataset('npars', data = npars)
 
-
+        return
+        
 class SkyFile():
     
     def __init__(self, skyfile):
@@ -193,13 +185,12 @@ class SkyFile():
             self.ny = f['header'].attrs['ny']
             self.margin = f['header'].attrs['margin']
             
+            import healpy
             npix = healpy.nside2npix(self.nx)
             
             self.starcount = np.full(npix, fill_value=0)
-            self.skytrans = np.full((npix, 13500), fill_value=np.nan)
-            self.clouds = np.full((npix, 13500), fill_value=np.nan)
-            self.pointcount = np.full((npix, 13500), fill_value=0)
-            #self.chisq_sky = np.full((npix, 13500), fill_value=np.nan)
+            self.skytrans = np.full((13500, npix), fill_value=np.nan)
+            self.pointcount = np.full((13500, npix), fill_value=0)
             
             self.skyidx = f['header/skyidx'].value
             self.starcount[self.skyidx] = f['header/starcount'].value
@@ -212,16 +203,14 @@ class SkyFile():
                     pass
                 else:
                     lstidx = data['lstidx'].value
-                
-                    self.clouds[idx, lstidx] = data['sigma2'].value
-                    self.skytrans[idx, lstidx] = data['skytrans'].value
-                    self.pointcount[idx, lstidx] = data['pointcount'].value
-                    #self.chisq_sky[idx, lstidx] = data['chisq_sky'].value
-            
+                    self.skytrans[lstidx, idx] = data['skytrans'].value
+                    self.pointcount[lstidx, idx] = data['pointcount'].value
+
         return
         
-    def visualize(self):
+    def visualize(self, wrap=False):
         
+        self.wrap = wrap
         self._read_skyfile()
             
         if self.grid == 'healpix':
@@ -242,6 +231,7 @@ class SkyFile():
         import matplotlib.pyplot as plt
         from matplotlib import rcParams
         from viridis import viridis 
+        import healpy
         
         rcParams['xtick.labelsize'] = 'large'
         rcParams['ytick.labelsize'] = 'large'
@@ -249,16 +239,27 @@ class SkyFile():
         rcParams['image.interpolation'] = 'none'
         rcParams['image.origin'] = 'lower'
         
-        self.skytrans[self.clouds>.05] = np.nan
+        array = self.skytrans
+        #array = array/np.nanmedian(array, axis=0, keepdims=True)
+        if self.wrap: array = np.roll(array, 13500/2, axis=0)
         
-        # Figure showing the transmission map.
-        plt.imshow(self.skytrans, aspect='auto', cmap=viridis, vmin=-.5, vmax=.5)
+        xlim, ylim = np.where(np.isfinite(array))
+        
+        ax = plt.subplot(111)
+        plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=-.2, vmax=.2)
         cb = plt.colorbar()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
         plt.xlabel('LST [idx]')
-        plt.ylabel('Sky [idx]')
-        plt.ylim(np.amin(self.skyidx)-.5,np.amax(self.skyidx)+.5) 
+        plt.ylabel('sky [idx]')
         cb.set_label('Sky')
         plt.show()
+        
+        for idx in np.unique(xlim):
+        
+            healpy.mollview(array[idx], cmap=viridis, min=-.2, max=.2, unit='Sky', title='')
+            plt.show()
+            plt.close()
         
         return
         
@@ -273,7 +274,7 @@ class SkyFile():
             
         if redfile is None:
             head, tail = os.path.split(self.skyfile)
-            tail = 'coarsered_'+tail.rsplit('_')[-1]
+            tail = 'red_'+tail.rsplit('_')[-1]
             self.redfile = os.path.join(head, tail)
         else:
             self.redfile = redfile
@@ -311,6 +312,7 @@ class SkyFile():
             g['header'].attrs['skyfile'] = self.skyfile
             try: del g['data2']
             except: pass
+            
             for i in range(len(ascc)):
                 
                 lc = f['data/'+ascc[i]]
@@ -319,18 +321,17 @@ class SkyFile():
                 lstidx = lc['lstidx'].astype('int')
             
                 # Find stellar transmission curve and correct flux and eflux.
-                skytrans0 = self.skytrans[skyidx[i], lstidx]
-                scflux0 = rc['ipcflux0']-skytrans0
+                skytrans0 = self.skytrans[lstidx, skyidx[i]]
+                scmag0 = rc['ipcmag0']-skytrans0
         
                 # Add flags.
                 flags = np.where(np.isnan(skytrans0), 1, 0)
-                flags = flags + np.where(self.pointcount[skyidx[i], lstidx]<=5, 2, 0) 
-                if self.starcount[skyidx[i]] <= 5:
-                    flags += 4
-                flags = flags + np.where(self.clouds[skyidx[i], lstidx]>.05, 8, 0)
+                flags = flags + np.where(self.pointcount[lstidx, skyidx[i]]<=5, 2, 0) 
         
                 # Combine the reduced data in a record array.
-                record = np.rec.fromarrays([skytrans0, scflux0, flags], names=['skytrans0', 'scflux0', 'flags'])
+                arlist = [skytrans0, scmag0, flags]
+                names = ['skytrans0', 'scmag0', 'flags']
+                record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.
                 g.create_dataset('data2/'+ascc[i], data=record)
