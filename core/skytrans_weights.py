@@ -31,8 +31,8 @@ class SkyTransmission():
         sky = np.zeros(ndata)
         flags1 = np.zeros(ndata)
         
-        cmag0 = np.zeros(ndata)
-        ecmag0 = np.zeros(ndata)
+        mag0 = np.zeros(ndata)
+        emag0 = np.zeros(ndata)
         flags2 = np.zeros(ndata) 
         
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r') as g:
@@ -46,13 +46,13 @@ class SkyTransmission():
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags1[select[i]:select[i+1]] = lc[ascc[i]]['flag']
                 
-                cmag0[select[i]:select[i+1]] = rc[ascc[i]]['ipcmag0']
-                ecmag0[select[i]:select[i+1]] = rc[ascc[i]]['smag0']
+                mag0[select[i]:select[i+1]] = rc[ascc[i]]['ipc_mag0']
+                emag0[select[i]:select[i+1]] = rc[ascc[i]]['emag0']
                 flags2[select[i]:select[i+1]] = rc[ascc[i]]['flags']
         
         lstidx = lstidx.astype('int')
 
-        return lstidx, sky, flags1, cmag0, ecmag0, flags2
+        return lstidx, sky, flags1, mag0, emag0, flags2
 
     def calculate(self, fLCfile, redfile=None, skyfile=None):
         
@@ -112,35 +112,46 @@ class SkyTransmission():
         npoints = np.zeros(len(skyidx), dtype='int')
         npars = np.zeros(len(skyidx), dtype='int')
         
+        mag = np.zeros(len(self.ascc), dtype='float')
+        sigma1 = np.zeros(len(self.ascc), dtype='float')
+        
         for ind in range(len(skyidx)):
             
             # Select stars in the current sky bin.
-            here = (skyuni == ind)
-            ascc = self.ascc[here]
-            vmag = self.vmag[here]
-            nobs = self.nobs[here]
+            stars = (skyuni == ind)
+            ascc = self.ascc[stars]
+            vmag = self.vmag[stars]
+            nobs = self.nobs[stars]
             
             # Read data for these stars.
-            lstidx, sky, flags1, cmag0, ecmag0, flags2 = self._read_data(ascc, nobs)
+            lstidx, sky, flags1, mag0, emag0, flags2 = self._read_data(ascc, nobs)
             
             # Create the staridx
             staridx = np.repeat(np.arange(len(ascc)), nobs)
             
             # Remove bad datapoints.
-            here = np.isfinite(cmag0)&(ecmag0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
-            cmag0 = cmag0[here]
-            ecmag0 = ecmag0[here]
+            here = np.isfinite(mag0)&(emag0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
+            mag0 = mag0[here]
+            emag0 = emag0[here]
             lstidx = lstidx[here]
             staridx = staridx[here]
             
-            if len(cmag0) == 0: continue
+            if len(mag0) == 0: continue
             
             # Make the lstidx ascending from 0 and count the number of datapoints at each lstidx.
             lstidx, lstuni = np.unique(lstidx, return_inverse=True)
             pointcount = np.bincount(lstuni)
             
             # Compute the sky transmission curve.
-            magnitude, skytrans, sigma1, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, cmag0, ecmag0)
+            magnitude, skytrans, sigma, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, mag0, emag0, verbose=True)
+        
+            tmp = np.zeros(sum(stars))
+            tmp[np.unique(staridx)] = magnitude
+            mag[stars] = tmp
+            
+            tmp = np.zeros(sum(stars))
+            tmp[np.unique(staridx)] = sigma
+            sigma1[stars] = tmp
         
             with h5py.File(self.skyfile) as f:
                 
@@ -165,7 +176,10 @@ class SkyTransmission():
             grp.create_dataset('chisq', data = chisq)
             grp.create_dataset('npoints', data = npoints)
             grp.create_dataset('npars', data = npars)
-
+            grp.create_dataset('ascc', data = self.ascc)
+            grp.create_dataset('mag', data = mag)
+            grp.create_dataset('sigma1', data=sigma1)
+            
         return
         
 class SkyFile():
@@ -191,6 +205,7 @@ class SkyFile():
             self.starcount = np.full(npix, fill_value=0)
             self.skytrans = np.full((13500, npix), fill_value=np.nan)
             self.pointcount = np.full((13500, npix), fill_value=0)
+            self.sigma2 = np.full((13500, npix), fill_value=np.nan)
             
             self.skyidx = f['header/skyidx'].value
             self.starcount[self.skyidx] = f['header/starcount'].value
@@ -205,7 +220,7 @@ class SkyFile():
                     lstidx = data['lstidx'].value
                     self.skytrans[lstidx, idx] = data['skytrans'].value
                     self.pointcount[lstidx, idx] = data['pointcount'].value
-
+                    self.sigma2[lstidx, idx] = data['sigma2'].value
         return
         
     def visualize(self, wrap=False):
@@ -255,11 +270,21 @@ class SkyFile():
         cb.set_label('Sky')
         plt.show()
         
-        for idx in np.unique(xlim):
+        array = self.sigma2
+        #array = array/np.nanmedian(array, axis=0, keepdims=True)
+        if self.wrap: array = np.roll(array, 13500/2, axis=0)
         
-            healpy.mollview(array[idx], cmap=viridis, min=-.2, max=.2, unit='Sky', title='')
-            plt.show()
-            plt.close()
+        xlim, ylim = np.where(np.isfinite(array))
+        
+        ax = plt.subplot(111)
+        plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=0, vmax=.5)
+        cb = plt.colorbar()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('LST [idx]')
+        plt.ylabel('sky [idx]')
+        cb.set_label('sigma2')
+        plt.show()
         
         return
         
@@ -322,15 +347,16 @@ class SkyFile():
             
                 # Find stellar transmission curve and correct flux and eflux.
                 skytrans0 = self.skytrans[lstidx, skyidx[i]]
-                scmag0 = rc['ipcmag0']-skytrans0
+                sipc_mag0 = rc['ipc_mag0']-skytrans0
         
                 # Add flags.
                 flags = np.where(np.isnan(skytrans0), 1, 0)
                 flags = flags + np.where(self.pointcount[lstidx, skyidx[i]]<=5, 2, 0) 
+                flags = flags + np.where(self.sigma2[lstidx, skyidx[i]]>.05, 4, 0)
         
                 # Combine the reduced data in a record array.
-                arlist = [skytrans0, scmag0, flags]
-                names = ['skytrans0', 'scmag0', 'flags']
+                arlist = [skytrans0, sipc_mag0, flags]
+                names = ['skytrans0', 'sipc_mag0', 'flags']
                 record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.

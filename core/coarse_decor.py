@@ -79,23 +79,23 @@ def coarse_decorrelation(ind1, ind2, values, errors, maxiter=100, eps=1e-3, verb
             sigma1 = find_sigma(ind1, res, np.sqrt(errors**2+(sigma2**2)[ind2]))
             sigma2 = find_sigma(ind2, res, np.sqrt(errors**2+(sigma1**2)[ind1]))
             weights = 1./(errors**2+(sigma1**2)[ind1]+(sigma2**2)[ind2])
-            
-        sol = m[ind1] + z[ind2]
         
         if (niter > 0):
             
             # Check if the solution has converged.
-            critsol = np.nanmax(np.abs(sol-sol_old))
+            critm = np.nanmax(np.abs(m-m_old))
+            critz = np.nanmax(np.abs(z-z_old))
             crits1 = np.nanmax(np.abs(sigma1-sigma1_old))
             crits2 = np.nanmax(np.abs(sigma2-sigma2_old))
             
             if verbose:
-                print ' critsol = %g, crits1 = %g, crits2 = %g'%(critsol, crits1, crits2)
+                print ' critm = %g, critz = %g, crits1 = %g, crits2 = %g'%(critm, critz, crits1, crits2)
             
-            if (critsol < eps):
+            if (critm < eps) & (critz < eps):
                 break
 
-        sol_old = np.copy(sol)
+        m_old = np.copy(m)
+        z_old = np.copy(z)
         sigma1_old = np.copy(sigma1)
         sigma2_old = np.copy(sigma2)
     

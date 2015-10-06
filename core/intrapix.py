@@ -42,7 +42,8 @@ class IntraPixel():
                 lst[select[i]:select[i+1]] = lc[ascc[i]]['lst']
                 y[select[i]:select[i+1]] = lc[ascc[i]]['y']
                 flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
-                eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                #eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                eflux0[select[i]:select[i+1]] = lc[ascc[i]]['eflux0']
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
    
@@ -301,18 +302,18 @@ class CameraFile():
                 
                 # Find the camera transmission curve and correct flux and eflux.
                 camtrans0 = self.camtrans[haidx_cam, decidx[i]]
-                cflux0 = lc['flux0']/camtrans0
-                ecflux0 = lc['eflux0']/camtrans0
+                c_flux0 = lc['flux0']/camtrans0
+                c_eflux0 = lc['eflux0']/camtrans0
                 
                 # Find the intrapixel variations and correct cflux and ecflux.
                 intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y']) + self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y']) + 1
-                ipcflux0 = cflux0/intrapix0
-                eipcflux0 = ecflux0/intrapix0
+                ipc_flux0 = c_flux0/intrapix0
+                ipc_eflux0 = c_eflux0/intrapix0
         
                 # Add also the std of 50 points used in calculating the tranmission.
                 sflux0 = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
-                scflux0 = sflux0/camtrans0
-                sipcflux0 = scflux0/intrapix0
+                c_sflux0 = sflux0/camtrans0
+                ipc_sflux0 = c_sflux0/intrapix0
         
                 # Add flags.
                 flags = np.where(np.isnan(camtrans0), 1, 0)
@@ -322,8 +323,8 @@ class CameraFile():
                 #flags = flags + np.where(self.pointcount_sky[haidx_ipx, decidx[i]]<=50, 8, 0)
                 
                 # Combine the reduced data in a record array.
-                arlist = [camtrans0, cflux0, ecflux0, intrapix0, ipcflux0, eipcflux0, sflux0, scflux0, sipcflux0, flags]
-                names = ['camtrans0', 'cflux0', 'ecflux0', 'intrapix0', 'ipcflux0', 'eipcflux0', 'sflux0', 'scflux0', 'sipcflux0', 'flags']
+                arlist = [camtrans0, intrapix0, c_flux0, c_eflux0, ipc_flux0, ipc_eflux0, sflux0, c_sflux0, ipc_sflux0, flags]
+                names = ['camtrans0', 'intrapix0', 'c_flux0', 'c_eflux0', 'ipc_flux0', 'ipc_eflux0', 'sflux0', 'c_sflux0', 'ipc_sflux0', 'flags']
                 record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.

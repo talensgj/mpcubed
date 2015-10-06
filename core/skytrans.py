@@ -31,8 +31,8 @@ class SkyTransmission():
         sky = np.zeros(ndata)
         flags1 = np.zeros(ndata)
         
-        cflux0 = np.zeros(ndata)
-        ecflux0 = np.zeros(ndata)
+        flux0 = np.zeros(ndata)
+        eflux0 = np.zeros(ndata)
         flags2 = np.zeros(ndata) 
         
         with h5py.File(self.fLCfile, 'r') as f, h5py.File(self.redfile, 'r') as g:
@@ -46,13 +46,13 @@ class SkyTransmission():
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags1[select[i]:select[i+1]] = lc[ascc[i]]['flag']
                 
-                cflux0[select[i]:select[i+1]] = rc[ascc[i]]['ipcflux0']
-                ecflux0[select[i]:select[i+1]] = rc[ascc[i]]['sipcflux0']
+                flux0[select[i]:select[i+1]] = rc[ascc[i]]['ipc_flux0']
+                eflux0[select[i]:select[i+1]] = rc[ascc[i]]['ipc_eflux0']
                 flags2[select[i]:select[i+1]] = rc[ascc[i]]['flags']
         
         lstidx = lstidx.astype('int')
 
-        return lstidx, sky, flags1, cflux0, ecflux0, flags2
+        return lstidx, sky, flags1, flux0, eflux0, flags2
 
     def calculate(self, fLCfile, redfile=None, skyfile=None):
         
@@ -121,26 +121,26 @@ class SkyTransmission():
             nobs = self.nobs[here]
             
             # Read data for these stars.
-            lstidx, sky, flags1, cflux0, ecflux0, flags2 = self._read_data(ascc, nobs)
+            lstidx, sky, flags1, flux0, eflux0, flags2 = self._read_data(ascc, nobs)
             
             # Create the staridx
             staridx = np.repeat(np.arange(len(ascc)), nobs)
             
             # Remove bad datapoints.
-            here = (cflux0 > 0)&(ecflux0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
-            cflux0 = cflux0[here]
-            ecflux0 = ecflux0[here]
+            here = (flux0 > 0)&(eflux0 > 0)&(sky > 0)&(flags1 < 1)&(flags2 < 1)
+            flux0 = flux0[here]
+            eflux0 = eflux0[here]
             lstidx = lstidx[here]
             staridx = staridx[here]
             
-            if len(cflux0) == 0: continue
+            if len(flux0) == 0: continue
             
             # Make the lstidx ascending from 0 and count the number of datapoints at each lstidx.
             lstidx, lstuni = np.unique(lstidx, return_inverse=True)
             pointcount = np.bincount(lstuni)
             
             # Compute the sky transmission curve.
-            flux, skytrans, niter[ind], chisq[ind], npoints[ind], npars[ind] = sysrem(staridx, lstuni, cflux0, ecflux0)
+            flux, skytrans, niter[ind], chisq[ind], npoints[ind], npars[ind] = sysrem(staridx, lstuni, flux0, eflux0)
         
             with h5py.File(self.skyfile) as f:
                 
@@ -254,12 +254,6 @@ class SkyFile():
         cb.set_label('Sky')
         plt.show()
         
-        for idx in np.unique(xlim):
-        
-            healpy.mollview(array[idx], cmap=viridis, min=0, max=1.2, unit='Sky', title='')
-            plt.show()
-            plt.close()
-        
         return
         
     def correct(self, fLCfile=None, redfile=None):
@@ -321,17 +315,17 @@ class SkyFile():
             
                 # Find stellar transmission curve and correct flux and eflux.
                 skytrans0 = self.skytrans[lstidx, skyidx[i]]
-                scflux0 = rc['ipcflux0']/skytrans0
-                escflux0 = rc['eipcflux0']/skytrans0
-                sscflux0 = rc['sipcflux0']/skytrans0
+                sipc_flux0 = rc['ipc_flux0']/skytrans0
+                sipc_eflux0 = rc['ipc_eflux0']/skytrans0
+                sipc_sflux0 = rc['ipc_sflux0']/skytrans0
         
                 # Add flags.
                 flags = np.where(np.isnan(skytrans0), 1, 0)
                 flags = flags + np.where(self.pointcount[lstidx, skyidx[i]]<=5, 2, 0) 
         
                 # Combine the reduced data in a record array.
-                arlist = [skytrans0, scflux0, escflux0, sscflux0, flags]
-                names = ['skytrans0', 'scflux0', 'escflux0', 'sscflux0', 'flags']
+                arlist = [skytrans0, sipc_flux0, sipc_eflux0, sipc_sflux0, flags]
+                names = ['skytrans0', 'sipc_flux0', 'sipc_eflux0', 'sipc_sflux0', 'flags']
                 record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.

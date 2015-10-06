@@ -42,7 +42,8 @@ class IntraPixel():
                 lst[select[i]:select[i+1]] = lc[ascc[i]]['lst']
                 y[select[i]:select[i+1]] = lc[ascc[i]]['y']
                 flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
-                eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                #eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                eflux0[select[i]:select[i+1]] = lc[ascc[i]]['eflux0']
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
    
@@ -86,14 +87,17 @@ class IntraPixel():
         npoints = np.zeros(len(decidx), dtype='int')
         npars = np.zeros(len(decidx), dtype='int')
     
+        mag = np.zeros(len(self.ascc), dtype='float')
+        sigma1 = np.zeros(len(self.ascc), dtype='float')
+    
         for ind in range(len(decidx)):
             
             # Select stars in the current sky bin.
-            here = (decuni == ind)
-            ascc = self.ascc[here]
-            ra = self.ra[here]
-            vmag = self.vmag[here]
-            nobs = self.nobs[here]
+            stars = (decuni == ind)
+            ascc = self.ascc[stars]
+            ra = self.ra[stars]
+            vmag = self.vmag[stars]
+            nobs = self.nobs[stars]
             
             # Read data for these stars.
             lst, y, flux0, eflux0, sky, flags = self._read_data(ascc, nobs)
@@ -127,7 +131,15 @@ class IntraPixel():
             
             # Compute the camera transmission curve and fit to the intrapixel variations.
             magnitude, camtrans, a, b, sigma, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0, verbose=True)
-    
+   
+            tmp = np.zeros(sum(stars))
+            tmp[np.unique(staridx)] = magnitude
+            mag[stars] = tmp
+            
+            tmp = np.zeros(sum(stars))
+            tmp[np.unique(staridx)] = sigma
+            sigma1[stars] = tmp
+            
             with h5py.File(self.camfile) as f:
                 
                 grp = f.create_group('data/%i'%decidx[ind])
@@ -153,6 +165,8 @@ class IntraPixel():
             grp.create_dataset('chisq', data = chisq)
             grp.create_dataset('npoints', data = npoints)
             grp.create_dataset('npars', data = npars)
+            grp.create_dataset('mag', data = mag)
+            grp.create_dataset('sigma1', data=sigma1)
             
         return 
 
@@ -307,11 +321,11 @@ class CameraFile():
                 
                 # Find the camera transmission curve and correct flux and eflux.
                 camtrans0 = self.camtrans[haidx_cam, decidx[i]]
-                cmag0 = mag0-camtrans0
+                c_mag0 = mag0-camtrans0
                 
                 # Find the intrapixel variations and correct cflux and ecflux.
                 intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y']) + self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])
-                ipcmag0 = cmag0-intrapix0
+                ipc_mag0 = c_mag0-intrapix0
         
                 # Add also the std of 50 points used in calculating the tranmission.
                 sflux0 = index_statistics(lc['lstidx']//50, lc['flux0'], statistic='std', keeplength=True)
@@ -325,8 +339,8 @@ class CameraFile():
                 #flags = flags + np.where(self.pointcount_sky[haidx_ipx, decidx[i]]<=50, 8, 0)
                 
                 # Combine the reduced data in a record array.
-                arlist = [mag0, emag0, camtrans0, cmag0, intrapix0, ipcmag0, sflux0, smag0, flags]
-                names = ['mag0', 'emag0', 'camtrans0', 'cmag0', 'intrapix0', 'ipcmag0', 'sflux0', 'smag0', 'flags']
+                arlist = [mag0, emag0, camtrans0, intrapix0, c_mag0, ipc_mag0, sflux0, smag0, flags]
+                names = ['mag0', 'emag0', 'camtrans0', 'intrapix0', 'c_mag0', 'ipc_mag0', 'sflux0', 'smag0', 'flags']
                 record = np.rec.fromarrays(arlist, names=names)
                 
                 # Write the result to file.
