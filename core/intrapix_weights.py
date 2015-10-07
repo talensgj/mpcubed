@@ -130,7 +130,7 @@ class IntraPixel():
             emag0 = 2.5/np.log(10.)*eflux0/flux0
             
             # Compute the camera transmission curve and fit to the intrapixel variations.
-            magnitude, camtrans, a, b, sigma, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0, verbose=True)
+            magnitude, camtrans, a, b, sigma, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0)
    
             tmp = np.zeros(sum(stars))
             tmp[np.unique(staridx)] = magnitude
@@ -217,7 +217,14 @@ class CameraFile():
                     
         return
     
-    def visualize(self, wrap=False):
+    def visualize(self, wrap=False, figfile=None):
+        
+        if figfile is None:
+            head, tail = os.path.split(self.camfile)
+            tail = tail.rsplit('.')[0]+'.png'
+            self.figfile = os.path.join(head, tail)
+        else:
+            self.figfile = figfile
         
         self._read_camfile()
         
@@ -237,7 +244,8 @@ class CameraFile():
         
         xlim, ylim = np.where(np.isfinite(array))
 
-        ax = plt.subplot(111)
+        plt.figure(figsize=(16,12))
+        plt.subplot(221)
         plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=-2, vmax=2)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -245,13 +253,13 @@ class CameraFile():
         plt.xlabel('HA [idx]')
         plt.ylabel('Dec [idx]')
         cb.set_label('Camera')
-        plt.show()
         
         array = np.sqrt(self.a[1:-1,1:-1]**2+self.b[1:-1,1:-1]**2)
         if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
         
         xlim, ylim = np.where(np.isfinite(array))
 
+        plt.subplot(223)
         plt.imshow(array.T, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -259,13 +267,13 @@ class CameraFile():
         plt.xlabel('HA [idx]')
         plt.ylabel('Dec [idx]')
         cb.set_label('Amplitude')
-        plt.show()
         
         array = np.arctan2(self.b[1:-1,1:-1], self.a[1:-1,1:-1])
         if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
 
         xlim, ylim = np.where(np.isfinite(array))
-
+    
+        plt.subplot(224)
         plt.imshow(array.T, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -273,7 +281,10 @@ class CameraFile():
         plt.xlabel('HA [idx]')
         plt.ylabel('Dec [idx]')
         cb.set_label('Phase')
-        plt.show()
+        
+        plt.tight_layout()
+        plt.savefig(self.figfile)
+        #plt.show()
        
         return
     

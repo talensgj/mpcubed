@@ -34,7 +34,7 @@ def quick_fix(filename):
             del myf['header_table'][k]
             myf['header_table'].create_dataset(k, data=tmp_)
         
-filelist = glob.glob('/data2/talens/3mEast/fLC_201506*LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_201508*LPE.hdf5')
 filelist = np.sort(filelist)
 
 for filename in filelist:
