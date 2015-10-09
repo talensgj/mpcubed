@@ -143,7 +143,7 @@ class SkyTransmission():
             pointcount = np.bincount(lstuni)
             
             # Compute the sky transmission curve.
-            magnitude, skytrans, sigma, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, mag0, emag0, verbose=True)
+            magnitude, skytrans, sigma, sigma2, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_decorrelation(staridx, lstuni, mag0, emag0)
         
             tmp = np.zeros(sum(stars))
             tmp[np.unique(staridx)] = magnitude
@@ -223,7 +223,14 @@ class SkyFile():
                     self.sigma2[lstidx, idx] = data['sigma2'].value
         return
         
-    def visualize(self, wrap=False):
+    def visualize(self, wrap=False, figfile=None):
+        
+        if figfile is None:
+            head, tail = os.path.split(self.skyfile)
+            tail = tail.rsplit('.')[0]+'.png'
+            self.figfile = os.path.join(head, tail)
+        else:
+            self.figfile = figfile
         
         self.wrap = wrap
         self._read_skyfile()
@@ -257,10 +264,12 @@ class SkyFile():
         array = self.skytrans
         #array = array/np.nanmedian(array, axis=0, keepdims=True)
         if self.wrap: array = np.roll(array, 13500/2, axis=0)
+        array = array[:,~np.all(np.isnan(array), axis=0)]
         
         xlim, ylim = np.where(np.isfinite(array))
         
-        ax = plt.subplot(111)
+        plt.figure(figsize=(16,12))
+        ax = plt.subplot(121)
         plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=-.2, vmax=.2)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -268,15 +277,15 @@ class SkyFile():
         plt.xlabel('LST [idx]')
         plt.ylabel('sky [idx]')
         cb.set_label('Sky')
-        plt.show()
         
         array = self.sigma2
         #array = array/np.nanmedian(array, axis=0, keepdims=True)
         if self.wrap: array = np.roll(array, 13500/2, axis=0)
+        array = array[:,~np.all(np.isnan(array), axis=0)]
         
         xlim, ylim = np.where(np.isfinite(array))
         
-        ax = plt.subplot(111)
+        ax = plt.subplot(122)
         plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=0, vmax=.5)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -284,7 +293,10 @@ class SkyFile():
         plt.xlabel('LST [idx]')
         plt.ylabel('sky [idx]')
         cb.set_label('sigma2')
-        plt.show()
+        
+        plt.tight_layout()
+        plt.savefig(self.figfile)
+        #plt.show()
         
         return
         

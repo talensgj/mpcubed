@@ -10,11 +10,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from core import intrapix_weights
+from core import skytrans_weights
 
-filelist = glob.glob('/data2/talens/3mEast/fLC_201506??LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_20150???LPE.hdf5')
 filelist = np.sort(filelist)
-
-filelist = filelist[22:]
 
 for filename in filelist:
     ip = intrapix_weights.IntraPixel()
@@ -22,9 +21,33 @@ for filename in filelist:
 
     cf = intrapix_weights.CameraFile(ip.camfile)
     cf.visualize()
+    
+#filelist = glob.glob('/data2/talens/3mEast/camip_20150???LPE.hdf5')
+#filelist = np.sort(filelist)
 
-#cf.correct('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', '/data2/talens/Jul2015/verify_intrapix2.hdf5')
+#for filename in filelist:
+    #with h5py.File(filename, 'r') as f:
+        #ntot = np.sum(f['header/npoints'].value)
+        #chisq = np.sum(f['header/chisq'].value)/len(f['header/chisq'].value)
+        #best = np.amax(f['header/chisq'].value)
+        #worst = np.amin(f['header/chisq'].value)
 
+        #print filename, ntot, chisq, best, worst
+
+#filelist = glob.glob('/data2/talens/3mEast/fLC_201506??LPE.hdf5')
+#filelist = np.sort(filelist)
+
+#cf = intrapix_weights.CameraFile('/data2/talens/3mEast/camip_20150611LPE.hdf5')
+#for filename in filelist:
+    #cf.correct(filename)
+
+#st = skytrans_weights.SkyTransmission()
+#for filename in filelist:
+    #st.calculate(filename)
+    #sf = skytrans_weights.SkyFile(st.skyfile)
+    #sf.visualize()
+    #sf.correct()
+    
 #with h5py.File('/data2/talens/Jul2015/verify_intrapix2.hdf5', 'r') as f:
     #ascc = f['data'].keys()
     

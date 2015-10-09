@@ -33,10 +33,22 @@ def quick_fix(filename):
             ### and now??? how to replace it???
             del myf['header_table'][k]
             myf['header_table'].create_dataset(k, data=tmp_)
+            
+def update_nobs(filename):
+    
+    with h5py.File(filename, 'r+') as myf:
+        ascc = myf['header_table/ascc'].value
+        nobs = myf['header_table/nobs'].value
         
-filelist = glob.glob('/data2/talens/3mEast/fLC_201508*LPE.hdf5')
+        for i in range(len(ascc)):
+            nobs[i] = myf['data/'+ascc[i]].size
+            
+        del myf['header_table/nobs']
+        myf['header_table'].create_dataset('nobs', data=nobs)
+    
+filelist = glob.glob('/data2/talens/3mEast/fLC_201508??LPE.hdf5')
 filelist = np.sort(filelist)
 
 for filename in filelist:
     print 'Processing', filename
-    quick_fix(filename)
+    update_nobs(filename)
