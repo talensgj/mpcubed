@@ -4,10 +4,11 @@
 import h5py
 import numpy as np
 
-from sysrem import sysrem
-from coordinate_grids import HealpixGrid
+from core import sysrem
+from core import coarse_decor
+from core.coordinate_grids import HealpixGrid
 
-from index_functions import index_statistics
+from core.index_functions import index_statistics
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -22,9 +23,8 @@ rcParams['image.origin'] = 'lower'
 
 hg = HealpixGrid(8)
 
-from coarse_decor import coarse_decorrelation
 
-with h5py.File('/data2/talens/Jul2015/fLC_20150710LPC.hdf5', 'r') as f, h5py.File('/data2/talens/Jul2015/coarsered.hdf5', 'r') as g:
+with h5py.File('/data2/talens/3mEast/fLC_20150611LPE.hdf5', 'r') as f, h5py.File('/data2/talens/3mEast/red_20150611LPE.hdf5', 'r') as g:
     
     ascc = f['header_table/ascc'].value
     ra = f['header_table/ra'].value
@@ -33,13 +33,15 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150710LPC.hdf5', 'r') as f, h5py.Fil
     
     skyidx = hg.find_gridpoint(ra, dec)
     print skyidx[ascc=='807144']
-
+    print np.amin(dec), np.amax(dec)
     here = (skyidx == 266)
     ascc = ascc[here]
     ra = ra[here]
     dec = dec[here]
     nobs = nobs[here]
     
+    print np.amin(dec), np.amax(dec)
+    exit()
     jdmid = np.array([])
     lstidx = np.array([])
     mag = np.array([])

@@ -3,6 +3,30 @@
 
 import numpy as np
 
+def index_arithmathic(idx1, idx2, var1, var2, kind='sum'):
+    
+    known_kinds = ['sum', 'diff', 'prod', 'div']
+    if not callable(kind) and kind not in known_kinds:
+        raise ValueError('invalid kind %r' % (statistic,))
+    
+    idx = np.intersect1d(idx1, idx2)
+    var1 = var1[np.in1d(idx1, idx)]
+    var2 = var2[np.in1d(idx2, idx)]
+    
+    if kind == 'sum':
+        result = var1 + var2
+    elif kind == 'diff':
+        result = var1 - var2
+    elif kind == 'prod':
+        result = var1*var2
+    elif kind == 'div':
+        result = var1/var2
+    else:
+        result = kind(var1, var2)
+    
+    return result
+    
+
 def index_statistics(indices, values, statistic='mean', keeplength=False):
     
     # Check that the statistic is valid.

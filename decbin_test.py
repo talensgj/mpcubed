@@ -4,11 +4,11 @@
 import h5py
 import numpy as np
 
-from coordinate_grids import PolarGrid
-from index_functions import index_statistics
+from core.coordinate_grids import PolarGrid
+from core.index_functions import index_statistics
 
-import sysrem_dev
-import coarse_dev
+from core import sysrem
+from core import coarse_decor
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -23,7 +23,7 @@ rcParams['image.origin'] = 'lower'
 pg1 = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 
-with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/fLC_20150818LPE.hdf5', 'r') as f:
     
     ascc = f['header_table/ascc'].value
     ra = f['header_table/ra'].value
@@ -40,7 +40,9 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
     dec = dec[here]
     nobs = nobs[here]
     vmag = vmag[here]
-    
+    print ascc
+    print ra[ascc=='822579']
+    exit()
     lst = np.array([])
     y = np.array([])
     flux = np.array([])

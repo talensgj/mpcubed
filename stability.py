@@ -9,6 +9,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+from viridis import viridis
 
 rcParams['xtick.labelsize'] = 'large'
 rcParams['ytick.labelsize'] = 'large'
@@ -17,92 +18,100 @@ rcParams['axes.titlesize'] = 'xx-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
     
-    
-filelist = glob.glob('/data2/talens/3mEast/camip_20150???LPE.hdf5')
+filelist = glob.glob('/data1/talens/aperweights/camip_20150???LPE.hdf5')
 filelist = np.sort(filelist)
 
-amplitude = np.full((len(filelist), 272), fill_value=np.nan)
-phase = np.full((len(filelist), 272), fill_value=np.nan)
-camtrans = np.full((len(filelist), 13502), fill_value=np.nan)
-
 chisq = np.full(len(filelist), fill_value=np.nan)
+npoints = np.full(len(filelist), fill_value=np.nan)
+npars = np.full(len(filelist), fill_value=np.nan)
+
+camtrans = np.full((len(filelist), 13502), fill_value=np.nan)
+pointcount = np.full((len(filelist), 13502), fill_value=np.nan)
+amplitude = np.full((len(filelist), 272), fill_value=np.nan)
 
 for i in range(len(filelist)):
+    
     with h5py.File(filelist[i], 'r') as f:
+        try: trans = f['data/451']
+        except: pass
         
-        try:
-            haidx = f['data/451/haidx_cam'].value
-            camtrans[i, haidx] = f['data/451/camtrans']
-            
-            haidx = f['data/451/haidx_ipx'].value
-            a = f['data/451/a'].value
-            b = f['data/451/b'].value
-            amplitude[i, haidx] = np.sqrt(a**2+b**2)
-            phase[i, haidx] = np.arctan2(b, a)
-            
-            decidx = f['header/decidx'].value
-            arg = decidx==451
-            tmp = f['header/chisq'].value
-            chisq[i] = tmp[arg]
-            
-        except:
-            pass
+        haidx = trans['haidx_cam'].value
+        camtrans[i, haidx] = trans['camtrans'].value
+        pointcount[i, haidx] = trans['pointcount_cam'].value
+        haidx = trans['haidx_ipx'].value
+        amplitude[i, haidx] = np.sqrt(trans['a'].value**2 + trans['b'].value**2)
 
-args, = np.where(chisq > 1)
+        decidx = f['header/decidx'].value
+        here = decidx == 451
+        chisq[i] = f['header/chisq'][here]
+
+npoints = np.nansum(pointcount, axis=1)
+
+args, = np.where(npoints<75000)
 camtrans[args] = np.nan
 amplitude[args] = np.nan
-phase[args] = np.nan
 
-camtrans = camtrans - np.nanmedian(camtrans, axis=1, keepdims=True)
+#args, = np.where(chisq>1)
+#camtrans[args] = np.nan
+#amplitude[args] = np.nan
 
-#camtrans = camtrans - camtrans[10]
-#amplitude = amplitude - amplitude[10]
-#phase = phase - phase[10]
+camtrans = camtrans[:,1:-1]
+amplitude = amplitude[:,1:-1]
+
+camtrans = camtrans - camtrans[:,11000][:,None]
 
 plt.figure(figsize=(16,8))
-ax = plt.subplot(311)
-plt.imshow(camtrans, aspect='auto', vmin=-1, vmax=1, extent=(0,24,0,len(filelist)))
+ax = plt.subplot(211)
+plt.imshow(camtrans, aspect='auto', vmin=-.5, vmax=.5, cmap=viridis, extent=(0,24,0,1))
 plt.colorbar().set_label('Transmission')
-plt.ylabel('Day')
 
-plt.subplot(312, sharex=ax, sharey=ax)
-plt.imshow(amplitude, aspect='auto', vmin=0, vmax=.05, extent=(0,24,0,len(filelist)))
+plt.subplot(212, sharex=ax, sharey=ax)
+plt.imshow(pointcount, aspect='auto', cmap=viridis, extent=(0,24,0,1))
 plt.colorbar().set_label('Amplitude')
-plt.ylabel('Day')
 
-plt.subplot(313, sharex=ax, sharey=ax)
-plt.imshow(phase, aspect='auto', vmin=-np.pi, vmax=np.pi, extent=(0,24,0,len(filelist)))
-plt.colorbar().set_label('Phase')
-
-plt.xlim(18.5,23)
+plt.xlim(18.75, 23)
 plt.xlabel('Hour Angle')
-plt.ylabel('Day')
 
 plt.tight_layout()
 plt.show()
 
 camtrans = camtrans - camtrans[10]
 amplitude = amplitude - amplitude[10]
-phase = phase - phase[10]
+camtrans = camtrans - camtrans[:,12000][:,None]
 
 plt.figure(figsize=(16,8))
-ax = plt.subplot(311)
-plt.imshow(camtrans, aspect='auto', vmin=-.1, vmax=.1, extent=(0,24,0,len(filelist)))
-plt.colorbar().set_label('Transmission')
-plt.ylabel('Day')
+ax = plt.subplot(211)
+plt.imshow(camtrans, aspect='auto', vmin=-.1, vmax=.1, cmap=viridis, extent=(0,24,0,1))
+plt.colorbar().set_label('Delta Transmission')
 
-plt.subplot(312, sharex=ax, sharey=ax)
-plt.imshow(amplitude, aspect='auto', vmin=0, vmax=.005, extent=(0,24,0,len(filelist)))
-plt.colorbar().set_label('Amplitude')
-plt.ylabel('Day')
+plt.subplot(212, sharex=ax, sharey=ax)
+plt.imshow(pointcount, aspect='auto', cmap=viridis, extent=(0,24,0,1))
+plt.colorbar().set_label('Delta Transmission')
 
-plt.subplot(313, sharex=ax, sharey=ax)
-plt.imshow(phase, aspect='auto', vmin=-np.pi/10, vmax=np.pi/10, extent=(0,24,0,len(filelist)))
-plt.colorbar().set_label('Phase')
-
-plt.xlim(18.5,23)
+plt.xlim(18.75, 23)
 plt.xlabel('Hour Angle')
-plt.ylabel('Day')
 
 plt.tight_layout()
 plt.show()
+
+
+for i in range(len(filelist)):
+    
+    print filelist[i]
+    
+    plt.figure(figsize=(16,8))
+    ax = plt.subplot(211)
+    plt.title(filelist[i])
+    plt.plot(camtrans[i], '.')
+    plt.ylim(-.1, .1)
+    
+    plt.subplot(212, sharex=ax)
+    plt.imshow(camtrans, aspect='auto', vmin=-.1, vmax=.1, cmap=viridis)
+    plt.axhline(i)
+    
+    plt.xlim(18.75/24.*13500, 23./24.*13500)
+    
+    plt.show()
+    plt.close()
+    
+    

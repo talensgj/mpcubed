@@ -27,6 +27,7 @@ class IntraPixel():
         select = np.append(0, np.cumsum(nobs))
         
         lst = np.zeros(ndata)
+        x = np.zeros(ndata)
         y = np.zeros(ndata)
         flux0 = np.zeros(ndata)
         eflux0 = np.zeros(ndata)
@@ -40,14 +41,15 @@ class IntraPixel():
             for i in range(nstars):
                 
                 lst[select[i]:select[i+1]] = lc[ascc[i]]['lst']
+                x[select[i]:select[i+1]] = lc[ascc[i]]['x']
                 y[select[i]:select[i+1]] = lc[ascc[i]]['y']
                 flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
-                eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
-                #eflux0[select[i]:select[i+1]] = lc[ascc[i]]['eflux0']
+                #eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
+                eflux0[select[i]:select[i+1]] = lc[ascc[i]]['eflux0']
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
    
-        return lst, y, flux0, eflux0, sky, flags
+        return lst, x, y, flux0, eflux0, sky, flags
         
     def calculate(self, fLCfile, camfile=None):
     
@@ -72,6 +74,13 @@ class IntraPixel():
             self.ra = hdr['ra'].value
             self.dec = hdr['dec'].value
             self.nobs = hdr['nobs'].value.astype('int')
+            
+            here = (self.dec > 10) & (self.dec < 30)
+            self.ascc = self.ascc[here]
+            self.vmag = self.vmag[here]
+            self.ra = self.ra[here]
+            self.dec = self.dec[here]
+            self.nobs = self.nobs[here]
             
         # Polar grid instances.
         pgcam = PolarGrid(self.nx_cam, self.ny)
@@ -100,7 +109,7 @@ class IntraPixel():
             nobs = self.nobs[stars]
             
             # Read data for these stars.
-            lst, y, flux0, eflux0, sky, flags = self._read_data(ascc, nobs)
+            lst, x, y, flux0, eflux0, sky, flags = self._read_data(ascc, nobs)
             
             # Create the haidx and staridx. 
             ha = np.mod(lst*15.-np.repeat(ra,nobs), 360.)
@@ -110,6 +119,7 @@ class IntraPixel():
             
             # Remove bad datapoints.
             here = (flux0 > 0)&(eflux0 > 0)&(sky > 0)&(flags < 1)
+            x = x[here]
             y = y[here]
             flux0 = flux0[here]
             eflux0 = eflux0[here]
@@ -130,15 +140,15 @@ class IntraPixel():
             emag0 = 2.5/np.log(10.)*eflux0/flux0
             
             # Compute the camera transmission curve and fit to the intrapixel variations.
-            magnitude, camtrans, a, b, sigma, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, y, mag0, emag0)
+            magnitude, camtrans, a, b, c, d, sigma, niter[ind], chisq[ind], npoints[ind], npars[ind] = coarse_positions(staridx, hauni_cam, hauni_ipx, x, y, mag0, emag0)
    
-            tmp = np.zeros(sum(stars))
-            tmp[np.unique(staridx)] = magnitude
-            mag[stars] = tmp
+            #tmp = np.zeros(sum(stars))
+            #tmp[np.unique(staridx)] = magnitude
+            #mag[stars] = tmp
             
-            tmp = np.zeros(sum(stars))
-            tmp[np.unique(staridx)] = sigma
-            sigma1[stars] = tmp
+            #tmp = np.zeros(sum(stars))
+            #tmp[np.unique(staridx)] = sigma
+            #sigma1[stars] = tmp
             
             with h5py.File(self.camfile) as f:
                 
@@ -150,6 +160,8 @@ class IntraPixel():
                 grp.create_dataset('pointcount_ipx', data=pointcount_ipx)
                 grp.create_dataset('a', data=a)
                 grp.create_dataset('b', data=b)
+                grp.create_dataset('c', data=c)
+                grp.create_dataset('d', data=d)
 
         with h5py.File(self.camfile) as f:
 
@@ -165,8 +177,8 @@ class IntraPixel():
             grp.create_dataset('chisq', data = chisq)
             grp.create_dataset('npoints', data = npoints)
             grp.create_dataset('npars', data = npars)
-            grp.create_dataset('mag', data = mag)
-            grp.create_dataset('sigma1', data=sigma1)
+            #grp.create_dataset('mag', data = mag)
+            #grp.create_dataset('sigma1', data=sigma1)
             
         return 
 
@@ -193,6 +205,8 @@ class CameraFile():
             
             self.a = np.full((self.nx_ipx+2, self.ny+2), fill_value=np.nan)
             self.b = np.full((self.nx_ipx+2, self.ny+2), fill_value=np.nan)
+            self.c = np.full((self.nx_ipx+2, self.ny+2), fill_value=np.nan)
+            self.d = np.full((self.nx_ipx+2, self.ny+2), fill_value=np.nan)
             self.pointcount_ipx = np.full((self.nx_ipx+2, self.ny+2), fill_value=0)
             
             decidx = f['header/decidx'].value
@@ -213,6 +227,8 @@ class CameraFile():
                     
                     self.a[haidx_ipx, ind] = data['a'].value
                     self.b[haidx_ipx, ind] = data['b'].value
+                    self.c[haidx_ipx, ind] = data['c'].value
+                    self.d[haidx_ipx, ind] = data['d'].value
                     self.pointcount_ipx[haidx_ipx, ind] = data['pointcount_ipx'].value
                     
         return
@@ -239,14 +255,14 @@ class CameraFile():
         rcParams['image.origin'] = 'lower'
         
         array = self.camtrans[1:-1,1:-1]
-        array = array-np.nanmean(array, axis=0, keepdims=True)
+        array = array - np.nanmean(array, axis=0, keepdims=True)
         if wrap: array = np.roll(array, self.nx_cam/2, axis=0)
         
         xlim, ylim = np.where(np.isfinite(array))
 
         plt.figure(figsize=(16,12))
-        plt.subplot(221)
-        plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=-2, vmax=2)
+        plt.subplot(321)
+        plt.imshow(array.T, aspect='auto', cmap=viridis, vmin=-.5, vmax=.5)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
         plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
@@ -259,7 +275,7 @@ class CameraFile():
         
         xlim, ylim = np.where(np.isfinite(array))
 
-        plt.subplot(223)
+        plt.subplot(323)
         plt.imshow(array.T, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -273,7 +289,35 @@ class CameraFile():
 
         xlim, ylim = np.where(np.isfinite(array))
     
-        plt.subplot(224)
+        plt.subplot(324)
+        plt.imshow(array.T, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
+        cb = plt.colorbar()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('HA [idx]')
+        plt.ylabel('Dec [idx]')
+        cb.set_label('Phase')
+        
+        array = np.sqrt(self.c[1:-1,1:-1]**2+self.d[1:-1,1:-1]**2)
+        if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
+        
+        xlim, ylim = np.where(np.isfinite(array))
+
+        plt.subplot(325)
+        plt.imshow(array.T, aspect='auto', vmin=0, vmax=.1, cmap=viridis)
+        cb = plt.colorbar()
+        plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+        plt.ylim(np.amin(ylim)-.5, np.amax(ylim)+.5)
+        plt.xlabel('HA [idx]')
+        plt.ylabel('Dec [idx]')
+        cb.set_label('Amplitude')
+        
+        array = np.arctan2(self.d[1:-1,1:-1], self.c[1:-1,1:-1])
+        if wrap: array = np.roll(array, self.nx_ipx/2, axis=0)
+
+        xlim, ylim = np.where(np.isfinite(array))
+    
+        plt.subplot(326)
         plt.imshow(array.T, aspect='auto', vmin=-np.pi, vmax=np.pi, cmap=viridis)
         cb = plt.colorbar()
         plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
@@ -335,7 +379,7 @@ class CameraFile():
                 c_mag0 = mag0-camtrans0
                 
                 # Find the intrapixel variations and correct cflux and ecflux.
-                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y']) + self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])
+                intrapix0 = self.a[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['y']) + self.b[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y']) + self.c[haidx_ipx, decidx[i]]*np.sin(2*np.pi*lc['x']) + self.d[haidx_ipx, decidx[i]]*np.cos(2*np.pi*lc['y'])
                 ipc_mag0 = c_mag0-intrapix0
         
                 # Add also the std of 50 points used in calculating the tranmission.
