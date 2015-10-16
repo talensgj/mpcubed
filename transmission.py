@@ -18,7 +18,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-filelist = glob.glob('/data2/talens/3mEast/camip_20150???LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/std_xy_reduction/camip_201506??LPE.hdf5')
 filelist = np.sort(filelist)
 
 ndays = len(filelist)
@@ -34,8 +34,8 @@ for i in range(ndays):
         haidx = tc['haidx_cam'].value
         camtrans[i, haidx] = tc['camtrans'].value
         haidx = tc['haidx_ipx'].value
-        a = tc['c'].value
-        b = tc['d'].value
+        a = tc['a'].value
+        b = tc['b'].value
         amplitude[i, haidx] = np.sqrt(a**2+b**2)
 
 camtrans = camtrans[:,1:-1]
@@ -44,12 +44,13 @@ amplitude = amplitude[:,1:-1]
 ylim, xlim = np.where(np.isfinite(camtrans))
 
 camtrans = camtrans - np.nanmean(camtrans, axis=1, keepdims=True)
+camtrans = camtrans - camtrans[10]
 
 plt.figure(figsize=(16,8))
 
 plt.subplot(211)
 plt.title('Declination idx %i'%decidx)
-plt.imshow(camtrans, aspect='auto', cmap=viridis, vmin=-.5, vmax=.5)
+plt.imshow(camtrans, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
 plt.colorbar().set_label(r'$\Delta m$')
 
 plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)

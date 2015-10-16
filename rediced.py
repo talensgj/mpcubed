@@ -19,7 +19,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
 
-with h5py.File('/data2/talens/3mEast/fLC_20150611LPE.hdf5') as f, h5py.File('/data2/talens/3mEast/red_std_w_20150611LPE.hdf5') as g:
+with h5py.File('/data2/talens/3mEast/fLC_20150611LPE.hdf5') as f, h5py.File('/data2/talens/3mEast/red_20150611LPE.hdf5') as g:
     
     ascc = f['header_table/ascc'].value
     dec = f['header_table/dec'].value

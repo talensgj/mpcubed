@@ -356,6 +356,11 @@ class CameraFile():
             ra = f['header_table/ra'].value
             dec = f['header_table/dec'].value
             
+            here = (dec > 10) & (dec < 30)
+            ascc = ascc[here]
+            ra = ra[here]
+            dec = dec[here]
+            
             decidx = pgcam.find_decidx(dec)
         
             # Add header to resulting file.

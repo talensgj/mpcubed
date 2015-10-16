@@ -84,6 +84,13 @@ class SkyTransmission():
             self.dec = hdr['dec'].value
             self.nobs = hdr['nobs'].value.astype('int')
         
+            here = (self.dec > 10) & (self.dec < 30)
+            self.ascc = self.ascc[here]
+            self.vmag = self.vmag[here]
+            self.ra = self.ra[here]
+            self.dec = self.dec[here]
+            self.nobs = self.nobs[here]
+        
         # Calculate the transmission.
         if self.grid == 'healpix':
             self._calculate_healpix()
@@ -342,6 +349,11 @@ class SkyFile():
             ascc = f['header_table/ascc'].value
             ra = f['header_table/ra'].value
             dec = f['header_table/dec'].value
+            
+            here = (dec > 10) & (dec < 30)
+            ascc = ascc[here]
+            ra = ra[here]
+            dec = dec[here]
             
             skyidx = hg.find_gridpoint(ra, dec)
             

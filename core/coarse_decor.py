@@ -142,7 +142,7 @@ def coarse_positions(ind1, ind2, ind3, x, y, mag, emag, maxiter=100, eps=1e-3, v
         
         # Computation of parameters.
         m = np.bincount(ind1, weights*(mag-z[ind2]-a[ind3]*sny-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx))/np.bincount(ind1, weights)
-        z = np.bincount(ind2, weights*(mag-m[ind1]-a[ind3]*sny-b[ind3]*csy))/np.bincount(ind2, weights)
+        z = np.bincount(ind2, weights*(mag-m[ind1]-a[ind3]*sny-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx))/np.bincount(ind2, weights)
         
         a = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx)*sny)/np.bincount(ind3, weights*sny**2)
         b = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-a[ind3]*sny-c[ind3]*snx-d[ind3]*csx)*csy)/np.bincount(ind3, weights*csy**2)

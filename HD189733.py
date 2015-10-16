@@ -27,17 +27,18 @@ from core import sysrem
 P = 2.21857312
 Tp = 2454037.612
 
-filelist = glob.glob('/data2/talens/3mEast/fLC_20150???LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_201507??LPE.hdf5')
 filelist = np.sort(filelist)
 
-filelist2 = glob.glob('/data2/talens/3mEast/master_reduction/red_20150???LPE.hdf5')
+filelist2 = glob.glob('/data2/talens/3mEast/red_201507??LPE.hdf5')
 filelist2 = np.sort(filelist2)
 
 lst = np.array([])
+lstidx = np.array([])
 jdmid = np.array([])
-bjdmid = np.array([])
 mag = np.array([])
 emag = np.array([])
+flags = np.array([])
 
 for filename, filename2 in zip(filelist, filelist2):
     print filename, filename2
@@ -47,77 +48,84 @@ for filename, filename2 in zip(filelist, filelist2):
             lc = f['data/807144'].value
         except:
             continue
+            
         rc1 = g['data/807144'].value
-        rc = g['data2/807144'].value
+        rc2 = g['data2/807144'].value
     
-    here = (lc['flag'] < 1) & (rc['flags'] < 1) & np.isfinite(rc['sipc_mag0'])
-    
-    tmp_jd = lc['jdmid']
-    tmp_lst = lc['lstidx'].astype('int')
-    tmp_mag = np.nanmedian(rc['sipc_mag0'])-rc['sipc_mag0']
-    tmp_emag = rc1['emag0']
-    
-    tmp_jd = tmp_jd[here]
-    tmp_mag = tmp_mag[here]
-    tmp_lst = tmp_lst[here]
-    tmp_emag = tmp_emag[here]
-    
-    lst = np.append(lst, tmp_lst)
-    jdmid = np.append(jdmid, tmp_jd)
-    mag = np.append(mag, tmp_mag)
-    emag = np.append(emag, tmp_emag)
+    lst = np.append(lst, lc['lst'])
+    lstidx = np.append(lstidx, lc['lstidx'])
+    jdmid = np.append(jdmid, lc['jdmid'])
+    mag = np.append(mag, rc2['sipc_mag0'])
+    emag = np.append(emag, rc1['emag0'])
+    flags = np.append(flags, lc['flag']+rc1['flags']+rc2['flags'])
+
+lstidx = lstidx.astype('int')
 
 dayidx = np.floor(jdmid)
 dayidx = dayidx-np.amin(dayidx)
 dayidx = dayidx.astype('int')
-lst = lst.astype('int')
 
-a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lst, mag, emag)
+binidx = np.ravel_multi_index((dayidx, lstidx//50), (120, 270))
 
-mag = mag - a1[dayidx]*a2[lst]
+here = (flags < 1)
+lst = lst[here]
+lstidx = lstidx[here]
+jdmid = jdmid[here]
+mag = mag[here]
+emag = emag[here]
+dayidx = dayidx[here]
+binidx = binidx[here]
 
-plt.plot(a2, '.')
+m = np.bincount(dayidx, mag/emag**2)/np.bincount(dayidx, 1./emag**2)
+mag = mag - m[dayidx]
+
+plt.plot(jdmid, mag, '.')
 plt.show()
 
-a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lst, mag, emag)
-
-mag = mag - a1[dayidx]*a2[lst]
-
-plt.plot(a2, '.')
+plt.plot(lst, mag, '.')
 plt.show()
 
-a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lst, mag, emag)
-
-mag = mag - a1[dayidx]*a2[lst]
-
-plt.plot(a2, '.')
+plt.plot(dayidx, mag, '.')
 plt.show()
-
-a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lst, mag, emag)
-
-mag = mag - a1[dayidx]*a2[lst]
-
-plt.plot(a2, '.')
-plt.show()
-
-a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lst, mag, emag)
-
-mag = mag - a1[dayidx]*a2[lst]
-
-plt.plot(a2, '.')
-plt.show()
-
-binidx = np.ravel_multi_index((dayidx, lst//50), (120, 270))
 
 count = index_functions.index_statistics(binidx, binidx, statistic='count')
 bin_jd = index_functions.index_statistics(binidx, jdmid, statistic='mean')
+bin_lst = index_functions.index_statistics(binidx, lst, statistic='mean')
 bin_mag = index_functions.index_statistics(binidx, mag, statistic='mean')
 bin_emag = index_functions.index_statistics(binidx, mag, statistic='std')/np.sqrt(count)
 
-here = count==50
+plt.figure(figsize=(16,8))
+plt.subplot(211)
+plt.plot(bin_lst, bin_mag, '.', alpha=.1)
+plt.ylim(-.1, .1)
+plt.ylabel(r'$\Delta m$')
+
+for i in range(5):
+    a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lstidx, mag, emag)
+    print chisq
+    mag = mag - a1[dayidx]*a2[lstidx]
+
+count = index_functions.index_statistics(binidx, binidx, statistic='count')
+bin_jd = index_functions.index_statistics(binidx, jdmid, statistic='mean')
+bin_lst = index_functions.index_statistics(binidx, lst, statistic='mean')
+bin_mag = index_functions.index_statistics(binidx, mag, statistic='mean')
+bin_emag = index_functions.index_statistics(binidx, mag, statistic='std')/np.sqrt(count)
+
+plt.subplot(212)
+plt.plot(bin_lst, bin_mag, '.', alpha=.1)
+plt.ylim(-.1, .1)
+plt.xlabel('LST [idx]')
+plt.ylabel(r'$\Delta m$')
+plt.show()
+
+here = (count == 50)
 bin_jd = bin_jd[here]
+bin_lst = bin_lst[here]
 bin_mag = bin_mag[here]
 bin_emag = bin_emag[here]
+
+plt.plot(bin_jd, bin_mag, '.')
+plt.show()
 
 phase = np.mod(bin_jd-Tp, P)/P
 phase = np.mod(phase+.5, 1)
@@ -132,24 +140,31 @@ plt.figure(figsize=(16,5))
 plt.errorbar(phase-.5, bin_mag, yerr=bin_emag, fmt='.')
 plt.plot(mphase-.5, model-1)
 plt.xlim(-.5, .5)
-plt.ylim(-.1, .1)
+plt.ylim(.1, -.1)
 plt.xlabel('Phase')
 plt.ylabel(r'$\Delta m$')
 plt.show()
 
 freq, chisq = BLS_ms.BLS(bin_jd, bin_mag, bin_emag)
 
-plt.plot(freq, chisq)
-plt.axvline(1/P)
+plt.plot(freq, chisq, c='k')
+plt.axvline(1/P, c='g')
+plt.axvline(freq[np.argmax(chisq)], c='r')
+plt.xlabel(r'Frequency [day$^{-1}$]')
+plt.ylabel(r'$\Delta \chi^2$')
 plt.show()
 
 P = 1/freq[np.argmax(chisq)]
+print chisq[np.argmax(chisq)]
+print P
+phase = np.mod(bin_jd/P, 1.)
 
-phase = np.mod(bin_jd, P)/P
-phase = np.mod(phase+.5, 1)
-
+plt.figure(figsize=(16,5))
 plt.errorbar(phase, bin_mag, yerr=bin_emag, fmt='.')
-plt.ylim(-.1, .1)
+plt.xlim(0, 1)
+plt.ylim(.1, -.1)
+plt.xlabel('Unreferenced Phase')
+plt.ylabel(r'$\Delta m$')
 plt.show()
 
 
