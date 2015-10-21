@@ -18,12 +18,13 @@ rcParams['axes.titlesize'] = 'xx-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-filelist = glob.glob('/data2/talens/3mEast/std_xy_reduction/camip_201506??LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/red_aper_xy/camip_201506??LPE.hdf5')
 filelist = np.sort(filelist)
 
 ndays = len(filelist)
 camtrans = np.full((ndays, 13502), fill_value=np.nan)
-amplitude = np.full((ndays, 272), fill_value=np.nan)
+Ay = np.full((ndays, 272), fill_value=np.nan)
+Ax = np.full((ndays, 272), fill_value=np.nan)
 
 decidx = 451
 for i in range(ndays):
@@ -36,10 +37,15 @@ for i in range(ndays):
         haidx = tc['haidx_ipx'].value
         a = tc['a'].value
         b = tc['b'].value
-        amplitude[i, haidx] = np.sqrt(a**2+b**2)
+        Ay[i, haidx] = np.sqrt(a**2+b**2)
+        c = tc['c'].value
+        d = tc['d'].value
+        Ax[i, haidx] = np.sqrt(c**2+d**2)
+
 
 camtrans = camtrans[:,1:-1]
-amplitude = amplitude[:,1:-1]
+Ax = Ax[:,1:-1]
+Ay = Ay[:,1:-1]
 
 ylim, xlim = np.where(np.isfinite(camtrans))
 
@@ -48,20 +54,22 @@ camtrans = camtrans - camtrans[10]
 
 plt.figure(figsize=(16,8))
 
-plt.subplot(211)
+ax = plt.subplot(311)
 plt.title('Declination idx %i'%decidx)
-plt.imshow(camtrans, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
+plt.imshow(camtrans, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1, extent=(0,24,0,ndays))
 plt.colorbar().set_label(r'$\Delta m$')
 
-plt.xlim(np.amin(xlim)-.5, np.amax(xlim)+.5)
+plt.subplot(312, sharex=ax, sharey=ax)
+plt.imshow(Ax, aspect='auto', cmap=viridis, vmin=0, vmax=.1, extent=(0,24,0,ndays))
+plt.colorbar().set_label(r'$A_{x}$')
 
-plt.subplot(212)
-plt.imshow(amplitude, aspect='auto', cmap=viridis, vmin=0, vmax=.1)
-plt.colorbar().set_label('Amplitude')
+plt.subplot(313, sharex=ax, sharey=ax)
+plt.imshow(Ay, aspect='auto', cmap=viridis, vmin=0, vmax=.1, extent=(0,24,0,ndays))
+plt.colorbar().set_label(r'$A_{y}$')
 
-plt.xlim((np.amin(xlim))/50.-.5, (np.amax(xlim))/50.+.5)
+plt.xlim(18.5, 23)
 
-plt.xlabel('Hour Angle [idx]')
+plt.xlabel('Hour Angle')
 
 plt.tight_layout()
 plt.show()

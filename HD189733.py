@@ -27,10 +27,10 @@ from core import sysrem
 P = 2.21857312
 Tp = 2454037.612
 
-filelist = glob.glob('/data2/talens/3mEast/fLC_201507??LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_201506??LPE.hdf5')
 filelist = np.sort(filelist)
 
-filelist2 = glob.glob('/data2/talens/3mEast/red_201507??LPE.hdf5')
+filelist2 = glob.glob('/data2/talens/3mEast/red_aper_y/red_201506??LPE.hdf5')
 filelist2 = np.sort(filelist2)
 
 lst = np.array([])
@@ -59,6 +59,11 @@ for filename, filename2 in zip(filelist, filelist2):
     emag = np.append(emag, rc1['emag0'])
     flags = np.append(flags, lc['flag']+rc1['flags']+rc2['flags'])
 
+phase = (jdmid - Tp)/P-1400
+
+plt.plot(phase, mag, '.')
+plt.show()
+
 lstidx = lstidx.astype('int')
 
 dayidx = np.floor(jdmid)
@@ -79,15 +84,6 @@ binidx = binidx[here]
 m = np.bincount(dayidx, mag/emag**2)/np.bincount(dayidx, 1./emag**2)
 mag = mag - m[dayidx]
 
-plt.plot(jdmid, mag, '.')
-plt.show()
-
-plt.plot(lst, mag, '.')
-plt.show()
-
-plt.plot(dayidx, mag, '.')
-plt.show()
-
 count = index_functions.index_statistics(binidx, binidx, statistic='count')
 bin_jd = index_functions.index_statistics(binidx, jdmid, statistic='mean')
 bin_lst = index_functions.index_statistics(binidx, lst, statistic='mean')
@@ -100,7 +96,7 @@ plt.plot(bin_lst, bin_mag, '.', alpha=.1)
 plt.ylim(-.1, .1)
 plt.ylabel(r'$\Delta m$')
 
-for i in range(5):
+for i in range(0):
     a1, a2, niter, chisq, npoints, npars = sysrem.sysrem(dayidx, lstidx, mag, emag)
     print chisq
     mag = mag - a1[dayidx]*a2[lstidx]
@@ -123,9 +119,6 @@ bin_jd = bin_jd[here]
 bin_lst = bin_lst[here]
 bin_mag = bin_mag[here]
 bin_emag = bin_emag[here]
-
-plt.plot(bin_jd, bin_mag, '.')
-plt.show()
 
 phase = np.mod(bin_jd-Tp, P)/P
 phase = np.mod(phase+.5, 1)

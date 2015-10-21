@@ -4,6 +4,16 @@
 import h5py
 import numpy as np
 
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+from viridis import viridis 
+
+rcParams['xtick.labelsize'] = 'large'
+rcParams['ytick.labelsize'] = 'large'
+rcParams['axes.labelsize'] = 'x-large'
+rcParams['image.interpolation'] = 'none'
+rcParams['image.origin'] = 'lower'
+
 class fLCfile():
     
     def __init__(self, fLCfile):
@@ -55,16 +65,6 @@ class fLCfile():
             
     def visualize(self, ascc, mode='ha'):
         
-        import matplotlib.pyplot as plt
-        from matplotlib import rcParams
-        from viridis import viridis 
-
-        rcParams['xtick.labelsize'] = 'large'
-        rcParams['ytick.labelsize'] = 'large'
-        rcParams['axes.labelsize'] = 'x-large'
-        rcParams['image.interpolation'] = 'none'
-        rcParams['image.origin'] = 'lower'
-        
         if len(ascc) == 1:
             self._single(ascc)
         else:
@@ -83,7 +83,7 @@ class fLCfile():
         plt.figure(figsize=(16,8))
         
         ax = plt.subplot(311)
-        plt.title(r'RA = %.2f, Dec = %.2f, V = %.2f, B = %.2f, N = %i'%(ra, dec, vmag, bmag, nobs))
+        plt.title(r'ASCC %s, RA = %.2f, Dec = %.2f, V = %.2f, B = %.2f, N = %i'%(ascc[0], ra, dec, vmag, bmag, nobs))
         plt.plot(jdmid, flux0, '.', label='flux0')
         plt.plot(jdmid, flux1, '.', label='flux1')
         plt.ylabel('Flux')

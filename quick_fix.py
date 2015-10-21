@@ -46,9 +46,13 @@ def update_nobs(filename):
         del myf['header_table/nobs']
         myf['header_table'].create_dataset('nobs', data=nobs)
     
-filelist = glob.glob('/data2/talens/3mEast/fLC_201508??LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_201505??LPE.hdf5')
 filelist = np.sort(filelist)
+
+filelist = filelist[10:]
+print filelist
 
 for filename in filelist:
     print 'Processing', filename
+    quick_fix(filename)
     update_nobs(filename)

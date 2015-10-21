@@ -85,19 +85,15 @@ def coarse_decorrelation(ind1, ind2, values, errors, maxiter=100, eps=1e-3, verb
             # Check if the solution has converged.
             critm = np.nanmax(np.abs(m-m_old))
             critz = np.nanmax(np.abs(z-z_old))
-            crits1 = np.nanmax(np.abs(sigma1-sigma1_old))
-            crits2 = np.nanmax(np.abs(sigma2-sigma2_old))
             
             if verbose:
-                print ' critm = %g, critz = %g, crits1 = %g, crits2 = %g'%(critm, critz, crits1, crits2)
+                print ' critm = %g, critz = %g'%(critm, critz)
             
             if (critm < eps) & (critz < eps):
                 break
 
         m_old = np.copy(m)
         z_old = np.copy(z)
-        sigma1_old = np.copy(sigma1)
-        sigma2_old = np.copy(sigma2)
     
     # Compute the chi-square value of the solution.
     chi_tmp = weights*(values - m[ind1] - z[ind2])**2

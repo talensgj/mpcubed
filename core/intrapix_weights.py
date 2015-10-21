@@ -44,8 +44,8 @@ class IntraPixel():
                 x[select[i]:select[i+1]] = lc[ascc[i]]['x']
                 y[select[i]:select[i+1]] = lc[ascc[i]]['y']
                 flux0[select[i]:select[i+1]] = lc[ascc[i]]['flux0']
-                #eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
                 eflux0[select[i]:select[i+1]] = lc[ascc[i]]['eflux0']
+                #eflux0[select[i]:select[i+1]] = index_statistics(lc[ascc[i]]['lstidx']//50, lc[ascc[i]]['flux0'], statistic='std', keeplength=True)
                 sky[select[i]:select[i+1]] = lc[ascc[i]]['sky']
                 flags[select[i]:select[i+1]] = lc[ascc[i]]['flag']
    
