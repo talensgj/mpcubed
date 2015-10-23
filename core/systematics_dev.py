@@ -31,11 +31,11 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
         if use_weights:
             res = mag - sol1
             sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2+(sigma**2)[ind1])
+            weights = 1./(emag**2 + (sigma**2)[ind1])
     
         if (niter > 0):
             
-            crit1 = np.nanmax(np.abs(sol1-sol1_old))
+            crit1 = np.nanmax(np.abs(sol1 - sol1_old))
             
             if verbose:
                 print ' crit1 = %g'%(crit1)
@@ -49,7 +49,10 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     chi_tmp = weights*(mag - sol1)**2
     chisq = np.sum(chi_tmp)/(npoints - npars)
     
+    if use_weights:
+        return m, z, sigma, niter, chisq, npoints, npars
     return m, z, niter, chisq, npoints, npars
+
 
 def trans_ipx(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
     
@@ -96,13 +99,13 @@ def trans_ipx(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100,
         if use_weights:
             res = mag - sol1 - sol2 - sol3
             sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2+(sigma**2)[ind1])
+            weights = 1./(emag**2 + (sigma**2)[ind1])
     
         if (niter > 0):
             
-            crit1 = np.nanmax(np.abs(sol1-sol1_old))
-            crit2 = np.nanmax(np.abs(sol2-sol2_old))
-            crit3 = np.nanmax(np.abs(sol3-sol3_old))
+            crit1 = np.nanmax(np.abs(sol1 - sol1_old))
+            crit2 = np.nanmax(np.abs(sol2 - sol2_old))
+            crit3 = np.nanmax(np.abs(sol3 - sol3_old))
             
             if verbose:
                 print ' crit1 = %g, crit2 = %g, crit3 = %g'%(crit1, crit2, crit3)
@@ -118,6 +121,8 @@ def trans_ipx(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100,
     chi_tmp = weights*(mag - sol1 - sol2 - sol3)**2
     chisq = np.sum(chi_tmp)/(npoints - npars)
     
+    if use_weights:
+        return m, z, sigma, a, b, c, d, niter, chisq, npoints, npars
     return m, z, a, b, c, d, niter, chisq, npoints, npars
 
 def trans_sky(ind1, ind2, ind3, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
