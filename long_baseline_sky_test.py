@@ -28,6 +28,30 @@ filelist = glob.glob('/data2/talens/3mEast/fLC_201507??LPE.hdf5')
 filelist = np.sort(filelist)
 print filelist
 
+with h5py.File('/data2/talens/3mEast/LBtests/camip_201506LPE.hdf5') as f:
+    
+    camtransidx = f['data/camtransidx'].value
+    z = f['data/z'].value
+    intrapixidx = f['data/intrapixidx'].value
+    a = f['data/a'].value
+    b = f['data/b'].value
+    c = f['data/c'].value
+    d = f['data/d'].value
+
+pg = PolarGrid(13500, 720)
+z = pg.put_values_on_grid(z, camtransidx, np.nan)
+pg2 = PolarGrid(270, 720)
+a = pg.put_values_on_grid(a, intrapixidx, np.nan)
+b = pg.put_values_on_grid(b, intrapixidx, np.nan)
+c = pg.put_values_on_grid(c, intrapixidx, np.nan)
+d = pg.put_values_on_grid(d, intrapixidx, np.nan)
+
+z = np.ravel(z)
+a = np.ravel(a)
+b = np.ravel(b)
+c = np.ravel(c)
+d = np.ravel(d)
+
 mascc = np.array([])
 mra = np.array([])
 mdec = np.array([])
@@ -38,6 +62,9 @@ mflux = np.array([])
 meflux = np.array([])
 msky = np.array([])
 mflag = np.array([])
+mx = np.array([])
+my = np.array([])
+mlst = np.array([])
 
 for filename in filelist:
     f = fLCfile(filename)
@@ -52,7 +79,7 @@ for filename in filelist:
     dec = dec[here]
     nobs = nobs[here]
 
-    jdmid, lstidx, flux, eflux, sky, flag = f.read_data(['jdmid', 'lstidx', 'flux0', 'eflux0', 'sky', 'flag'], ascc, nobs)
+    jdmid, lstidx, flux, eflux, sky, flag, x, y, lst = f.read_data(['jdmid', 'lstidx', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y', 'lst'], ascc, nobs)
 
     mascc = np.append(mascc, ascc)
     mra = np.append(mra, ra)
@@ -65,6 +92,9 @@ for filename in filelist:
     meflux = np.append(meflux, eflux)
     msky = np.append(msky, sky)
     mflag = np.append(mflag, flag)
+    mx = np.append(mx, x)
+    my = np.append(my, y)
+    mlst = np.append(mlst, lst)
     
 ascc = mascc
 ra = mra
@@ -77,6 +107,8 @@ flux = mflux
 eflux = meflux
 sky = msky
 flag = mflag
+x = mx
+y = my
     
 nobs = nobs.astype('int')
 lstidx = lstidx.astype('int')
@@ -91,6 +123,10 @@ dayidx = dayidx.astype('int')
 
 skytransidx = np.ravel_multi_index((dayidx, lstidx), (31, 13500))
 
+ha = np.mod(lst*15 - np.repeat(ra, nobs), 360)
+idx1 = pg.find_gridpoint(ha, np.repeat(dec, nobs))
+idx2 = pg2.find_gridpoint(ha, np.repeat(dec, nobs))
+
 # Flag bad data.
 here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
 flux = flux[here]
@@ -98,6 +134,10 @@ eflux = eflux[here]
 
 staridx = staridx[here]
 skytransidx = skytransidx[here]
+idx1 = idx1[here]
+idx2 = idx2[here]
+x = x[here]
+y = y[here]
 
 # Convert flux to magnitudes
 mag = 25 - 2.5*np.log10(flux)

@@ -24,7 +24,7 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-filelist = glob.glob('/data2/talens/3mEast/fLC_201506??LPE.hdf5')
+filelist = glob.glob('/data2/talens/3mEast/fLC_2015060?LPE.hdf5')
 filelist = np.sort(filelist)
 print filelist
 
@@ -134,7 +134,7 @@ for ind in range(401, 481):
     mc = np.append(mc, c)
     md = np.append(md, d)
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_201506LPE.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_2015060LPE.hdf5') as f:
     
     grp = f.create_group('data')
     grp.create_dataset('camtransidx', data=ipx1)
