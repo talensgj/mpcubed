@@ -24,10 +24,10 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_test.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5', 'r') as f:
     z = f['data/z'].value
 
-f = fLCfile('/data2/talens/3mEast/LBtests/test.hdf5')
+f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
 pg = PolarGrid(13500, 720)
 hg = HealpixGrid(8)
 
@@ -37,9 +37,9 @@ Mnobs = Mnobs.astype('int')
 Mstaridx = np.arange(len(Mascc))
 skyidx, skyuni = hg.find_gridpoint(Mra, Mdec, compact=True)
 nbins = len(skyidx)      
-print hg.npix
+
 m = np.zeros(len(Mascc))
-s = np.full((hg.npix, 5*13500), fill_value=np.nan)
+s = np.full((hg.npix, 15*13500), fill_value=np.nan)
 
 niter = np.zeros(nbins)
 chisq = np.zeros(nbins)
@@ -64,7 +64,7 @@ for ind in range(nbins):
     dayidx = np.floor(jdmid).astype('int')
     dayidx = dayidx - 2457175
     
-    skytransidx = np.ravel_multi_index((dayidx, lstidx), (5, 13500))
+    skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
         
     ha = np.mod(lst*15 - np.repeat(ra, nobs), 360.)
     camtransidx = pg.find_gridpoint(ha, np.repeat(dec, nobs))
@@ -86,13 +86,13 @@ for ind in range(nbins):
     staridx, staruni = np.unique(staridx, return_inverse=True)
     skytransidx, skytransuni = np.unique(skytransidx, return_inverse=True)
 
+    sol = z[camtransidx]
+    mag = mag - sol
+
     # Calculate a model fit to the data.
-    m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag - z[camtransidx], emag, verbose=False, use_weights=False)
+    m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=False)
         
-    if np.any(np.isnan(s[skyidx[ind], skytransidx])):
-        print 'Warning', skyidx[ind]
-        
-with h5py.File('/data2/talens/3mEast/LBtests/sky_test.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter2.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('skyidx', data=skyidx)

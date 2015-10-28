@@ -24,10 +24,10 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/Stability/sky_20150629LPE.hdf5', 'r') as f:
     s = f['data/s'].value
 
-f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
+f = fLCfile('/data2/talens/3mEast/fLC_20150629LPE.hdf5')
 pg = PolarGrid(13500, 720)
 hg = HealpixGrid(8)
 
@@ -68,9 +68,10 @@ for ind in range(nbins):
     camtransidx = pg.find_gridpoint(ha, np.repeat(dec, nobs))
     
     skyidx = np.repeat(skyidx, nobs)
-    dayidx = np.floor(jdmid).astype('int')
-    dayidx = dayidx - 2457175
-    skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
+    #dayidx = np.floor(jdmid).astype('int')
+    #dayidx = dayidx - 2457175
+    #skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
+    skytransidx = lstidx
         
     # Flag bad data.
     here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
@@ -90,13 +91,13 @@ for ind in range(nbins):
     staridx, staruni = np.unique(staridx, return_inverse=True)
     camtransidx, camtransuni = np.unique(camtransidx, return_inverse=True)
 
-    sol = s[skyidx, skytransidx]
-    mag = mag - sol
+    #sol = s[skyidx, skytransidx]
+    #mag = mag - sol
 
     # Calculate a model fit to the data.
     m[staridx], z[camtransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, camtransuni, mag, emag, verbose=True, use_weights=False)
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/Stability/camip_20150629LPE_iter1.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)

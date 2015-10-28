@@ -24,7 +24,7 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/sky_15day.hdf5', 'r') as f:
     s = f['data/s'].value
 
 f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
@@ -96,7 +96,7 @@ for ind in range(nbins):
     # Calculate a model fit to the data.
     m[staridx], z[camtransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, camtransuni, mag, emag, verbose=True, use_weights=False)
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter1.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)
