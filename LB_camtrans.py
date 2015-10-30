@@ -24,11 +24,12 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter2.hdf5', 'r') as f:
     s = f['data/s'].value
 
 f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
 pg = PolarGrid(13500, 720)
+pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
 Mascc, Mra, Mdec, Mnobs = f.read_header(['ascc', 'ra', 'dec', 'nobs'])
@@ -42,6 +43,10 @@ Mskyidx = hg.find_gridpoint(Mra, Mdec)
 
 m = np.zeros(len(Mascc))
 z = np.full((13502*722,), fill_value=np.nan)
+a = np.full((272*722,), fill_value=np.nan)
+b = np.full((272*722,), fill_value=np.nan)
+c = np.full((272*722,), fill_value=np.nan)
+d = np.full((272*722,), fill_value=np.nan)
 
 niter = np.zeros(nbins)
 chisq = np.zeros(nbins)
@@ -58,7 +63,7 @@ for ind in range(nbins):
     staridx = Mstaridx[here]
     skyidx = Mskyidx[here]
 
-    jdmid, lstidx, lst, flux, eflux, sky, flag = f.read_data(['jdmid', 'lstidx', 'lst', 'flux0', 'eflux0', 'sky', 'flag'], ascc, nobs)
+    jdmid, lstidx, lst, flux, eflux, sky, flag, x, y = f.read_data(['jdmid', 'lstidx', 'lst', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y'], ascc, nobs)
     lstidx = lstidx.astype('int')
 
     # Build indices.    
@@ -66,6 +71,8 @@ for ind in range(nbins):
     
     ha = np.mod(lst*15 - np.repeat(ra, nobs), 360.)
     camtransidx = pg.find_gridpoint(ha, np.repeat(dec, nobs))
+    
+    intrapixidx = pg2.find_gridpoint(ha, np.repeat(dec, nobs))
     
     skyidx = np.repeat(skyidx, nobs)
     dayidx = np.floor(jdmid).astype('int')
@@ -76,9 +83,12 @@ for ind in range(nbins):
     here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
     flux = flux[here]
     eflux = eflux[here]
+    x = x[here]
+    y = y[here]
 
     staridx = staridx[here]
     camtransidx = camtransidx[here]
+    intrapixidx = intrapixidx[here]
     skyidx = skyidx[here]
     skytransidx = skytransidx[here]
 
@@ -89,14 +99,15 @@ for ind in range(nbins):
     # Get unique indices.
     staridx, staruni = np.unique(staridx, return_inverse=True)
     camtransidx, camtransuni = np.unique(camtransidx, return_inverse=True)
+    intrapixidx, intrapixuni = np.unique(intrapixidx, return_inverse=True)
 
     sol = s[skyidx, skytransidx]
     mag = mag - sol
 
     # Calculate a model fit to the data.
-    m[staridx], z[camtransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, camtransuni, mag, emag, verbose=True, use_weights=False)
+    m[staridx], z[camtransidx], a[intrapixidx], b[intrapixidx], c[intrapixidx], d[intrapixidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans_ipx(staruni, camtransuni, intrapixuni, mag, emag, x, y, verbose=True, use_weights=False)
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)
@@ -108,10 +119,20 @@ with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5') as f:
     grp = f.create_group('data')
     grp.create_dataset('ascc', data=Mascc)
     grp.create_dataset('m', data=m)
+    
     dset2 = grp.create_dataset('z', data=z)
     dset2.attrs['grid'] = 'polar'
     dset2.attrs['nx'] = 13500
     dset2.attrs['ny'] = 720    
+    
+    dset3 = grp.create_dataset('a', data=a)
+    dset3.attrs['grid'] = 'polar'
+    dset3.attrs['nx'] = 270
+    dset3.attrs['ny'] = 720
+    grp.create_dataset('b', data=b)
+    grp.create_dataset('c', data=c)
+    grp.create_dataset('d', data=d)
+
         
         
         

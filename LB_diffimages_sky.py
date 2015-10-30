@@ -24,11 +24,11 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter2.hdf5', 'r') as f:
     m1 = f['data/m'].value
     s1 = f['data/s'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/sky_15day_iter2.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter3.hdf5', 'r') as f:
     m2 = f['data/m'].value
     s2 = f['data/s'].value
     

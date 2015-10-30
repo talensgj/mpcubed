@@ -16,6 +16,7 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     # Create the necessary arrays.
     weights = 1/emag**2
     z = np.zeros(np.amax(ind2) + 1)
+    sigma2 = np.zeros(np.amax(ind2) + 1)
     
     for niter in range(maxiter):
         
@@ -30,8 +31,9 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     
         if use_weights:
             res = mag - sol1
-            sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2 + (sigma**2)[ind1])
+            sigma1 = find_sigma(ind1, res, np.sqrt(emag**2 + (sigma2**2)[ind2]))
+            sigma2 = find_sigma(ind2, res, np.sqrt(emag**2 + (sigma1**2)[ind1]))
+            weights = 1./(emag**2 + (sigma1**2)[ind1] + (sigma2**2)[ind2])
     
         if (niter > 0):
             
@@ -50,7 +52,7 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     chisq = np.sum(chi_tmp)/(npoints - npars)
     
     if use_weights:
-        return m, z, sigma, niter, chisq, npoints, npars
+        return m, z, sigma1, sigma2, niter, chisq, npoints, npars
     return m, z, niter, chisq, npoints, npars
 
 
