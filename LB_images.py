@@ -29,7 +29,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5_weights.hdf5', 'r') as f:
     mz = f['data/m'].value
     z = f['data/z'].value
     a = f['data/a'].value
@@ -37,7 +37,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5', 'r') as f:
     c = f['data/c'].value
     d = f['data/d'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter3.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter4_weights.hdf5', 'r') as f:
     ms = f['data/m'].value
     s = f['data/s'].value
     

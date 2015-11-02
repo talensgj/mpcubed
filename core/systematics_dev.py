@@ -18,6 +18,8 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     z = np.zeros(np.amax(ind2) + 1)
     sigma2 = np.zeros(np.amax(ind2) + 1)
     
+    crit1 = np.zeros(maxiter)
+    
     for niter in range(maxiter):
         
         if verbose:
@@ -37,13 +39,18 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
     
         if (niter > 0):
             
-            crit1 = np.nanmax(np.abs(sol1 - sol1_old))
+            crit1[niter] = np.nanmax(np.abs(sol1 - sol1_old))
             
             if verbose:
-                print ' crit1 = %g'%(crit1)
+                print ' crit1 = %g'%(crit1[niter])
             
-            if (crit1 < eps):
+            if (crit1[niter] < eps):
                 break
+                
+        #if (niter > 1):
+            #dcrit = crit1[niter] - crit1[niter-1]
+            #if (dcrit < 0) & (abs(dcrit) < eps):
+                #break
         
         sol1_old = np.copy(sol1)
     

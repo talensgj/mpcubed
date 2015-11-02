@@ -24,23 +24,24 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
         
-with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
-    
-    vmag = f['header_table/vmag'].value
-        
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter4_weights.hdf5', 'r') as f:
-    
-    sigma1 = f['data/sigma1'].value
+with h5py.File('/data2/talens/3mEast/LBtests/huh.hdf5', 'r') as f:
+
+    s = f['data/s'].value
     sigma2 = f['data/sigma2'].value
-    
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter5_weights.hdf5', 'r') as f:
-    
-    sigma1b = f['data/sigma1'].value
-    sigma2b = f['data/sigma2'].value
 
-plt.plot(vmag, sigma1, '.')
-plt.plot(vmag, sigma1b, '.')
-plt.show()
+ind1, = np.where(np.all(np.isnan(sigma2), axis=0))
+ind2, = np.where(np.all(np.isnan(sigma2), axis=1))
 
-plt.plot(sigma1, sigma1 - sigma1b, '.')
+s = np.delete(s, ind1, axis=1)
+s = np.delete(s, ind2, axis=0)
+sigma2 = np.delete(sigma2, ind1, axis=1)
+sigma2 = np.delete(sigma2, ind2, axis=0)
+
+plt.subplot(211)
+plt.imshow(s.T, aspect='auto', cmap=viridis, vmin=-.5, vmax=.5)
+plt.colorbar()
+plt.subplot(212)
+plt.imshow(sigma2.T, aspect='auto', cmap=viridis, vmin=0, vmax=.5)
+plt.colorbar()
+
 plt.show()

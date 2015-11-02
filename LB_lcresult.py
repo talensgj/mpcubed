@@ -25,7 +25,7 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5_weights.hdf5', 'r') as f:
     z = f['data/z'].value
     a = f['data/a'].value
     b = f['data/b'].value
@@ -35,10 +35,12 @@ with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5', 'r') as f:
 pg1 = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter3.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter5_weights.hdf5', 'r') as f:
     m = f['data/m'].value
+    sigma1 = f['data/sigma1'].value
     s = f['data/s'].value
-
+    sigma2 = f['data/sigma2'].value
+    
 hg = HealpixGrid(8)
     
 with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
@@ -47,7 +49,9 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
     ra = f['header_table/ra'].value
     dec = f['header_table/dec'].value
     
-    for i in range(0, len(ascc), 50):
+    for i in range(len(ascc)):
+        
+        if ascc[i] not in ['807144', '803577', '893922']: continue
         
         lc = f['data/'+ascc[i]].value
     
@@ -61,9 +65,10 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
         skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
 
         mag = 25 - 2.5*np.log10(lc['flux0'])
-        emag = 2.5/np.log(10)*lc['flux0']/lc['eflux0']
+        emag = 2.5/np.log(10)*lc['eflux0']/lc['flux0']
         zsol = z[camtransidx]
         ssol = s[skyidx, skytransidx]
+        ssigma = sigma2[skyidx, skytransidx]
         ipx = a[intrapixidx]*np.sin(2*np.pi*lc['x']) + b[intrapixidx]*np.cos(2*np.pi*lc['x']) + c[intrapixidx]*np.sin(2*np.pi*lc['y']) + d[intrapixidx]*np.cos(2*np.pi*lc['y']) 
         
         here = np.isfinite(mag)
@@ -76,60 +81,59 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
         jdmid = lc['jdmid'][here]
         lst = lc['lst'][here]
         ipx = ipx[here]
+        ssigma = ssigma[here]
         
-        #a = 0
-        #for i in range(1):
-            #here = dayidx != 1
-            #a1, a2, niter, chisq, npoints, npars = systematics_dev.trans(dayidx[here], lstidx[here], (mag - z - s - ipx)[here], emag[here])
-            #print a1
-            #plt.plot(a2, '.')
-            #plt.show()
+        a1, a2, niter, chisq, npoints, npars = systematics_dev.trans(dayidx, lstidx, (mag - zsol - ssol - ipx), np.sqrt(emag**2+sigma1[i]**2+ssigma**2))
             
-            #a = a + a2[lstidx]
-        
-        plt.figure(figsize=(16,8))
-        ax = plt.subplot(311)
-        plt.title(ascc[i])
-        plt.plot(mag, '.')
-        plt.plot(zsol + m[i] + ipx, '.')
-        plt.subplot(312, sharex=ax, sharey=ax)
-        plt.plot(mag - zsol - ipx, '.')
-        plt.plot(ssol + m[i], '.')
-        plt.subplot(313, sharex=ax, sharey=ax)
-        plt.plot(mag - zsol - ssol - ipx, '.')
-        #plt.plot(a + m, '.')
-        plt.ylim(m[i]-1, m[i]+1)
-        plt.tight_layout()
+        trend = a2[lstidx]
+    
+        plt.plot(a2, '.')
         plt.show()
-        
-        #binidx = np.ravel_multi_index((dayidx, lstidx//50), (15, 270))
-        
-        #count = np.bincount(binidx)
-        #bin_mag = np.bincount(binidx, mag - z - s - a)/count
-        #bin_jdmid = np.bincount(binidx, jdmid)/count
-        #bin_lst = np.bincount(binidx, lst)/count
-        #bin_mag = bin_mag[count==50]
-        #bin_jdmid = bin_jdmid[count==50]
-        #bin_lst = bin_lst[count==50]
-        
-        #phase = (bin_jdmid - 2454037.612)/2.21857312
-        #phase = np.mod(phase+.5, 1)-.5
         
         #plt.figure(figsize=(16,8))
         #ax = plt.subplot(311)
-        #plt.scatter(bin_lst, bin_mag)
-        #plt.xlabel('LST')
-        #plt.ylabel('magnitude')
-        #plt.subplot(312, sharey=ax)
-        #plt.scatter(bin_jdmid, bin_mag)
-        #plt.xlabel('JD')
-        #plt.ylabel('magnitude')
-        #plt.subplot(313, sharey=ax)
-        #plt.scatter(phase, bin_mag)
-        #plt.xlabel('Phase')
-        #plt.ylabel('magnitude')
+        #plt.title(ascc[i])
+        #plt.plot(mag, '.')
+        #plt.plot(zsol + m[i] + ipx, '.')
+        #plt.subplot(312, sharex=ax, sharey=ax)
+        #plt.plot(mag - zsol - ipx, '.')
+        #plt.errorbar(np.arange(len(ssigma)), ssol + m[i], yerr=ssigma, fmt='.')
+        #plt.subplot(313, sharex=ax, sharey=ax)
+        #plt.plot(mag - zsol - ssol - ipx, '.')
+        #plt.plot(trend + m[i], '.')
+        #plt.ylim(m[i]-1, m[i]+1)
         #plt.tight_layout()
         #plt.show()
+        
+        binidx = np.ravel_multi_index((dayidx, lstidx//50), (15, 270))
+        
+        count = np.bincount(binidx)
+        bin_mag = np.bincount(binidx, mag - zsol - ssol - ipx - trend)/count
+        bin_jdmid = np.bincount(binidx, jdmid)/count
+        bin_lst = np.bincount(binidx, lst)/count
+        bin_mag = bin_mag[count==50]
+        bin_jdmid = bin_jdmid[count==50]
+        bin_lst = bin_lst[count==50]
+        
+        phase = (bin_jdmid - 2454037.612)/2.21857312
+        phase = np.mod(phase+.5, 1)-.5
+        
+        plt.figure(figsize=(16,8))
+        ax = plt.subplot(311)
+        plt.scatter(bin_lst, bin_mag)
+        plt.xlabel('LST')
+        plt.ylabel('magnitude')
+        plt.subplot(312, sharey=ax)
+        plt.scatter(bin_jdmid, bin_mag)
+        plt.xlabel('JD')
+        plt.ylabel('magnitude')
+        plt.subplot(313, sharey=ax)
+        plt.scatter(phase, bin_mag)
+        plt.xlabel('Phase')
+        plt.ylabel('magnitude')
+        plt.ylim(m[i]-.1, m[i]+.1)
+        plt.tight_layout()
+        plt.show()
     
     
     

@@ -29,11 +29,11 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter4_weights.hdf5', 'r') as f:
     m1 = f['data/m'].value
     z1 = f['data/z'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5_weights.hdf5', 'r') as f:
     m2 = f['data/m'].value
     z2 = f['data/z'].value
 

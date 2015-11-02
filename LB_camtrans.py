@@ -24,34 +24,48 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter2.hdf5', 'r') as f:
-    s = f['data/s'].value
+# Read skymap.
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter4_weights.hdf5', 'r') as f:
 
+    idx = f['data/skytrans/idx'].value
+    lstseq = f['data/skytrans/lstseq'].value
+    s = f['data/skytrans/s'].value
+    
+    #sigma1 = f['data/sigma1'].value
+    #sigma2 = f['data/sigma2'].value
+
+# Initialize reader and coordinate grids.
 f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
 pg = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
-Mascc, Mra, Mdec, Mnobs = f.read_header(['ascc', 'ra', 'dec', 'nobs'])
+tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
+tmp[idx, lstseq] = s
+s = tmp
+
+# Read header data.
+Mascc, Mra, Mdec, Mnobs, Mvmag = f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
 Mnobs = Mnobs.astype('int')
 
+# Build indices for the stars.
 Mstaridx = np.arange(len(Mascc))
 decidx, decuni = pg.find_decidx(Mdec, compact=True)
-nbins = len(decidx)      
-
 Mskyidx = hg.find_gridpoint(Mra, Mdec)
 
-m = np.zeros(len(Mascc))
+# Initialize arrays.
+nbins = len(decidx) 
+niter = np.zeros(nbins)
+chisq = np.zeros(nbins)
+npoints = np.zeros(nbins)
+npars = np.zeros(nbins)
+
+m = np.full(len(Mascc), fill_value=np.nan)
 z = np.full((13502*722,), fill_value=np.nan)
 a = np.full((272*722,), fill_value=np.nan)
 b = np.full((272*722,), fill_value=np.nan)
 c = np.full((272*722,), fill_value=np.nan)
 d = np.full((272*722,), fill_value=np.nan)
-
-niter = np.zeros(nbins)
-chisq = np.zeros(nbins)
-npoints = np.zeros(nbins)
-npars = np.zeros(nbins)
 
 for ind in range(nbins):
         
@@ -96,18 +110,23 @@ for ind in range(nbins):
     mag = 25 - 2.5*np.log10(flux)
     emag = 2.5/np.log(10)*eflux/flux
 
+    #sol = s[skyidx, skytransidx]
+    #mag = mag - sol
+    #emag = np.sqrt(emag**2 + (sigma1[staridx])**2 + (sigma2[skyidx, skytransidx])**2)
+
     # Get unique indices.
     staridx, staruni = np.unique(staridx, return_inverse=True)
     camtransidx, camtransuni = np.unique(camtransidx, return_inverse=True)
     intrapixidx, intrapixuni = np.unique(intrapixidx, return_inverse=True)
 
-    sol = s[skyidx, skytransidx]
-    mag = mag - sol
-
     # Calculate a model fit to the data.
     m[staridx], z[camtransidx], a[intrapixidx], b[intrapixidx], c[intrapixidx], d[intrapixidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans_ipx(staruni, camtransuni, intrapixuni, mag, emag, x, y, verbose=True, use_weights=False)
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5') as f:
+    offset = np.nanmedian(m[staridx] - Mvmag[staridx])
+    m[staridx] = m[staridx] - offset
+    z[camtransidx] = z[camtransidx] + offset
+        
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_test_norm.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)
@@ -117,22 +136,25 @@ with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter3.hdf5') as f:
     hdr.create_dataset('npars', data=npars)
     
     grp = f.create_group('data')
-    grp.create_dataset('ascc', data=Mascc)
-    grp.create_dataset('m', data=m)
     
-    dset2 = grp.create_dataset('z', data=z)
-    dset2.attrs['grid'] = 'polar'
-    dset2.attrs['nx'] = 13500
-    dset2.attrs['ny'] = 720    
+    grp.create_dataset('magnitudes/ascc', data=Mascc)
+    grp.create_dataset('magnitudes/m', data=m)
     
-    dset3 = grp.create_dataset('a', data=a)
-    dset3.attrs['grid'] = 'polar'
-    dset3.attrs['nx'] = 270
-    dset3.attrs['ny'] = 720
-    grp.create_dataset('b', data=b)
-    grp.create_dataset('c', data=c)
-    grp.create_dataset('d', data=d)
-
-        
-        
-        
+    idx, = np.where(~np.isnan(z))
+    grp.create_dataset('camtrans/idx', data=idx)
+    grp.create_dataset('camtrans/z', data=z[idx])
+    
+    grp['camtrans'].attrs['grid'] = 'polar'
+    grp['camtrans'].attrs['nx'] = 13500
+    grp['camtrans'].attrs['ny'] = 720   
+    
+    idx, = np.where(~np.isnan(a))
+    grp.create_dataset('intrapix/idx', data=idx)
+    grp.create_dataset('intrapix/a', data=a[idx])
+    grp.create_dataset('intrapix/b', data=b[idx])
+    grp.create_dataset('intrapix/c', data=c[idx])
+    grp.create_dataset('intrapix/d', data=d[idx])
+    
+    grp['intrapix'].attrs['grid'] = 'polar'
+    grp['intrapix'].attrs['nx'] = 270
+    grp['intrapix'].attrs['ny'] = 720
