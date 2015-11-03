@@ -24,20 +24,21 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_test_norm.hdf5', 'r') as f:
-    idx1 = f['data/camtrans/idx'].value
-    z = f['data/camtrans/z'].value
-    idx2 = f['data/intrapix/idx'].value
-    a = f['data/intrapix/a'].value
-    b = f['data/intrapix/b'].value
-    c = f['data/intrapix/c'].value
-    d = f['data/intrapix/d'].value
-
 # Initialize reader and coordinate grids.
 f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
 pg = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
+
+# Read transmap.
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter1.hdf5', 'r') as g:
+    idx1 = g['data/camtrans/idx'].value
+    z = g['data/camtrans/z'].value
+    idx2 = g['data/intrapix/idx'].value
+    a = g['data/intrapix/a'].value
+    b = g['data/intrapix/b'].value
+    c = g['data/intrapix/c'].value
+    d = g['data/intrapix/d'].value
 
 z = pg.put_values_on_grid(z, idx1, np.nan)
 a = pg2.put_values_on_grid(a, idx2, np.nan)
@@ -119,15 +120,14 @@ for ind in range(nbins):
     skytransidx, skytransuni = np.unique(skytransidx, return_inverse=True)
 
     # Calculate a model fit to the data.
-    m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=False)
-    #m[staridx], s[skyidx[ind], skytransidx], sigma1[staridx], sigma2[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=True)
+    #m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=False)
+    m[staridx], s[skyidx[ind], skytransidx], sigma1[staridx], sigma2[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=True)
     
     offset = np.nanmedian(m[staridx] - Mvmag[staridx])
     m[staridx] = m[staridx] - offset
     s[skyidx[ind], skytransidx] = s[skyidx[ind], skytransidx] + offset
-    print offset
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_test_normout.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter1.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('skyidx', data=skyidx)

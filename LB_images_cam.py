@@ -48,7 +48,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
     #c = f['data/c'].value
     #d = f['data/d'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_test_norm.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter1.hdf5', 'r') as f:
     mz = f['data/magnitudes/m'].value
     
     idx1 = f['data/camtrans/idx'].value
@@ -63,12 +63,36 @@ with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_test_norm.hdf5', 'r') a
 pg = PolarGrid(13500, 720)
 z = pg.put_values_on_grid(z, idx1, np.nan)
 z = z - np.nanmean(z)
+
 pg = PolarGrid(270, 720)
 a = pg.put_values_on_grid(a, idx2, np.nan)
 b = pg.put_values_on_grid(b, idx2, np.nan)
 c = pg.put_values_on_grid(c, idx2, np.nan)
 d = pg.put_values_on_grid(d, idx2, np.nan)
-    
+
+#pg = PolarGrid(13500, 720)  
+#zm = np.ma.masked_invalid(z)
+
+#plt.figure(figsize=(13,12))
+
+#plt.suptitle('Transmission', size='xx-large')
+
+#gs = gridspec.GridSpec(2, 2, height_ratios = [.5,10], width_ratios=[10,.5])
+
+#ax1 = plt.subplot(gs[1,0])
+#im = plt.pcolormesh(pg.bins1/15., pg.bins2, zm[1:-1,1:-1].T, cmap=viridis, vmin=-.5, vmax=1.5)
+#plt.xlim(270./15, 347./15)
+#plt.ylim(-20, 65)
+
+#plt.xlabel('Hour Angle')
+#plt.ylabel('Declination')
+
+#ax2 = plt.subplot(gs[1,1])
+#plt.colorbar(im, cax=ax2).set_label('z')
+
+#plt.tight_layout()
+#plt.show()
+
 # Magnitude calibration.
 plt.figure(figsize=(13,12))
     
