@@ -47,10 +47,15 @@ def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbo
             if (crit1[niter] < eps):
                 break
                 
-        #if (niter > 1):
-            #dcrit = crit1[niter] - crit1[niter-1]
-            #if (dcrit < 0) & (abs(dcrit) < eps):
-                #break
+        if (niter > 1):
+            
+            dcrit = crit1[niter] - crit1[niter-1]
+            
+            if verbose:
+                print ' dcrit1 = %g'%(dcrit)
+            
+            if (abs(dcrit) < eps**2):
+                break
         
         sol1_old = np.copy(sol1)
     

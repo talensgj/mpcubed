@@ -48,7 +48,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
     #c = f['data/c'].value
     #d = f['data/d'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5.hdf5', 'r') as f:
     mz = f['data/magnitudes/m'].value
     
     idx1 = f['data/camtrans/idx'].value
@@ -69,6 +69,55 @@ a = pg.put_values_on_grid(a, idx2, np.nan)
 b = pg.put_values_on_grid(b, idx2, np.nan)
 c = pg.put_values_on_grid(c, idx2, np.nan)
 d = pg.put_values_on_grid(d, idx2, np.nan)
+
+#ha = pg.bins1
+#dec = pg.bins2
+
+#from altaz2hadec import altaz2hadec
+#from hadec2altaz import hadec2altaz
+#from mpl_toolkits.basemap import Basemap, shiftgrid, cm
+
+#az0 = 87.96
+#alt0 = 49.07
+
+#ha0, dec0 = altaz2hadec(alt0, az0, lat = 28.76)
+#th0 = 270.84
+#x0 = 2004.5
+#y0 = 1299.8
+
+#ha = ha-180
+#ha0 = ha0-180
+
+#m = Basemap(width=4008*2, height=2672*2, rsphere=24/9e-3, projection='gnom', lat_0=dec0, lon_0=ha0)
+#topodat = m.transform_scalar(z[1:-1,1:-1].T,ha,dec,167*3,167*2)
+#im = m.imshow(topodat)
+#plt.show()
+
+#az0 = 87.96
+#alt0 = 49.07
+#th0 = 270.84
+#x0 = 2004.5
+#y0 = 1299.8
+
+#ha, dec = np.meshgrid(ha, dec)
+
+#alt, az = hadec2altaz(ha, dec, lat = 28.76)
+#print np.amin(az), np.amax(az)
+#plt.contour(alt, [-80, -70, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80])
+#plt.contour(az, [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285, 300, 315, 330, 345])
+#plt.show()
+
+#az0 = az0 - 180
+#az = az - 180
+#print z.shape, alt.shape, az.shape
+#m = Basemap(width=4008, height=2672, rsphere=24/9e-3, projection='gnom', lat_0=alt0, lon_0=az0)
+##topodat = m.transform_scalar(z[1:-1,1:-1].T,ha,dec,167*3,167*2)
+#im = m.pcolormesh(az, alt, z[1:-1,1:-1].T, latlon=True)
+#plt.show()
+
+
+#exit()
+
 
 #pg = PolarGrid(13500, 720)  
 #zm = np.ma.masked_invalid(z)

@@ -31,7 +31,7 @@ pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
 # Read skymap.
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter1.hdf5', 'r') as g:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter4.hdf5', 'r') as g:
 
     idx = g['data/skytrans/idx'].value
     lstseq = g['data/skytrans/lstseq'].value
@@ -130,7 +130,7 @@ for ind in range(nbins):
     m[staridx] = m[staridx] - offset
     z[camtransidx] = z[camtransidx] + offset
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter2.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)
