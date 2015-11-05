@@ -35,13 +35,13 @@ def delete_allnan(array):
     
     return array
 
-with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2.hdf5', 'r') as f:
     vmag = f['header_table/vmag'].value
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
     
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter5.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2.hdf5', 'r') as f:
     ms = f['data/magnitudes/m'].value
     
     idx = f['data/skytrans/idx'].value

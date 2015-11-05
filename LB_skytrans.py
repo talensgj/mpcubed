@@ -25,13 +25,13 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
 # Initialize reader and coordinate grids.
-f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
+f = fLCfile('/data2/talens/3mEast/LBtests/June2.hdf5')
 pg = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
 # Read transmap.
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5.hdf5', 'r') as g:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter1.hdf5', 'r') as g:
     idx1 = g['data/camtrans/idx'].value
     z = g['data/camtrans/z'].value
     idx2 = g['data/intrapix/idx'].value
@@ -88,7 +88,8 @@ for ind in range(nbins):
     staridx = np.repeat(staridx, nobs)
     
     dayidx = np.floor(jdmid).astype('int')
-    dayidx = dayidx - 2457175
+    #dayidx = dayidx - 2457175 #June1
+    dayidx = dayidx - 2457190
     
     skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
         
@@ -127,7 +128,7 @@ for ind in range(nbins):
     m[staridx] = m[staridx] - offset
     s[skyidx[ind], skytransidx] = s[skyidx[ind], skytransidx] + offset
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter5.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2_iter1.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('skyidx', data=skyidx)

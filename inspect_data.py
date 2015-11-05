@@ -27,7 +27,7 @@ from core import sysrem
 P = 2.21857312
 Tp = 2454037.612
 
-filelist = glob.glob('/data2/mascara/LaPalma/20150609LPE/fLC/fLC_20150609LPE.hdf5')
+filelist = glob.glob('/data2/mascara/LaPalma/201504??LPE/fLC/fLC_201504??LPE.hdf5')
 filelist = np.sort(filelist)
 
 lst = np.array([])
