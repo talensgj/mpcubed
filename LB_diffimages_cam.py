@@ -25,7 +25,17 @@ rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
-with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
+def delete_allnan(array):
+    
+    ind1, = np.where(np.all(np.isnan(array), axis=0))
+    ind2, = np.where(np.all(np.isnan(array), axis=1))
+    
+    array = np.delete(array, ind1, axis=1)
+    array = np.delete(array, ind2, axis=0)
+    
+    return array
+
+with h5py.File('/data2/talens/3mEast/LBtests/June2.hdf5', 'r') as f:
     vmag = f['header_table/vmag'].value
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
@@ -33,7 +43,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/15day.hdf5', 'r') as f:
 pg1 = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter4.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June1_iter5.hdf5', 'r') as f:
     mz1 = f['data/magnitudes/m'].value
 
     ipx = f['data/camtrans/idx'].value
@@ -55,7 +65,7 @@ Ay1 = np.sqrt(c1**2 + d1**2)
 px1 = np.arctan2(b1, a1)
 py1 = np.arctan2(d1, c1)
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter5.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter5.hdf5', 'r') as f:
     mz2 = f['data/magnitudes/m'].value
 
     ipx = f['data/camtrans/idx'].value
@@ -77,26 +87,29 @@ Ay2 = np.sqrt(c2**2 + d2**2)
 px2 = np.arctan2(b2, a2)
 py2 = np.arctan2(d2, c2)
 
-plt.figure(figsize=(13,12))
+#plt.figure(figsize=(13,12))
     
-plt.suptitle('Magnitudes', size='xx-large')
+#plt.suptitle('Magnitudes', size='xx-large')
 
-gs = gridspec.GridSpec(3, 1, height_ratios = [.5,10,10])
+#gs = gridspec.GridSpec(3, 1, height_ratios = [.5,10,10])
 
-plt.subplot(gs[1])
-plt.plot(vmag, mz1, '.', alpha=.2)
-plt.plot(vmag, mz2, '.', alpha=.2)
-plt.xlabel('V magnitude')
-plt.ylabel('m')
+#plt.subplot(gs[1])
+#plt.plot(vmag, mz1, '.', alpha=.2)
+#plt.plot(vmag, mz2, '.', alpha=.2)
+#plt.xlabel('V magnitude')
+#plt.ylabel('m')
 
-plt.subplot(gs[2])
-plt.plot(mz1, mz1-mz2, '.', alpha=.2)
-plt.ylim(-.5, .5)
-plt.xlabel('Declination')
-plt.ylabel('m - V')
+#plt.subplot(gs[2])
+#plt.plot(mz1, mz1-mz2, '.', alpha=.2)
+#plt.ylim(-.5, .5)
+#plt.xlabel('Declination')
+#plt.ylabel('m - V')
 
-plt.tight_layout()
-plt.show()
+#plt.tight_layout()
+#plt.show()
+
+dz = (z1 - z2)
+dz = delete_allnan(dz)
 
 plt.figure(figsize=(13,12))
 
@@ -105,7 +118,7 @@ plt.suptitle('Transmission', size='xx-large')
 gs = gridspec.GridSpec(2, 2, height_ratios = [.5,10], width_ratios=[10,.5])
 
 ax1 = plt.subplot(gs[1,0], xticks=[], yticks=[])
-im = plt.imshow((z1-z2).T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
+im = plt.imshow(dz.T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
 plt.xlabel('Hour Angle')
 plt.ylabel('Declination')
 
@@ -115,6 +128,15 @@ plt.colorbar(im, cax=ax2).set_label('z')
 plt.tight_layout()
 plt.show()
 
+dAx = Ax1 - Ax2
+dAy = Ay1 - Ay2
+dpx = px1 - px2
+dpy = py1 - py2
+dAx = delete_allnan(dAx)
+dAy = delete_allnan(dAy)
+dpx = delete_allnan(dpx)
+dpy = delete_allnan(dpy)
+
 plt.figure(figsize=(13,12))
 
 plt.suptitle('Intrapixel Variations', size='xx-large')
@@ -123,23 +145,23 @@ gs = gridspec.GridSpec(3, 3, height_ratios = [.5,10,10], width_ratios=[10,10,.5]
 
 ax1 = plt.subplot(gs[1,0], xticks=[], yticks=[])
 plt.title('x position', size='x-large')
-plt.imshow((Ax1-Ax2).T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
+plt.imshow(dAx.T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
 plt.ylabel('Declination')
 
 plt.subplot(gs[1,1], sharex=ax1, sharey=ax1)
 plt.title('y position', size='x-large')
-im = plt.imshow((Ay1-Ay2).T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
+im = plt.imshow(dAy.T, aspect='auto', cmap=viridis, vmin=-.01, vmax=.01)
 
 ax2 = plt.subplot(gs[1,2])
 plt.colorbar(im, cax=ax2).set_label('Amplitude')
 
 plt.subplot(gs[2,0], sharex=ax1, sharey=ax1)
-plt.imshow(np.sin(px1-px2).T, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
+plt.imshow(dpx.T, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
 plt.xlabel('Hour Angle')
 plt.ylabel('Declination')
 
 plt.subplot(gs[2,1], sharex=ax1, sharey=ax1)
-im = plt.imshow(np.sin(py1-py2).T, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
+im = plt.imshow(dpy.T, aspect='auto', cmap=viridis, vmin=-.1, vmax=.1)
 plt.xlabel('Hour Angle')
 
 ax3 = plt.subplot(gs[2,2])

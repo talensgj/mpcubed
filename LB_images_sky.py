@@ -41,7 +41,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/June2.hdf5', 'r') as f:
     ra = f['header_table/ra'].value
     
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2_iter5.hdf5', 'r') as f:
     ms = f['data/magnitudes/m'].value
     
     idx = f['data/skytrans/idx'].value

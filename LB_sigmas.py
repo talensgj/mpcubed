@@ -32,13 +32,14 @@ def delete_allnan(array):
     return array
         
 with h5py.File('/data2/talens/3mEast/LBtests/June1.hdf5', 'r') as f:
+    ascc = f['header_table/ascc'].value
     vmag = f['header_table/vmag'].value
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
         
 hg = HealpixGrid(8)
 
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_June1.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June1_iter5.hdf5', 'r') as f:
     mz = f['data/magnitudes/m'].value
     sigma1 = f['data/magnitudes/sigma'].value
     
@@ -47,6 +48,12 @@ with h5py.File('/data2/talens/3mEast/LBtests/skyip_June1.hdf5', 'r') as f:
     s = f['data/skytrans/s'].value
     sigma2 = f['data/skytrans/sigma'].value
 
+plt.plot(vmag, sigma1, '.')
+plt.show()
+
+arg = np.argsort(sigma1)
+print ascc[arg][-100:], sigma1[arg][-100:]
+exit()
 tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
 tmp[idx, lstseq] = s
 s = tmp

@@ -31,22 +31,22 @@ pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
 # Read skymap.
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2.hdf5', 'r') as g:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2_iter4.hdf5', 'r') as g:
 
     idx = g['data/skytrans/idx'].value
     lstseq = g['data/skytrans/lstseq'].value
     s = g['data/skytrans/s'].value
     
-    #sigma1 = g['data/magnitudes/sigma'].value
-    #sigma2 = g['data/skytrans/sigma'].value
+    sigma1 = g['data/magnitudes/sigma'].value
+    sigma2 = g['data/skytrans/sigma'].value
 
 tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
 tmp[idx, lstseq] = s
 s = tmp
 
-#tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
-#tmp[idx, lstseq] = sigma2
-#sigma2 = tmp
+tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
+tmp[idx, lstseq] = sigma2
+sigma2 = tmp
 
 # Read header data.
 Mascc, Mra, Mdec, Mnobs, Mvmag = f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
@@ -118,7 +118,7 @@ for ind in range(nbins):
 
     sol = s[skyidx, skytransidx]
     mag = mag - sol
-    #emag = np.sqrt(emag**2 + (sigma1[staridx])**2 + (sigma2[skyidx, skytransidx])**2)
+    emag = np.sqrt(emag**2 + (sigma1[staridx])**2 + (sigma2[skyidx, skytransidx])**2)
 
     # Get unique indices.
     staridx, staruni = np.unique(staridx, return_inverse=True)
@@ -132,7 +132,7 @@ for ind in range(nbins):
     m[staridx] = m[staridx] - offset
     z[camtransidx] = z[camtransidx] + offset
         
-with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter1.hdf5') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter5.hdf5') as f:
     
     hdr = f.create_group('header')
     hdr.create_dataset('decidx', data=decidx)

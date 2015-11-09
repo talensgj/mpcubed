@@ -31,7 +31,7 @@ pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
 
 # Read transmap.
-with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter1.hdf5', 'r') as g:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June2.hdf5', 'r') as g:
     idx1 = g['data/camtrans/idx'].value
     z = g['data/camtrans/z'].value
     idx2 = g['data/intrapix/idx'].value
@@ -121,35 +121,35 @@ for ind in range(nbins):
     skytransidx, skytransuni = np.unique(skytransidx, return_inverse=True)
 
     # Calculate a model fit to the data.
-    #m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=False)
-    m[staridx], s[skyidx[ind], skytransidx], sigma1[staridx], sigma2[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=True)
+    m[staridx], s[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=False)
+    #m[staridx], s[skyidx[ind], skytransidx], sigma1[staridx], sigma2[skyidx[ind], skytransidx], niter[ind], chisq[ind], npoints[ind], npars[ind] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=True)
     
     offset = np.nanmedian(m[staridx] - Mvmag[staridx])
     m[staridx] = m[staridx] - offset
     s[skyidx[ind], skytransidx] = s[skyidx[ind], skytransidx] + offset
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2_iter1.hdf5') as f:
+#with h5py.File('/data2/talens/3mEast/LBtests/skyip_June2_iter5.hdf5') as f:
     
-    hdr = f.create_group('header')
-    hdr.create_dataset('skyidx', data=skyidx)
-    hdr.create_dataset('niter', data=niter) 
-    hdr.create_dataset('chisq', data=chisq)
-    hdr.create_dataset('npoints', data=npoints)
-    hdr.create_dataset('npars', data=npars)
+    #hdr = f.create_group('header')
+    #hdr.create_dataset('skyidx', data=skyidx)
+    #hdr.create_dataset('niter', data=niter) 
+    #hdr.create_dataset('chisq', data=chisq)
+    #hdr.create_dataset('npoints', data=npoints)
+    #hdr.create_dataset('npars', data=npars)
     
-    grp = f.create_group('data')
+    #grp = f.create_group('data')
     
-    grp.create_dataset('magnitudes/ascc', data=Mascc)
-    grp.create_dataset('magnitudes/m', data=m)
-    grp.create_dataset('magnitudes/sigma', data=sigma1)
+    #grp.create_dataset('magnitudes/ascc', data=Mascc)
+    #grp.create_dataset('magnitudes/m', data=m)
+    #grp.create_dataset('magnitudes/sigma', data=sigma1)
     
-    idx, lstseq = np.where(~np.isnan(s))
-    grp.create_dataset('skytrans/idx', data=idx)
-    grp.create_dataset('skytrans/lstseq', data=lstseq)
-    grp.create_dataset('skytrans/s', data=s[idx, lstseq])
-    grp.create_dataset('skytrans/sigma', data=sigma2[idx, lstseq])
+    #idx, lstseq = np.where(~np.isnan(s))
+    #grp.create_dataset('skytrans/idx', data=idx)
+    #grp.create_dataset('skytrans/lstseq', data=lstseq)
+    #grp.create_dataset('skytrans/s', data=s[idx, lstseq])
+    #grp.create_dataset('skytrans/sigma', data=sigma2[idx, lstseq])
     
-    grp['skytrans'].attrs['grid'] = 'healpix'
-    grp['skytrans'].attrs['nx'] = 8
-    grp['skytrans'].attrs['lstmin'] = 0
-    grp['skytrans'].attrs['lstlen'] = 15*13500
+    #grp['skytrans'].attrs['grid'] = 'healpix'
+    #grp['skytrans'].attrs['nx'] = 8
+    #grp['skytrans'].attrs['lstmin'] = 0
+    #grp['skytrans'].attrs['lstlen'] = 15*13500

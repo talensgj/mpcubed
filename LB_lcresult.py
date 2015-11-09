@@ -28,7 +28,7 @@ rcParams['image.origin'] = 'lower'
 pg1 = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_15day_iter4.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/camip_June1_iter5.hdf5', 'r') as f:
     
     idx1 = f['data/camtrans/idx'].value
     z = f['data/camtrans/z'].value
@@ -47,7 +47,7 @@ d = pg2.put_values_on_grid(d, idx2, np.nan).ravel()
     
 hg = HealpixGrid(8)
     
-with h5py.File('/data2/talens/3mEast/LBtests/skyip_15day_iter4.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/skyip_June1_iter5.hdf5', 'r') as f:
     
     m = f['data/magnitudes/m'].value
     sigma1 = f['data/magnitudes/sigma'].value
@@ -65,7 +65,7 @@ tmp = np.full((hg.npix, 15*13500), fill_value=np.nan)
 tmp[idx, lstseq] = sigma2
 sigma2 = tmp    
     
-f = fLCfile('/data2/talens/3mEast/LBtests/15day.hdf5')
+f = fLCfile('/data2/talens/3mEast/LBtests/June1.hdf5')
     
 ascc, ra, dec, nobs, vmag = f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
 nobs = nobs.astype('int')
@@ -74,7 +74,7 @@ skyidx = hg.find_gridpoint(ra, dec)
 
 for i in range(len(ascc)):
 
-    if ascc[i] not in ['807144']: continue
+    if ascc[i] not in ['265281']: continue
 
     jdmid, lstidx, lst, flux, eflux, sky, flag, x, y = f.read_data(['jdmid', 'lstidx', 'lst', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y'], [ascc[i]], [nobs[i]])
     lstidx = lstidx.astype('int')
@@ -84,7 +84,7 @@ for i in range(len(ascc)):
     
     dayidx = np.floor(jdmid).astype('int')
     dayidx = dayidx - 2457175
-    
+    print np.unique(dayidx)
     skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
     binidx = np.ravel_multi_index((dayidx, lstidx//50), (15, 270))
         
@@ -93,21 +93,21 @@ for i in range(len(ascc)):
     intrapixidx = pg2.find_gridpoint(ha, np.repeat(dec[i], nobs[i]))
     
     # Flag bad data.
-    here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
-    jdmid = jdmid[here]
-    flux = flux[here]
-    eflux = eflux[here]
-    x = x[here]
-    y = y[here]
+    #here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
+    #jdmid = jdmid[here]
+    #flux = flux[here]
+    #eflux = eflux[here]
+    #x = x[here]
+    #y = y[here]
 
-    staridx = staridx[here]
-    skytransidx = skytransidx[here]
-    camtransidx = camtransidx[here]
-    intrapixidx = intrapixidx[here]
+    #staridx = staridx[here]
+    #skytransidx = skytransidx[here]
+    #camtransidx = camtransidx[here]
+    #intrapixidx = intrapixidx[here]
 
-    dayidx = dayidx[here]
-    lstidx = lstidx[here]
-    binidx = binidx[here]
+    #dayidx = dayidx[here]
+    #lstidx = lstidx[here]
+    #binidx = binidx[here]
 
     # Convert flux to magnitudes
     mag = 25 - 2.5*np.log10(flux)
@@ -117,7 +117,7 @@ for i in range(len(ascc)):
     sol2 = s[skyidx[i], skytransidx]
 
     a1, a2, niter, chisq, npoints, npars = systematics_dev.trans(dayidx, lstidx, mag-sol1-sol2, np.sqrt(emag+sigma1[i]**2+sigma2[skyidx[i], skytransidx]**2))
-    trend = a2[lstidx] #+ a1[dayidx]
+    trend = a2[lstidx] + a1[dayidx]
 
     plt.figure(figsize=(16,8))
 
@@ -157,11 +157,17 @@ for i in range(len(ascc)):
     phase = (bin_jdmid - Tp)/P
     phase = np.mod(phase+.5, 1)-.5
     
+    args, = np.where(np.abs(phase)<1e-2)
+    
     plt.figure(figsize=(16,8))
     
     plt.subplot(211)
     plt.title('HD189733', size='xx-large')
     plt.errorbar(bin_jdmid, bin_mag, yerr=bin_emag, fmt='o')
+    
+    for i in args:
+        plt.axvline(bin_jdmid[i])
+    
     plt.xlim(np.amin(bin_jdmid)-.01*np.ptp(bin_jdmid), np.amax(bin_jdmid)+.01*np.ptp(bin_jdmid))
     plt.ylim(.05,-.05)
     plt.ylabel('Magnitude')

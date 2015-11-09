@@ -72,7 +72,7 @@ class fLCfile():
     
     def _single(self, ascc):
         
-        ra, dec, vmag, bmag, nobs = self.read_header(['ra', 'dec', 'vmag', 'bmag', 'nobs'], ascc)
+        ra, dec, vmag, nobs = self.read_header(['ra', 'dec', 'vmag', 'nobs'], ascc)
         jdmid, flag, flux0, flux1, peak, sky = self.read_data(['jdmid', 'flag', 'flux0', 'flux1', 'peak', 'sky'], ascc)
         
         here = (flag > 0)
@@ -83,7 +83,7 @@ class fLCfile():
         plt.figure(figsize=(16,8))
         
         ax = plt.subplot(311)
-        plt.title(r'ASCC %s, RA = %.2f, Dec = %.2f, V = %.2f, B = %.2f, N = %i'%(ascc[0], ra, dec, vmag, bmag, nobs))
+        plt.title(r'ASCC %s, RA = %.2f, Dec = %.2f, V = %.2f, N = %i'%(ascc[0], ra, dec, vmag, nobs))
         plt.plot(jdmid, flux0, '.', label='flux0')
         plt.plot(jdmid, flux1, '.', label='flux1')
         plt.ylabel('Flux')
