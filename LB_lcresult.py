@@ -74,7 +74,7 @@ skyidx = hg.find_gridpoint(ra, dec)
 
 for i in range(len(ascc)):
 
-    if ascc[i] not in ['265281']: continue
+    if ascc[i] not in ['807144']: continue
 
     jdmid, lstidx, lst, flux, eflux, sky, flag, x, y = f.read_data(['jdmid', 'lstidx', 'lst', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y'], [ascc[i]], [nobs[i]])
     lstidx = lstidx.astype('int')
@@ -93,21 +93,21 @@ for i in range(len(ascc)):
     intrapixidx = pg2.find_gridpoint(ha, np.repeat(dec[i], nobs[i]))
     
     # Flag bad data.
-    #here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
-    #jdmid = jdmid[here]
-    #flux = flux[here]
-    #eflux = eflux[here]
-    #x = x[here]
-    #y = y[here]
+    here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
+    jdmid = jdmid[here]
+    flux = flux[here]
+    eflux = eflux[here]
+    x = x[here]
+    y = y[here]
 
-    #staridx = staridx[here]
-    #skytransidx = skytransidx[here]
-    #camtransidx = camtransidx[here]
-    #intrapixidx = intrapixidx[here]
+    staridx = staridx[here]
+    skytransidx = skytransidx[here]
+    camtransidx = camtransidx[here]
+    intrapixidx = intrapixidx[here]
 
-    #dayidx = dayidx[here]
-    #lstidx = lstidx[here]
-    #binidx = binidx[here]
+    dayidx = dayidx[here]
+    lstidx = lstidx[here]
+    binidx = binidx[here]
 
     # Convert flux to magnitudes
     mag = 25 - 2.5*np.log10(flux)
@@ -170,13 +170,14 @@ for i in range(len(ascc)):
     
     plt.xlim(np.amin(bin_jdmid)-.01*np.ptp(bin_jdmid), np.amax(bin_jdmid)+.01*np.ptp(bin_jdmid))
     plt.ylim(.05,-.05)
+    plt.xlabel('Time [JD]')
     plt.ylabel('Magnitude')
     
     plt.subplot(212)
     plt.errorbar(phase, bin_mag, yerr=bin_emag, fmt='o')
     plt.xlim(-.5,.5)
     plt.ylim(.05,-.05)
-    plt.xlabel('Time [JD]')
+    plt.xlabel('Phase')
     plt.ylabel('Magnitude')
     
     plt.tight_layout()
