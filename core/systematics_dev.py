@@ -3,7 +3,7 @@
 
 import numpy as np
 from coarse_decor import find_sigma
-
+from intrapix_dev import fit_ipx_exact
 
 def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
     
@@ -138,53 +138,3 @@ def trans_ipx(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100,
     if use_weights:
         return m, z, sigma, a, b, c, d, niter, chisq, npoints, npars
     return m, z, a, b, c, d, niter, chisq, npoints, npars
-
-def trans_sky(ind1, ind2, ind3, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
-    
-    # Determine the number of datapoints and parameters to fit.
-    npoints = len(mag)
-    npars1 = len(np.unique(ind1))
-    npars2 = len(np.unique(ind2))
-    npars3 = len(np.unique(ind3))
-    npars = npars1 + npars2 + npars3
-    
-    # Create the necessary arrays.
-    weights = 1/emag**2
-    z = np.zeros(np.amax(ind2) + 1)
-    s = np.zeros(np.amax(ind3) + 1)
-    
-    for niter in range(maxiter):
-        
-        if verbose:
-            print 'niter = %i'%niter
-        
-        # Computation of parameters.
-        m = np.bincount(ind1, weights*(mag - z[ind2] - s[ind3]))/np.bincount(ind1, weights)
-        z = np.bincount(ind2, weights*(mag - m[ind1] - s[ind3]))/np.bincount(ind2, weights)
-        s = np.bincount(ind3, weights*(mag - m[ind1] - z[ind2]))/np.bincount(ind3, weights)
-    
-        sol1 = m[ind1] + z[ind2] + s[ind3]
-    
-        if use_weights:
-            res = mag - sol1
-            sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2+(sigma**2)[ind1])
-    
-        if (niter > 0):
-            
-            crit1 = np.nanmax(np.abs(sol1-sol1_old))
-            
-            if verbose:
-                print ' crit1 = %g'%(crit1)
-            
-            if (crit1 < eps):
-                break
-        
-        sol1_old = np.copy(sol1)
-    
-    # Compute the chi-square value of the solution.
-    chi_tmp = weights*(mag - sol1)**2
-    chisq = np.sum(chi_tmp)/(npoints - npars)
-    
-    return m, z, niter, chisq, npoints, npars
-    

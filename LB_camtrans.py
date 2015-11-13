@@ -25,7 +25,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 
 # Initialize reader and coordinate grids.
-f = fLCfile('/data2/talens/Orientation/fLC_20150618LPE.hdf5')
+f = fLCfile('/data2/talens/Orientation/fLC_20150618LPC.hdf5')
 pg = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 hg = HealpixGrid(8)
@@ -134,35 +134,35 @@ for ind in range(nbins):
     m[staridx] = m[staridx] - offset
     z[camtransidx] = z[camtransidx] + offset
         
-with h5py.File('/data2/talens/Orientation/camip_20150618LPE.hdf5') as f:
+#with h5py.File('/data2/talens/Orientation/camip_20150618LPC_ipxexact.hdf5') as f:
     
-    hdr = f.create_group('header')
-    hdr.create_dataset('decidx', data=decidx)
-    hdr.create_dataset('niter', data=niter)
-    hdr.create_dataset('chisq', data=chisq)
-    hdr.create_dataset('npoints', data=npoints)
-    hdr.create_dataset('npars', data=npars)
+    #hdr = f.create_group('header')
+    #hdr.create_dataset('decidx', data=decidx)
+    #hdr.create_dataset('niter', data=niter)
+    #hdr.create_dataset('chisq', data=chisq)
+    #hdr.create_dataset('npoints', data=npoints)
+    #hdr.create_dataset('npars', data=npars)
     
-    grp = f.create_group('data')
+    #grp = f.create_group('data')
     
-    grp.create_dataset('magnitudes/ascc', data=Mascc)
-    grp.create_dataset('magnitudes/m', data=m)
+    #grp.create_dataset('magnitudes/ascc', data=Mascc)
+    #grp.create_dataset('magnitudes/m', data=m)
     
-    idx, = np.where(~np.isnan(z))
-    grp.create_dataset('camtrans/idx', data=idx)
-    grp.create_dataset('camtrans/z', data=z[idx])
+    #idx, = np.where(~np.isnan(z))
+    #grp.create_dataset('camtrans/idx', data=idx)
+    #grp.create_dataset('camtrans/z', data=z[idx])
     
-    grp['camtrans'].attrs['grid'] = 'polar'
-    grp['camtrans'].attrs['nx'] = 13500
-    grp['camtrans'].attrs['ny'] = 720   
+    #grp['camtrans'].attrs['grid'] = 'polar'
+    #grp['camtrans'].attrs['nx'] = 13500
+    #grp['camtrans'].attrs['ny'] = 720   
     
-    idx, = np.where(~np.isnan(a))
-    grp.create_dataset('intrapix/idx', data=idx)
-    grp.create_dataset('intrapix/a', data=a[idx])
-    grp.create_dataset('intrapix/b', data=b[idx])
-    grp.create_dataset('intrapix/c', data=c[idx])
-    grp.create_dataset('intrapix/d', data=d[idx])
+    #idx, = np.where(~np.isnan(a))
+    #grp.create_dataset('intrapix/idx', data=idx)
+    #grp.create_dataset('intrapix/a', data=a[idx])
+    #grp.create_dataset('intrapix/b', data=b[idx])
+    #grp.create_dataset('intrapix/c', data=c[idx])
+    #grp.create_dataset('intrapix/d', data=d[idx])
     
-    grp['intrapix'].attrs['grid'] = 'polar'
-    grp['intrapix'].attrs['nx'] = 270
-    grp['intrapix'].attrs['ny'] = 720
+    #grp['intrapix'].attrs['grid'] = 'polar'
+    #grp['intrapix'].attrs['nx'] = 270
+    #grp['intrapix'].attrs['ny'] = 720
