@@ -82,15 +82,16 @@ for i in range(len(ascc)):
     # Build indices.    
     staridx = np.repeat(i, nobs[i])
     
-    dayidx = np.floor(jdmid).astype('int')
-    dayidx = dayidx - 2457175
-    print np.unique(dayidx)
-    skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
-    binidx = np.ravel_multi_index((dayidx, lstidx//50), (15, 270))
-        
     ha = np.mod(lst*15 - ra[i], 360.)
     camtransidx = pg1.find_gridpoint(ha, np.repeat(dec[i], nobs[i]))
     intrapixidx = pg2.find_gridpoint(ha, np.repeat(dec[i], nobs[i]))
+    
+    dayidx = np.floor(jdmid).astype('int')
+    dayidx = dayidx - 2457175
+    
+    skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
+    
+    binidx = np.ravel_multi_index((dayidx, lstidx//50), (15, 270))
     
     # Flag bad data.
     here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
@@ -101,9 +102,9 @@ for i in range(len(ascc)):
     y = y[here]
 
     staridx = staridx[here]
-    skytransidx = skytransidx[here]
     camtransidx = camtransidx[here]
     intrapixidx = intrapixidx[here]
+    skytransidx = skytransidx[here]
 
     dayidx = dayidx[here]
     lstidx = lstidx[here]
@@ -113,79 +114,35 @@ for i in range(len(ascc)):
     mag = 25 - 2.5*np.log10(flux)
     emag = 2.5/np.log(10)*eflux/flux
 
-    sol1 = m[i] + z[camtransidx] + a[intrapixidx]*np.sin(2*np.pi*x) + b[intrapixidx]*np.cos(2*np.pi*x) + c[intrapixidx]*np.sin(2*np.pi*y) + d[intrapixidx]*np.cos(2*np.pi*y)
-    sol2 = s[skyidx[i], skytransidx]
+    # Find the corrections to the magnitude and the error.
+    sol = m[i]
+    sol = sol + z[camtransidx]
+    sol = sol + a[intrapixidx]*np.sin(2*np.pi*x) + b[intrapixidx]*np.cos(2*np.pi*x) + c[intrapixidx]*np.sin(2*np.pi*y) + d[intrapixidx]*np.cos(2*np.pi*y)
+    sol = sol + s[skyidx[i], skytransidx]
 
-    a1, a2, niter, chisq, npoints, npars = systematics_dev.trans(dayidx, lstidx, mag-sol1-sol2, np.sqrt(emag+sigma1[i]**2+sigma2[skyidx[i], skytransidx]**2))
-    trend = a2[lstidx] + a1[dayidx]
+    mag = mag - sol
+    emag = np.sqrt(emag**2 + sigma1[i]**2 + sigma2[skyidx[i], skytransidx]**2)
 
-    plt.figure(figsize=(16,8))
+    # Apply one final correction for the lst dependence.
+    weights = 1/emag**2
+    t = np.bincount(lstidx, weights*mag)/np.bincount(lstidx, weights)
 
-    plt.subplot(311)
-    plt.plot(mag, '.')
-    plt.plot(sol1, '.')
-    plt.ylim(np.mean(mag)+1, np.mean(mag)-1)
-    plt.ylabel('Magnitude')
-    
-    plt.subplot(312)
-    plt.plot(mag - sol1, '.')
-    plt.plot(sol2, '.')
-    plt.ylim(1, -1)
-    plt.ylabel('Magnitude')
-    
-    plt.subplot(313)
-    plt.plot(mag - sol1 - sol2, '.')
-    plt.plot(trend, '.')
-    plt.ylim(1, -1)
-    plt.xlabel('Time')
-    plt.ylabel('Magnitude')
-    
-    plt.tight_layout()
-    plt.show()
-    
+    mag = mag - t[lstidx]
+
+    # Bin the data.
     count = index_statistics(binidx, None, statistic='count')
     bin_jdmid = index_statistics(binidx, jdmid, statistic='mean')
-    bin_mag = index_statistics(binidx, (mag-sol1-sol2-trend), statistic='mean')
-    bin_emag = index_statistics(binidx, (mag-sol1-sol2-trend), statistic='std')/np.sqrt(count)
+    bin_mag = index_statistics(binidx, mag, statistic='mean')
+    bin_emag = index_statistics(binidx, mag, statistic='std')/np.sqrt(count)
     
-    bin_jdmid = bin_jdmid[count==50]
-    bin_mag = bin_mag[count==50]
-    bin_emag = bin_emag[count==50]
+    here = (count == 50)
+    bin_jdmid = bin_jdmid[here]
+    bin_mag = bin_mag[here]
+    bin_emag = bin_emag[here]
     
-    P = 2.21857312
-    Tp = 2454037.612
-    phase = (bin_jdmid - Tp)/P
-    phase = np.mod(phase+.5, 1)-.5
-    
-    args, = np.where(np.abs(phase)<1e-2)
-    
-    plt.figure(figsize=(16,8))
-    
-    plt.subplot(211)
-    plt.title('HD189733', size='xx-large')
+    plt.plot(jdmid, mag, '.')
     plt.errorbar(bin_jdmid, bin_mag, yerr=bin_emag, fmt='o')
-    
-    for i in args:
-        plt.axvline(bin_jdmid[i])
-    
-    plt.xlim(np.amin(bin_jdmid)-.01*np.ptp(bin_jdmid), np.amax(bin_jdmid)+.01*np.ptp(bin_jdmid))
-    plt.ylim(.05,-.05)
-    plt.xlabel('Time [JD]')
-    plt.ylabel('Magnitude')
-    
-    plt.subplot(212)
-    plt.errorbar(phase, bin_mag, yerr=bin_emag, fmt='o')
-    plt.xlim(-.5,.5)
-    plt.ylim(.05,-.05)
-    plt.xlabel('Phase')
-    plt.ylabel('Magnitude')
-    
-    plt.tight_layout()
     plt.show()
     
     
-    
-    
-    
-    
-    
+

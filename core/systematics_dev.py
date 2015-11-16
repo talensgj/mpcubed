@@ -138,3 +138,64 @@ def trans_ipx(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100,
     if use_weights:
         return m, z, sigma, a, b, c, d, niter, chisq, npoints, npars
     return m, z, a, b, c, d, niter, chisq, npoints, npars
+
+def sky(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
+    
+    # Determine the number of datapoints and parameters to fit.
+    npoints = len(mag)
+    npars2 = len(np.unique(ind2))
+    npars = npars1 + npars2
+    
+    # Create the necessary arrays.
+    weights = 1/emag**2
+    z = np.zeros(np.amax(ind2) + 1)
+    sigma2 = np.zeros(np.amax(ind2) + 1)
+    
+    crit1 = np.zeros(maxiter)
+    
+    for niter in range(maxiter):
+        
+        if verbose:
+            print 'niter = %i'%niter
+        
+        # Computation of parameters.
+        z = np.bincount(ind2, weights*mag)/np.bincount(ind2, weights)
+    
+        sol1 = z[ind2]
+    
+        if use_weights:
+            res = mag - sol1
+            sigma1 = find_sigma(ind1, res, np.sqrt(emag**2 + (sigma2**2)[ind2]))
+            sigma2 = find_sigma(ind2, res, np.sqrt(emag**2 + (sigma1**2)[ind1]))
+            weights = 1./(emag**2 + (sigma1**2)[ind1] + (sigma2**2)[ind2])
+    
+        if (niter > 0):
+            
+            crit1[niter] = np.nanmax(np.abs(sol1 - sol1_old))
+            
+            if verbose:
+                print ' crit1 = %g'%(crit1[niter])
+            
+            if (crit1[niter] < eps):
+                break
+                
+        if (niter > 1):
+            
+            dcrit = crit1[niter] - crit1[niter-1]
+            
+            if verbose:
+                print ' dcrit1 = %g'%(dcrit)
+            
+            if (abs(dcrit) < eps**2):
+                break
+        
+        sol1_old = np.copy(sol1)
+    
+    # Compute the chi-square value of the solution.
+    chi_tmp = weights*(mag - sol1)**2
+    chisq = np.sum(chi_tmp)/(npoints - npars)
+    
+    if use_weights:
+        return z, sigma1, sigma2, niter, chisq, npoints, npars
+    return z, niter, chisq, npoints, npars
+
