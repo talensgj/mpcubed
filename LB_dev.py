@@ -172,3 +172,6 @@ def CoarseDecorrelation():
         
         CameraTransmission()
         SkyTransmission()
+
+if __name__ == '__main__':
+    
