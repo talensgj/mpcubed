@@ -100,6 +100,10 @@ class CoarseDecorrelation():
             # Calculate new spatial correction.
             m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
             
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            z = z + offset
+            
             self.m[staridx] = m
             self.z[camtransidx] = z
             self.A[intrapixidx] = A
@@ -136,6 +140,10 @@ class CoarseDecorrelation():
             # Calculate new temporal correction.
             m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
             
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            s = s + offset
+            
             self.m[staridx] = m
             self.s[skyidx[idx], lstseq] = s
             
@@ -151,9 +159,6 @@ class CoarseDecorrelation():
     
     def calculate(self):
 
-        self.lstmin = 12163500
-        lstlen = 27000
-
         self.f = fLCfile(self.LBfile)
         self.camgrid = PolarGrid(self.camnx, self.camny)
         self.ipxgrid = PolarGrid(self.ipxnx, self.ipxny)
@@ -166,56 +171,97 @@ class CoarseDecorrelation():
         self.decidx = self.camgrid.find_decidx(self.dec)
         self.skyidx = self.skygrid.find_gridpoint(self.ra, self.dec)
         
+        #lstseq, = self.f.read_data(['lstseq'], self.ascc, self.nobs) # May be too memory intensive?
+        #lstseq = lstseq.astype('int')
+        
+        #self.lstmin = np.amin(lstseq)
+        #self.lstlen = np.amax(lstseq) - np.amin(lstseq) + 1
+        
+        with h5py.File(self.LBfile, 'r') as f:
+            lstmin = f['data'].attrs['lstmin']
+            lstmax = f['data'].attrs['lstmax']
+            
+        self.lstmin = lstmin
+        self.lstlen = lstmax - lstmin + 1
+        
         self.m = np.full(len(self.ascc), fill_value=np.nan)
         self.z = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
-        self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
         self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
-        self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        self.sigma2 = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
         self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
         self.z_nobs = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A_nobs = np.full(self.ipxgrid.npix, fill_value=np.nan)
-        self.s_nobs = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        self.s_nobs = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
         self.got_sky = False
-        
-        import matplotlib.pyplot as plt
         
         for niter in range(5):
         
             self.spatial()
             self.temporal()
             
-            #plt.plot(self.vmag, self.m, '.')
-            #plt.show()
+        with h5py.File('/data2/talens/3mEast/LBtests/save_test_niter5.hdf5') as f:
+    
+            #hdr = f.create_group('header')
+            #hdr.create_dataset('decidx', data=decidx)
+            #hdr.create_dataset('niter', data=niter)
+            #hdr.create_dataset('chisq', data=chisq)
+            #hdr.create_dataset('npoints', data=npoints)
+            #hdr.create_dataset('npars', data=npars)
+    
+            #hdr = f.create_group('header')
+            #hdr.create_dataset('skyidx', data=skyidx)
+            #hdr.create_dataset('niter', data=niter) 
+            #hdr.create_dataset('chisq', data=chisq)
+            #hdr.create_dataset('npoints', data=npoints)
+            #hdr.create_dataset('npars', data=npars)
             
-            plt.imshow(self.z.reshape(13502, 722).T, interpolation='None', aspect='auto', vmin = np.nanpercentile(self.z, 1), vmax = np.nanpercentile(self.z, 99))
-            plt.colorbar()
-            plt.show()
-            plt.close()
+            grp = f.create_group('data')
             
-            #plt.imshow(self.z_nobs.reshape(13502, 722).T, interpolation='None', aspect='auto')
-            #plt.colorbar()
-            #plt.show()
+            grp.create_dataset('magnitudes/ascc', data=self.ascc)
+            grp.create_dataset('magnitudes/m', data=self.m)
+            grp.create_dataset('magnitudes/sigma', data=self.sigma1)
+            grp.create_dataset('magnitudes/nobs', data=self.m_nobs)
             
-            plt.imshow(self.A[:,0].reshape(272, 722).T, interpolation='None', aspect='auto', vmin = np.nanpercentile(self.A[:,0], 1), vmax = np.nanpercentile(self.A[:,0], 99))
-            plt.colorbar()
-            plt.show()
-            plt.close()
+            idx, = np.where(~np.isnan(self.z))
+            grp.create_dataset('camtrans/idx', data=idx)
+            grp.create_dataset('camtrans/z', data=self.z[idx])
+            grp.create_dataset('camtrans/nobs', data=self.z_nobs[idx])
             
-            #plt.imshow(self.A_nobs.reshape(272, 722).T, interpolation='None', aspect='auto')
-            #plt.colorbar()
-            #plt.show()
+            grp['camtrans'].attrs['grid'] = 'polar'
+            grp['camtrans'].attrs['nx'] = self.camnx
+            grp['camtrans'].attrs['ny'] = self.camny
             
-            plt.imshow(self.s, interpolation='None', aspect='auto', vmin = np.nanpercentile(self.s, 1), vmax = np.nanpercentile(self.s, 99))
-            plt.colorbar()
-            plt.show()
-            plt.close()
-        
+            idx, = np.where(~np.isnan(self.A[:,0]))
+            grp.create_dataset('intrapix/idx', data=idx)
+            grp.create_dataset('intrapix/a', data=self.A[idx,0])
+            grp.create_dataset('intrapix/b', data=self.A[idx,1])
+            grp.create_dataset('intrapix/c', data=self.A[idx,2])
+            grp.create_dataset('intrapix/d', data=self.A[idx,3])
+            grp.create_dataset('intrapix/nobs', data=self.A_nobs[idx])
+            
+            grp['intrapix'].attrs['grid'] = 'polar'
+            grp['intrapix'].attrs['nx'] = self.ipxnx
+            grp['intrapix'].attrs['ny'] = self.ipxny
+            
+            idx, lstseq = np.where(~np.isnan(self.s))
+            grp.create_dataset('skytrans/idx', data=idx)
+            grp.create_dataset('skytrans/lstseq', data=lstseq)
+            grp.create_dataset('skytrans/s', data=self.s[idx, lstseq])
+            grp.create_dataset('skytrans/sigma', data=self.sigma2[idx, lstseq])
+            grp.create_dataset('skytrans/nobs', data=self.s_nobs[idx, lstseq])
+            
+            grp['skytrans'].attrs['grid'] = 'healpix'
+            grp['skytrans'].attrs['nx'] = self.skynx
+            grp['skytrans'].attrs['lstmin'] = self.lstmin
+            grp['skytrans'].attrs['lstlen'] = self.lstlen
+            
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation('/data2/talens/Orientation/fLC_20150618LPE.hdf5')
+    obj = CoarseDecorrelation('/data2/talens/3mEast/LBtests/test.hdf5')
     obj.calculate()
     

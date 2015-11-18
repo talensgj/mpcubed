@@ -54,6 +54,19 @@ def create_longbaseline(filelist, LBfile):
                         
         nobs[i] = lc.size
         
+        tmp1 = np.amin(lc['lstseq'])
+        tmp2 = np.amax(lc['lstseq'])
+        
+        try:
+            if tmp1 < lstmin: lstmin = tmp1
+        except:
+            lstmin = tmp1
+        
+        try:
+            if tmp2 > lstmax: lstmax = tmp2
+        except:
+            lstmax = tmp2
+        
         # Write the lightcurve to file.
         with h5py.File(LBfile) as f:
             f.create_dataset('data/' + sID, data = lc)
@@ -65,6 +78,8 @@ def create_longbaseline(filelist, LBfile):
         f.create_dataset('header_table/dec', data = dec)
         f.create_dataset('header_table/nobs', data = nobs)
         f.create_dataset('header_table/vmag', data = vmag)
+        f['data'].attrs['lstmin'] = lstmin
+        f['data'].attrs['lstmax'] = lstmax
     
     return
     
@@ -72,7 +87,11 @@ def create_longbaseline(filelist, LBfile):
 if __name__ == '__main__':
     
         
+    filelist = glob.glob('/data2/mascara/LaPalma/201506??LPE/fLC/fLC_*.hdf5')
+    filelist = np.sort(filelist)
     
+    #filelist = filelist[:5]
+    filelist = filelist[15:]
     
-    
+    create_longbaseline(filelist, '/data2/talens/3mEast/LBtests/test.hdf5')
     
