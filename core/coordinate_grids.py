@@ -15,6 +15,8 @@ class PolarGrid():
         
         self.bins1 = np.linspace(0, 360, self.nx+1)
         self.bins2 = np.linspace(-90, 90, self.ny+1)
+        
+        self.npix = (nx + 2)*(ny + 2)
     
     def find_raidx(self, ra, compact=False):
         
@@ -102,6 +104,8 @@ class CartesianGrid():
         
         self.bins1 = np.linspace(margin, Lx-margin, self.nx+1)
         self.bins2 = np.linspace(margin, Ly-margin, self.ny+1)
+        
+        self.npix = (nx + 2)*(ny + 2)
         
     def find_xidx(self, x, compact=False):
         
