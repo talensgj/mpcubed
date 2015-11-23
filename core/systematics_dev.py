@@ -3,7 +3,6 @@
 
 import numpy as np
 from coarse_decor import find_sigma
-from intrapix_dev import fit_ipx_exact
 
 def trans(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
     

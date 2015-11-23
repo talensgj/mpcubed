@@ -102,6 +102,9 @@ with h5py.File('/data2/talens/3mEast/LBtests/June1.hdf5', 'r') as f:
         
         mag = mag - cam - ipx - sky
         
+        weights = 1/emag**2
+        t = np.bincount(lstidx, weights*mag)/np.bincount(lstidx, weights)
+        
         # Create simple flags.
         here = (lc['flux0'] > 0) & (lc['eflux0'] > 0) & (lc['sky'] > 0) & (lc['flag'] < 1)
         flag = np.where(here, 0, 1)
@@ -109,20 +112,22 @@ with h5py.File('/data2/talens/3mEast/LBtests/June1.hdf5', 'r') as f:
         #ax = plt.subplot(211)
         #plt.plot(mag, '.')
         #plt.subplot(212, sharex=ax)
-        #plt.plot(cam + ipx + sky, '.')
+        #plt.plot(t[lstidx], '.')
         #plt.show()
         
-        with h5py.File('new_lightcurves.hdf5') as g:
+        mag = mag - t[lstidx]
+        
+        with h5py.File('detrended_lightcurves.hdf5') as g:
             
             g.create_dataset('data/'+sID+'/jdmid', data=lc['jdmid'])
             g.create_dataset('data/'+sID+'/mag', data=mag)
             g.create_dataset('data/'+sID+'/emag', data=emag)
             g.create_dataset('data/'+sID+'/sky', data=lc['sky'])
             g.create_dataset('data/'+sID+'/flag', data=flag)
-            
+    
     here = np.in1d(ascc, lijst)
         
-    with h5py.File('new_lightcurves.hdf5') as g:
+    with h5py.File('detrended_lightcurves.hdf5') as g:
         
         g.create_dataset('header_table/ascc', data=ascc[here])
         g.create_dataset('header_table/ra', data=ra[here])

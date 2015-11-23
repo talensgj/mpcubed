@@ -35,7 +35,7 @@ def delete_allnan(array):
     
     return array
 
-with h5py.File('/data2/talens/3mEast/LBtests/June2.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2_fLC_auto.hdf5', 'r') as f:
     vmag = f['header_table/vmag'].value
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
@@ -43,7 +43,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/June2.hdf5', 'r') as f:
 pg1 = PolarGrid(13500, 720)
 pg2 = PolarGrid(270, 720)
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_June1_iter5.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/LBJune2_manual/camip_June2_iter5.hdf5', 'r') as f:
     mz1 = f['data/magnitudes/m'].value
 
     ipx = f['data/camtrans/idx'].value
@@ -65,7 +65,7 @@ Ay1 = np.sqrt(c1**2 + d1**2)
 px1 = np.arctan2(b1, a1)
 py1 = np.arctan2(d1, c1)
 
-with h5py.File('/data2/talens/3mEast/LBtests/camip_June2_iter5.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_auto.hdf5', 'r') as f:
     mz2 = f['data/magnitudes/m'].value
 
     ipx = f['data/camtrans/idx'].value

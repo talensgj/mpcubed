@@ -107,6 +107,62 @@ def fit_ipx_exact(ind, x, y, mag, emag):
     
     return sol[:,0], sol[:,1], sol[:,2], sol[:,3]
 
+class Intrapix():
+    
+    def __init__(self, ind, x, y, emag):
+        
+        snx = np.sin(2*np.pi*x)
+        csx = np.cos(2*np.pi*x)
+        sny = np.sin(2*np.pi*y)
+        csy = np.cos(2*np.pi*y)
+        weights = 1/emag**2
+
+        b = np.zeros((len(emag), 4))
+        b[:,0] = snx
+        b[:,1] = csx
+        b[:,2] = sny
+        b[:,3] = csy
+        
+        A = np.zeros((len(mag), 4, 4))
+        A[:,0,0] = snx**2
+        A[:,1,1] = csx**2
+        A[:,2,2] = sny**2
+        A[:,3,3] = csy**2
+        
+        A[:,0,1] = A[:,1,0] = snx*csx
+        A[:,0,2] = A[:,2,0] = snx*sny
+        A[:,0,3] = A[:,3,0] = snx*csy
+        A[:,1,2] = A[:,2,1] = csx*sny
+        A[:,1,3] = A[:,3,1] = csx*csy
+        A[:,2,3] = A[:,3,2] = sny*csy
+        
+        Anew = np.zeros((np.amax(ind)+1, 4, 4))
+        for i in range(4):
+            for j in range(4):
+                Anew[:,i,j] = np.bincount(ind, weights*A[:,i,j])
+     
+        self.weights = weights
+        self.b = b
+        self.Anew = Anew
+     
+    def solve(self, mag):
+     
+        bnew = np.zeros((np.amax(ind)+1, 4))
+        for i in range(4):
+            bnew[:,i] = np.bincount(ind, self.weights*mag*self.b[:,i])
+            
+        args1, = np.where(np.linalg.det(self.Anew) < 1e-3)
+        args2, = np.where(np.linalg.det(self.Anew) >= 1e-3)
+        
+        sol = np.zeros((np.amax(ind)+1, 4))
+        if len(args2) > 0:
+            sol[args2] = np.linalg.solve(self.Anew[args2], bnew[args2])
+        if len(args1) > 0:
+            for i in args1:
+                sol[i] = np.linalg.lstsq(np.squeeze(self.Anew[i]), np.squeeze(bnew[i]))[0]
+        
+        return sol[:,0], sol[:,1], sol[:,2], sol[:,3]
+  
 #x = np.linspace(-50*np.pi, 48*np.pi, 50)
 #y = .3*np.sin(x + 2.34)
 #weights = np.random.rand(50)
@@ -137,8 +193,19 @@ mag = .82*np.sin(2*np.pi*x) + .45*np.cos(2*np.pi*x) + .39*np.sin(2*np.pi*y) + .6
 mag = mag + .2*np.random.randn(2000)
 emag = .2*np.ones(2000)
 
-a, b, c, d = fit_ipx_exact(ind, x, y, mag, emag)
-print a, b, c, d
+start = time()
+for i in range(100):
+    a, b, c, d = fit_ipx_exact(ind, x, y, mag, emag)
+print time() - start
+
+start = time()
+ipx = Intrapix(ind, x, y, emag)
+for i in range(100):
+    a1, b1, c1, d1 = ipx.solve(mag)
+print time() - start
+
+print np.allclose(a, a1), np.allclose(b, b1)
+
 plt.errorbar(x, mag, yerr=emag, fmt='.')
 plt.plot(x, a[ind]*np.sin(2*np.pi*x) + b[ind]*np.cos(2*np.pi*x) + c[ind]*np.sin(2*np.pi*y) + d[ind]*np.cos(2*np.pi*y))
 plt.show()

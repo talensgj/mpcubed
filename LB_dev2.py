@@ -140,9 +140,9 @@ class CoarseDecorrelation():
             # Calculate new temporal correction.
             m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
             
-            offset = np.nanmedian(m - self.vmag[staridx])
-            m = m - offset
-            s = s + offset
+            #offset = np.nanmedian(m - self.vmag[staridx])
+            #m = m - offset
+            #s = s + offset
             
             self.m[staridx] = m
             self.s[skyidx[idx], lstseq] = s
@@ -199,12 +199,12 @@ class CoarseDecorrelation():
         
         self.got_sky = False
         
-        for niter in range(5):
+        for niter in range(2):
         
             self.spatial()
             self.temporal()
             
-        with h5py.File('/data2/talens/3mEast/LBtests/save_test_niter5.hdf5') as f:
+        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter2_offset.hdf5') as f:
     
             #hdr = f.create_group('header')
             #hdr.create_dataset('decidx', data=decidx)
@@ -262,6 +262,6 @@ class CoarseDecorrelation():
             
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation('/data2/talens/3mEast/LBtests/test.hdf5')
+    obj = CoarseDecorrelation('/data2/talens/3mEast/LBtests/June2_fLC_auto.hdf5')
     obj.calculate()
     
