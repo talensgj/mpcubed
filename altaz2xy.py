@@ -4,7 +4,7 @@
 import numpy as np
 
 def altaz2xy(alt, az, alt0, az0, th0, x0, y0, scale):
-    
+
     dtor = np.pi/180.
     alt = alt*dtor
     az = az*dtor
@@ -14,18 +14,18 @@ def altaz2xy(alt, az, alt0, az0, th0, x0, y0, scale):
     
     array = np.zeros((3, len(alt)))
     
-    array[0] = np.cos(alt)*np.sin(az)
-    array[1] = np.cos(alt)*np.cos(az)
+    array[0] = np.cos(alt)*np.cos(az-az0)
+    array[1] = np.cos(alt)*np.sin(az-az0)
     array[2] = np.sin(alt) # 
     
-    M = np.zeros((3,3))
-    M[0,0] = np.sin(az0)
-    M[0,1] = np.cos(az0)
-    M[1,0] = -np.cos(az0)
-    M[1,1] = np.sin(az0)
-    M[2,2] = 1.#
+    #M = np.zeros((3,3))
+    #M[0,0] = np.sin(az0)
+    #M[0,1] = np.cos(az0)
+    #M[1,0] = -np.cos(az0)
+    #M[1,1] = np.sin(az0)
+    #M[2,2] = 1.#
     
-    array = np.dot(M, array)
+    #array = np.dot(M, array)
     
     M = np.zeros((3,3))
     M[0,0] = np.sin(alt0)
@@ -45,7 +45,7 @@ def altaz2xy(alt, az, alt0, az0, th0, x0, y0, scale):
     
     array = np.dot(M, array)
     
-    x = scale*array[0]/array[2] + x0
+    x = -scale*array[0]/array[2] + x0
     y = scale*array[1]/array[2] + y0
     z = array[2]
     
