@@ -8,8 +8,9 @@ import h5py
 import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
+from core.coordinate_grids import PolarGrid, HealpixGrid
 from fLCfile import fLCfile
-
+from usefull_functions_dev import flux2mag
 
 def create_longbaseline(filelist, LBfile):
     """
@@ -23,6 +24,10 @@ def create_longbaseline(filelist, LBfile):
         tmp, = obj.read_header(['ascc'])
         ascc = np.append(ascc, tmp)
     ascc = np.unique(ascc)
+    
+    camgrid = PolarGrid(13500, 720)
+    ipxgrid = PolarGrid(270, 720)
+    skygrid = HealpixGrid(8)
     
     # Gather the full lightcurve of each star.
     ra = np.zeros(len(ascc))
@@ -60,8 +65,14 @@ def create_longbaseline(filelist, LBfile):
         camtransidx = camgrid.find_gridpoint(ha, tmp)
         intrapixidx = ipxgrid.find_gridpoint(ha, tmp)
         
+        mag0, emag0 = flux2mag(lc['flux0'], lc['eflux0'])
+        mag1, emag1 = flux2mag(lc['flux1'], lc['eflux1'])
+        
         tmp1 = np.amin(lc['lstseq'])
         tmp2 = np.amax(lc['lstseq'])
+        
+        flag = (lc['flux0'] > 0) & (lc['eflux0'] > 0) & (lc['sky'] > 0) & (lc['flag'] < 1)
+        flag = np.where(flag, 0, 1)
         
         try:
             if tmp1 < lstmin: lstmin = tmp1
@@ -73,9 +84,13 @@ def create_longbaseline(filelist, LBfile):
         except:
             lstmax = tmp2
         
+        arlist = [mag0, emag0, mag1, emag1, lc['x'], lc['y'], lc['lstseq'], flag, camtransidx, intrapixidx]
+        names = ['mag0', 'emag0', 'mag1', 'emag1', 'x', 'y', 'lstseq', 'flag', 'camtransidx', 'intrapixidx']
+        
         # Write the lightcurve to file.
         with h5py.File(LBfile) as f:
-            f.create_dataset('data/' + sID, data = lc)
+            for name, array in zip(names, arlist):
+                f.create_dataset('data/' + sID + '/' + name, data = array)
     
     staridx = np.arange(len(ascc))
     decidx = camgrid.find_decidx(dec)
@@ -88,6 +103,9 @@ def create_longbaseline(filelist, LBfile):
         f.create_dataset('header_table/dec', data = dec)
         f.create_dataset('header_table/nobs', data = nobs)
         f.create_dataset('header_table/vmag', data = vmag)
+        f.create_dataset('header_table/staridx', data = staridx)
+        f.create_dataset('header_table/decidx', data = decidx)
+        f.create_dataset('header_table/skyidx', data = skyidx)
         f['data'].attrs['lstmin'] = lstmin
         f['data'].attrs['lstmax'] = lstmax
     

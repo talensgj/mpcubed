@@ -4,7 +4,7 @@
 import numpy as np
     
     
-def find_sigma(ind1, res, err, maxiter=50, eps=1e-3):
+def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
     
     err1 = np.zeros(np.amax(ind1)+1)
     err2 = 2*np.ones(np.amax(ind1)+1)

@@ -65,7 +65,7 @@ Ay1 = np.sqrt(c1**2 + d1**2)
 px1 = np.arctan2(b1, a1)
 py1 = np.arctan2(d1, c1)
 
-with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter2_singlem.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_nosigma.hdf5', 'r') as f:
     mz2 = f['data/magnitudes/m'].value
 
     ipx = f['data/camtrans/idx'].value

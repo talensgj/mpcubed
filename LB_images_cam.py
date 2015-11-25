@@ -40,7 +40,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/June2_fLC_auto.hdf5', 'r') as f:
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/June2_fixedm.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_nosigma.hdf5', 'r') as f:
     mz = f['data/magnitudes/m'].value
     
     idx1 = f['data/camtrans/idx'].value

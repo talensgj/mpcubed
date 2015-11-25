@@ -114,7 +114,7 @@ def spatial_decor_new(ind2, ind3, mag, emag, x, y, maxiter=100, eps=1e-3, verbos
     
         c = np.bincount(ind3, weights*(mag - sol1 - sol2 - d[ind3]*csy)*sny)/np.bincount(ind3, weights*sny**2)
         d = np.bincount(ind3, weights*(mag - sol1 - sol2 - c[ind3]*sny)*csy)/np.bincount(ind3, weights*csy**2)
-    
+        
         sol3 = c[ind3]*sny + d[ind3]*csy
     
         if (niter > 0):

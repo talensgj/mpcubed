@@ -87,29 +87,30 @@ class CoarseDecorrelation():
             here = (decuni == idx)
             mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here)
             
-            mag = mag - self.m[staridx]
             # Apply known temporal correction.
+            #mag = mag - self.m[staridx]
             if self.got_sky == True:
                 mag = mag - self.s[skyidx, lstseq]
-                #emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+                emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
             
             # Create unique indices.
-            #staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
+            staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
             camtransidx, ind2, z_nobs = np.unique(camtransidx, return_inverse=True, return_counts=True)
             intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
             
             # Calculate new spatial correction.
-            #m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
-            z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor_new(ind2, ind3, mag, emag, x, y)
-            #offset = np.nanmedian(m - self.vmag[staridx])
-            #m = m - offset
-            #z = z + offset
+            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
+            #z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor_new(ind2, ind3, mag, emag, x, y)
             
-            #self.m[staridx] = m
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            z = z + offset
+            
+            self.m[staridx] = m
             self.z[camtransidx] = z
             self.A[intrapixidx] = A
             
-            #self.m_nobs[staridx] = m_nobs
+            self.m_nobs[staridx] = m_nobs
             self.z_nobs[camtransidx] = z_nobs
             self.A_nobs[intrapixidx] = A_nobs
             
@@ -139,18 +140,18 @@ class CoarseDecorrelation():
             lstseq, ind2, s_nobs = np.unique(lstseq, return_inverse=True, return_counts=True)
             
             # Calculate new temporal correction.
-            #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
-            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
+            m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
+            #m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
             
-            #offset = np.nanmedian(m - self.vmag[staridx])
-            #m = m - offset
-            #s = s + offset
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            s = s + offset
             
             self.m[staridx] = m
             self.s[skyidx[idx], lstseq] = s
             
-            #self.sigma1[staridx] = sigma1
-            #self.sigma2[skyidx[idx], lstseq] = sigma2
+            self.sigma1[staridx] = sigma1
+            self.sigma2[skyidx[idx], lstseq] = sigma2
             
             self.m_nobs[staridx] = m_nobs
             self.s_nobs[skyidx[idx], lstseq] = s_nobs
@@ -186,8 +187,8 @@ class CoarseDecorrelation():
         self.lstmin = lstmin
         self.lstlen = lstmax - lstmin + 1
         
-        #self.m = np.full(len(self.ascc), fill_value=np.nan)
-        self.m = np.copy(self.vmag)
+        self.m = np.full(len(self.ascc), fill_value=np.nan)
+        #self.m = np.copy(self.vmag)
         self.z = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
         self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
@@ -207,7 +208,7 @@ class CoarseDecorrelation():
             self.spatial()
             self.temporal()
             
-        with h5py.File('/data2/talens/3mEast/LBtests/June2_profiled.hdf5') as f:
+        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys.hdf5') as f:
     
             #hdr = f.create_group('header')
             #hdr.create_dataset('decidx', data=decidx)
