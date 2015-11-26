@@ -29,6 +29,7 @@ class CoarseDecorrelation():
         self.skygrid = 'healpix'
         self.skynx = 8
     
+    @profile
     def read_data(self, here):
         
         ascc = self.ascc[here]
@@ -72,6 +73,7 @@ class CoarseDecorrelation():
         
         return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq
     
+    @profile
     def spatial(self):
         
         decidx, decuni = np.unique(self.decidx, return_inverse=True)
@@ -91,7 +93,7 @@ class CoarseDecorrelation():
             #mag = mag - self.m[staridx]
             if self.got_sky == True:
                 mag = mag - self.s[skyidx, lstseq]
-                emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+                #emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
             
             # Create unique indices.
             staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
@@ -106,6 +108,8 @@ class CoarseDecorrelation():
             m = m - offset
             z = z + offset
             
+            #offset = np.nanmedian(self.m[staridx] - self.vmag[staridx])
+            
             self.m[staridx] = m
             self.z[camtransidx] = z
             self.A[intrapixidx] = A
@@ -115,7 +119,8 @@ class CoarseDecorrelation():
             self.A_nobs[intrapixidx] = A_nobs
             
         return
-            
+        
+    @profile
     def temporal(self):
             
         skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
@@ -140,8 +145,8 @@ class CoarseDecorrelation():
             lstseq, ind2, s_nobs = np.unique(lstseq, return_inverse=True, return_counts=True)
             
             # Calculate new temporal correction.
-            m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
-            #m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
+            #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
+            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -150,8 +155,8 @@ class CoarseDecorrelation():
             self.m[staridx] = m
             self.s[skyidx[idx], lstseq] = s
             
-            self.sigma1[staridx] = sigma1
-            self.sigma2[skyidx[idx], lstseq] = sigma2
+            #self.sigma1[staridx] = sigma1
+            #self.sigma2[skyidx[idx], lstseq] = sigma2
             
             self.m_nobs[staridx] = m_nobs
             self.s_nobs[skyidx[idx], lstseq] = s_nobs
@@ -208,7 +213,7 @@ class CoarseDecorrelation():
             self.spatial()
             self.temporal()
             
-        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys.hdf5') as f:
+        with h5py.File('/data2/talens/3mEast/LBtests/June2_kernprof.hdf5') as f:
     
             #hdr = f.create_group('header')
             #hdr.create_dataset('decidx', data=decidx)

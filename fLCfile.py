@@ -41,7 +41,8 @@ class fLCfile():
                     data[j] = f['header_table/'+fields[j]].value[here]
                     
         return data
-        
+    
+    @profile
     def read_data(self, fields, ascc=None, nobs=None):
         
         if ascc is None:
