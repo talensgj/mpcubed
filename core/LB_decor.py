@@ -78,69 +78,6 @@ def spatial_decor(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=
         return m, z, sigma, A, niter, chisq, npoints, npars
     return m, z, A, niter, chisq, npoints, npars
 
-def spatial_decor_new(ind2, ind3, mag, emag, x, y, maxiter=100, eps=1e-3, verbose=True):
-    
-    # Determine the number of datapoints and parameters to fit.
-    npoints = len(mag)
-    npars2 = len(np.unique(ind2))
-    npars3 = 4*len(np.unique(ind3))
-    npars = npars2 + npars3
-    
-    # Create the necessary arrays.
-    weights = 1/emag**2
-    snx = np.sin(2*np.pi*x)
-    csx = np.cos(2*np.pi*x)
-    sny = np.sin(2*np.pi*y)
-    csy = np.cos(2*np.pi*y)
-    z = np.zeros(np.amax(ind2) + 1)
-    b = np.zeros(np.amax(ind3) + 1)
-    d = np.zeros(np.amax(ind3) + 1)
-    sol2 = 0.
-    sol3 = 0.
-    
-    for niter in range(maxiter):
-        
-        if verbose:
-            print 'niter = %i'%niter
-        
-        # Computation of parameters.
-        z = np.bincount(ind2, weights*(mag - sol2 - sol3))/np.bincount(ind2, weights)
-    
-        sol1 = z[ind2]
-    
-        a = np.bincount(ind3, weights*(mag - sol1 - b[ind3]*csx - sol3)*snx)/np.bincount(ind3, weights*snx**2)
-        b = np.bincount(ind3, weights*(mag - sol1 - a[ind3]*snx - sol3)*csx)/np.bincount(ind3, weights*csx**2)
-        
-        sol2 = a[ind3]*snx + b[ind3]*csx
-    
-        c = np.bincount(ind3, weights*(mag - sol1 - sol2 - d[ind3]*csy)*sny)/np.bincount(ind3, weights*sny**2)
-        d = np.bincount(ind3, weights*(mag - sol1 - sol2 - c[ind3]*sny)*csy)/np.bincount(ind3, weights*csy**2)
-        
-        sol3 = c[ind3]*sny + d[ind3]*csy
-    
-        if (niter > 0):
-            
-            crit1 = np.nanmax(np.abs(sol1 - sol1_old))
-            crit2 = np.nanmax(np.abs(sol2 - sol2_old))
-            crit3 = np.nanmax(np.abs(sol3 - sol3_old))
-            
-            if verbose:
-                print ' crit1 = %g, crit2 = %g, crit3 = %g'%(crit1, crit2, crit3)
-            
-            if (crit1 < eps) & (crit2 < eps) & (crit3 < eps):
-                break
-        
-        sol1_old = np.copy(sol1)
-        sol2_old = np.copy(sol2)
-        sol3_old = np.copy(sol3)
-    
-    # Compute the chi-square value of the solution.
-    chi_tmp = weights*(mag - sol1 - sol2 - sol3)**2
-    chisq = np.sum(chi_tmp)/(npoints - npars)
-    
-    A = np.vstack([a, b, c, d]).T
-    
-    return z, A, niter, chisq, npoints, npars
 
 @profile
 def temporal_decor(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):

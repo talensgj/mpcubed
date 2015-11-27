@@ -10,10 +10,6 @@ import numpy as np
 from core.coordinate_grids import PolarGrid
 from core.index_functions import index_statistics
 
-from core import systematics_dev
-
-from fLCfile import fLCfile
-
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from viridis import viridis 
@@ -40,7 +36,7 @@ with h5py.File('/data2/talens/3mEast/LBtests/June2_fLC_auto.hdf5', 'r') as f:
     dec = f['header_table/dec'].value
     ra = f['header_table/ra'].value
     
-with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_nosigma_nocamnorm.hdf5', 'r') as f:
+with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter5_nosigma.hdf5', 'r') as f:
     mz = f['data/magnitudes/m'].value
     
     idx1 = f['data/camtrans/idx'].value

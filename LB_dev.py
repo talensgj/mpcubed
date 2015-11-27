@@ -8,170 +8,274 @@ import h5py
 import numpy as np
 
 from fLCfile import fLCfile
+from core.coordinate_grids import PolarGrid, HealpixGrid
+from core.LB_decor import spatial_decor, temporal_decor
+from usefull_functions_dev import flux2mag
 
-class Data():
-
-    def __init__()
-
-        f = fLCfile('/data2/talens/3mEast/June1.hdf5')
+class CoarseDecorrelation():
+    
+    def __init__(self, LBfile):
         
-        ascc, ra, dec, nobs, vmag = f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
-        nobs = Mnobs.astype('int')
-
-        staridx = np.arange(len(ascc))
-        decidx = pg.find_decidx(dec)
-        skyidx = hg.find_gridpoint(ra, dec)
+        self.LBfile = LBfile
         
-        return staridx, decidx, skyidx
-
-    def get_decidx():
-        return self.decidx
+        self.camgrid = 'polar'
+        self.camnx = 13500
+        self.camny = 720
         
-    def get_camdata(idx):
+        self.ipxgrid = 'polar'
+        self.ipxnx = 270
+        self.ipxny = 720
         
-        here = (self.decidx == idx)
+        self.skygrid = 'healpix'
+        self.skynx = 8
+    
+    @profile
+    def read_data(self, here):
+        
         ascc = self.ascc[here]
+        ra = self.ra[here]
+        dec = self.dec[here]
         nobs = self.nobs[here]
+        
         staridx = self.staridx[here]
         skyidx = self.skyidx[here]
         
-        jdmid, lstidx, lst, flux, eflux, sky, flag, x, y = f.read_data(['jdmid', 'lstidx', 'lst', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y'], ascc, nobs)
-        lstidx = lstidx.astype('int')
-
-        # Build indices.    
+        mag = np.zeros(np.sum(nobs))
+        emag = np.zeros(np.sum(nobs))
+        x = np.zeros(np.sum(nobs))
+        y = np.zeros(np.sum(nobs))
+        lstseq = np.zeros(np.sum(nobs))
+        camtransidx = np.zeros(np.sum(nobs))
+        intrapixidx = np.zeros(np.sum(nobs))
+        flags = np.zeros(np.sum(nobs))
+        select = np.append(0, np.cumsum(nobs))
+        with h5py.File(self.LBfile, 'r') as f:
+            for i in range(len(ascc)):
+                mag[select[i]:select[i+1]] = f['data/'+ascc[i]+'/mag0'].value
+                emag[select[i]:select[i+1]] = f['data/'+ascc[i]+'/emag0'].value
+                x[select[i]:select[i+1]] = f['data/'+ascc[i]+'/x'].value
+                y[select[i]:select[i+1]] = f['data/'+ascc[i]+'/y'].value
+                lstseq[select[i]:select[i+1]] = f['data/'+ascc[i]+'/lstseq'].value
+                camtransidx[select[i]:select[i+1]] = f['data/'+ascc[i]+'/camtransidx'].value
+                intrapixidx[select[i]:select[i+1]] = f['data/'+ascc[i]+'/intrapixidx'].value
+                flags[select[i]:select[i+1]] = f['data/'+ascc[i]+'/flag'].value
+        
+        camtransidx = camtransidx.astype('int')
+        intrapixidx = intrapixidx.astype('int')
+        
+        lstseq = lstseq.astype('int') - self.lstmin
         staridx = np.repeat(staridx, nobs)
-        
-        ha = np.mod(lst*15 - np.repeat(ra, nobs), 360.)
-        camtransidx = pg1.find_gridpoint(ha, np.repeat(dec, nobs))
-        intrapixidx = pg2.find_gridpoint(ha, np.repeat(dec, nobs))
-        
         skyidx = np.repeat(skyidx, nobs)
         
-        # To be replaced with lstseq?
-        dayidx = np.floor(jdmid).astype('int')
-        #dayidx = dayidx - 2457175 #June1
-        dayidx = dayidx - 2457190
-        skytransidx = np.ravel_multi_index((dayidx, lstidx), (15, 13500))
-            
-        # Flag bad data.
-        here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
-        flux = flux[here]
-        eflux = eflux[here]
+        # Remove bad data.
+        here = (flags < 1)
+        
+        mag = mag[here]
+        emag = emag[here]
         x = x[here]
         y = y[here]
-
-        ## What if there is no data?
-        #if len(flux) == 0: continue
-
+        lstseq = lstseq[here]
+        
         staridx = staridx[here]
         camtransidx = camtransidx[here]
         intrapixidx = intrapixidx[here]
         skyidx = skyidx[here]
-        skytransidx = skytransidx[here]
+        
+        return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq
+    
+    @profile
+    def spatial(self):
+        
+        decidx, decuni = np.unique(self.decidx, return_inverse=True)
+        
+        nbins = len(decidx)
+        niter = np.zeros(nbins)
+        chisq = np.zeros(nbins)
+        npoints = np.zeros(nbins)
+        npars = np.zeros(nbins)
+        for idx in range(nbins):
+            
+            # Read data.
+            here = (decuni == idx)
+            mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here)
+            
+            # Apply known temporal correction.
+            if self.got_sky == True:
+                mag = mag - self.s[skyidx, lstseq]
+                #emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+            
+            # Create unique indices.
+            staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
+            camtransidx, ind2, z_nobs = np.unique(camtransidx, return_inverse=True, return_counts=True)
+            intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
+            
+            # Calculate new spatial correction.
+            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
+            
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            z = z + offset
+            
+            self.m[staridx] = m
+            self.z[camtransidx] = z
+            self.A[intrapixidx] = A
+            
+            self.m_nobs[staridx] = m_nobs
+            self.z_nobs[camtransidx] = z_nobs
+            self.A_nobs[intrapixidx] = A_nobs
+            
+        return
+        
+    @profile
+    def temporal(self):
+            
+        skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
+        
+        nbins = len(skyidx)
+        niter = np.zeros(nbins)
+        chisq = np.zeros(nbins)
+        npoints = np.zeros(nbins)
+        npars = np.zeros(nbins)
+        for idx in range(nbins):
+            
+            # Read data.
+            here = (skyuni == idx)
+            mag, emag, x, y, staridx, camtransidx, intrapixidx, _, lstseq = self.read_data(here)
+            
+            # Apply known spatial correction.
+            mag = mag - self.z[camtransidx]
+            mag = mag - np.sum(self.A[intrapixidx]*np.array([np.sin(2*np.pi*x), np.cos(2*np.pi*x), np.sin(2*np.pi*y), np.cos(2*np.pi*y)]).T, axis=1)
+            
+            # Create unique indices.
+            staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
+            lstseq, ind2, s_nobs = np.unique(lstseq, return_inverse=True, return_counts=True)
+            
+            # Calculate new temporal correction.
+            #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
+            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
+            
+            offset = np.nanmedian(m - self.vmag[staridx])
+            m = m - offset
+            s = s + offset
+            
+            self.m[staridx] = m
+            self.s[skyidx[idx], lstseq] = s
+            
+            #self.sigma1[staridx] = sigma1
+            #self.sigma2[skyidx[idx], lstseq] = sigma2
+            
+            self.m_nobs[staridx] = m_nobs
+            self.s_nobs[skyidx[idx], lstseq] = s_nobs
+           
+        self.got_sky = True
+            
+        return
+    
+    def calculate(self):
 
-        # Convert flux to magnitudes
-        mag = 25 - 2.5*np.log10(flux)
-        emag = 2.5/np.log(10)*eflux/flux
+        self.f = fLCfile(self.LBfile)
+        self.camgrid = PolarGrid(self.camnx, self.camny)
+        self.ipxgrid = PolarGrid(self.ipxnx, self.ipxny)
+        self.skygrid = HealpixGrid(self.skynx)
         
-        return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, skytransidx
-
-def CameraTransmission():
-    
-    ## Function call returns header and related indices.
-    
-    # Determine the number of declination bins.
-    decidx, decuni = np.unique(decidx, return_inverse=True)
-    nbins = len(decidx)
-    
-    ## Function call returns the sky parameters.
-    
-    # Create arrays for the results.
-    niter = np.zeros(nbins)
-    chisq = np.zeros(nbins)
-    npoints = np.zeros(nbins)
-    npars = np.zeros(nbins)
-    
-    m = np.full(len(ascc), fill_value=np.nan)
-    z = np.full((13502*722,), fill_value=np.nan)
-    a = np.full((272*722,), fill_value=np.nan)
-    b = np.full((272*722,), fill_value=np.nan)
-    c = np.full((272*722,), fill_value=np.nan)
-    d = np.full((272*722,), fill_value=np.nan)
-    
-    # Iterate over the declination bins.
-    for idx in range(nbins):
+        self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
+        self.nobs = self.nobs.astype('int')
         
-        ## Function call returns data and related indices for the bin.
+        self.staridx = np.arange(len(self.ascc))
+        self.decidx = self.camgrid.find_decidx(self.dec)
+        self.skyidx = self.skygrid.find_gridpoint(self.ra, self.dec)
         
-        if (skypars == True):
-            mag = mag - s[skyidx, skytransidx]
-            emag = np.sqrt(emag**2 + (sigma1[staridx])**2 + (sigma2[skyidx, skytransidx])**2)
+        #lstseq, = self.f.read_data(['lstseq'], self.ascc, self.nobs) # May be too memory intensive?
+        #lstseq = lstseq.astype('int')
         
-        # Make the indices unique.
-        staridx, staruni = np.unique(staridx, return_inverse=True)
-        camtransidx, camtransuni = np.unique(camtransidx, return_inverse=True)
-        intrapixidx, intrapixuni = np.unique(intrapixidx, return_inverse=True)
+        #self.lstmin = np.amin(lstseq)
+        #self.lstlen = np.amax(lstseq) - np.amin(lstseq) + 1
         
-        # Compute the best fit transmission.
-        m[staridx], z[camtransidx], a[intrapixidx], b[intrapixidx], c[intrapixidx], d[intrapixidx], niter[idx], chisq[idx], npoints[idx], npars[idx] = systematics_dev.trans_ipx(staruni, camtransuni, intrapixuni, mag, emag, x, y, verbose=True, use_weights=False)
-    
-        # Make a normalization attempt.
-        offset = np.nanmedian(m[staridx] - vmag[staridx])
-        m[staridx] = m[staridx] - offset
-        z[camtransidx] = z[camtransidx] + offset
-    
-    ## Function call to write results.
-    
-def SkyTransmission():
-    
-    ## Function call returns header and related indices.
-    
-    # Determine the number of sky bins.
-    skyidx, skyuni = np.unique(skyidx, return_inverse=True)
-    nbins = len(skyidx)
-    
-    ## Function call returns the camera parameters.
-    
-    # Create arrays for the results.
-    niter = np.zeros(nbins)
-    chisq = np.zeros(nbins)
-    npoints = np.zeros(nbins)
-    npars = np.zeros(nbins)
-    
-    m = np.full(len(ascc), fill_value=np.nan)
-    sigma1 = np.full(len(ascc), fill_value=np.nan)
-    s = np.full((hg.npix, 15*13500), fill_value=np.nan)
-    sigma2 = np.full((hg.npix, 15*13500), fill_value=np.nan)
-    
-    # Iterate over the declination bins.
-    for idx in range(nbins):
+        with h5py.File(self.LBfile, 'r') as f:
+            lstmin = f['data'].attrs['lstmin']
+            lstmax = f['data'].attrs['lstmax']
+            
+        self.lstmin = lstmin
+        self.lstlen = lstmax - lstmin + 1
         
-        ## Function call returns data and related indices for the bin.
+        self.m = np.full(len(self.ascc), fill_value=np.nan)
+        self.z = np.full(self.camgrid.npix, fill_value=np.nan)
+        self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
+        self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
-        if (campars == True):
-            mag = mag - z[camtransidx] - a[intrapixidx]*np.sin(2*np.pi*x) - b[intrapixidx]*np.cos(2*np.pi*x) - c[intrapixidx]*np.sin(2*np.pi*y) - d[intrapixidx]*np.cos(2*np.pi*y)
+        self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
+        self.sigma2 = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
-        # Make the indices unique.
-        staridx, staruni = np.unique(staridx, return_inverse=True)
-        skytransidx, skytransuni = np.unique(skytransidx, return_inverse=True)
+        self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
+        self.z_nobs = np.full(self.camgrid.npix, fill_value=np.nan)
+        self.A_nobs = np.full(self.ipxgrid.npix, fill_value=np.nan)
+        self.s_nobs = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
-        # Compute the best fit transmission.
-        m[staridx], sigma1[staridx], s[skyidx, skytransidx], sigma2[skyidx, skytransidx], niter[idx], chisq[idx], npoints[idx], npars[idx] = systematics_dev.trans(staruni, skytransuni, mag, emag, verbose=True, use_weights=True)
+        self.got_sky = False
+        
+        for niter in range(2):
+        
+            self.spatial()
+            self.temporal()
+            
+        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter2_nosigma_im.hdf5') as f:
     
-        # Make a normalization attempt.
-        offset = np.nanmedian(m[staridx] - vmag[staridx])
-        m[staridx] = m[staridx] - offset
-        s[skyidx, skytransidx] = s[skyidx, skytransidx] + offset
+            #hdr = f.create_group('header')
+            #hdr.create_dataset('decidx', data=decidx)
+            #hdr.create_dataset('niter', data=niter)
+            #hdr.create_dataset('chisq', data=chisq)
+            #hdr.create_dataset('npoints', data=npoints)
+            #hdr.create_dataset('npars', data=npars)
     
-    ## Function call to write results.
-
-
-def CoarseDecorrelation():
-
-    for i in range(5):
-        
-        CameraTransmission()
-        SkyTransmission()
-
+            #hdr = f.create_group('header')
+            #hdr.create_dataset('skyidx', data=skyidx)
+            #hdr.create_dataset('niter', data=niter) 
+            #hdr.create_dataset('chisq', data=chisq)
+            #hdr.create_dataset('npoints', data=npoints)
+            #hdr.create_dataset('npars', data=npars)
+            
+            grp = f.create_group('data')
+            
+            grp.create_dataset('magnitudes/ascc', data=self.ascc)
+            grp.create_dataset('magnitudes/m', data=self.m)
+            grp.create_dataset('magnitudes/sigma', data=self.sigma1)
+            grp.create_dataset('magnitudes/nobs', data=self.m_nobs)
+            
+            idx, = np.where(~np.isnan(self.z))
+            grp.create_dataset('camtrans/idx', data=idx)
+            grp.create_dataset('camtrans/z', data=self.z[idx])
+            grp.create_dataset('camtrans/nobs', data=self.z_nobs[idx])
+            
+            grp['camtrans'].attrs['grid'] = 'polar'
+            grp['camtrans'].attrs['nx'] = self.camnx
+            grp['camtrans'].attrs['ny'] = self.camny
+            
+            idx, = np.where(~np.isnan(self.A[:,0]))
+            grp.create_dataset('intrapix/idx', data=idx)
+            grp.create_dataset('intrapix/a', data=self.A[idx,0])
+            grp.create_dataset('intrapix/b', data=self.A[idx,1])
+            grp.create_dataset('intrapix/c', data=self.A[idx,2])
+            grp.create_dataset('intrapix/d', data=self.A[idx,3])
+            grp.create_dataset('intrapix/nobs', data=self.A_nobs[idx])
+            
+            grp['intrapix'].attrs['grid'] = 'polar'
+            grp['intrapix'].attrs['nx'] = self.ipxnx
+            grp['intrapix'].attrs['ny'] = self.ipxny
+            
+            idx, lstseq = np.where(~np.isnan(self.s))
+            grp.create_dataset('skytrans/idx', data=idx)
+            grp.create_dataset('skytrans/lstseq', data=lstseq)
+            grp.create_dataset('skytrans/s', data=self.s[idx, lstseq])
+            grp.create_dataset('skytrans/sigma', data=self.sigma2[idx, lstseq])
+            grp.create_dataset('skytrans/nobs', data=self.s_nobs[idx, lstseq])
+            
+            grp['skytrans'].attrs['grid'] = 'healpix'
+            grp['skytrans'].attrs['nx'] = self.skynx
+            grp['skytrans'].attrs['lstmin'] = self.lstmin
+            grp['skytrans'].attrs['lstlen'] = self.lstlen
+            
 if __name__ == '__main__':
+    
+    obj = CoarseDecorrelation('/data2/talens/3mEast/LBtests/intermediate_file.hdf5')
+    obj.calculate()
     

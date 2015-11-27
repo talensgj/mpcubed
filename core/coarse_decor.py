@@ -3,7 +3,7 @@
 
 import numpy as np
     
-    
+@profile 
 def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
     
     err1 = np.zeros(np.amax(ind1)+1)
@@ -182,3 +182,15 @@ def coarse_positions(ind1, ind2, ind3, x, y, mag, emag, maxiter=100, eps=1e-3, v
         return m, z, a, b, c, d, sigma, niter, chisq, npoints, npars
     else:
         return m, z, a, b, c, d, niter, chisq, npoints, npars
+
+if __name__ == '__main__':
+    
+    ind = np.repeat(np.arange(100), 50)
+    res = np.random.randn(5000)
+    err = .2*np.ones(5000)
+    
+    find_sigma(ind, res, err)
+    
+    
+    
+    

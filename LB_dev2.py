@@ -9,7 +9,7 @@ import numpy as np
 
 from fLCfile import fLCfile
 from core.coordinate_grids import PolarGrid, HealpixGrid
-from core.LB_decor import spatial_decor, temporal_decor, spatial_decor_new
+from core.LB_decor import spatial_decor, temporal_decor
 from usefull_functions_dev import flux2mag
 
 class CoarseDecorrelation():
@@ -90,7 +90,6 @@ class CoarseDecorrelation():
             mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here)
             
             # Apply known temporal correction.
-            #mag = mag - self.m[staridx]
             if self.got_sky == True:
                 mag = mag - self.s[skyidx, lstseq]
                 #emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
@@ -102,13 +101,10 @@ class CoarseDecorrelation():
             
             # Calculate new spatial correction.
             m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
-            #z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor_new(ind2, ind3, mag, emag, x, y)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
             z = z + offset
-            
-            #offset = np.nanmedian(self.m[staridx] - self.vmag[staridx])
             
             self.m[staridx] = m
             self.z[camtransidx] = z
@@ -193,7 +189,6 @@ class CoarseDecorrelation():
         self.lstlen = lstmax - lstmin + 1
         
         self.m = np.full(len(self.ascc), fill_value=np.nan)
-        #self.m = np.copy(self.vmag)
         self.z = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
         self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
@@ -208,12 +203,12 @@ class CoarseDecorrelation():
         
         self.got_sky = False
         
-        for niter in range(2):
+        for niter in range(5):
         
             self.spatial()
             self.temporal()
             
-        with h5py.File('/data2/talens/3mEast/LBtests/June2_kernprof.hdf5') as f:
+        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter5_nosigma.hdf5') as f:
     
             #hdr = f.create_group('header')
             #hdr.create_dataset('decidx', data=decidx)

@@ -58,7 +58,7 @@ class fLCfile():
         data = [np.zeros(npoints) for _ in range(nfields)]
         with h5py.File(self.fLCfile, 'r') as f:
             for i in range(nstars):
-                lc = f['data/'+ascc[i]]
+                lc = f['data/'+ascc[i]].value
                 for j in range(nfields):
                     data[j][select[i]:select[i+1]] = lc[fields[j]]
             
