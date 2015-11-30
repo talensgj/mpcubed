@@ -42,7 +42,6 @@ class fLCfile():
                     
         return data
     
-    @profile
     def read_data(self, fields, ascc=None, nobs=None):
         
         if ascc is None:

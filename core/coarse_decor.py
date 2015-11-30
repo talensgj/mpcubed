@@ -3,7 +3,7 @@
 
 import numpy as np
     
-@profile 
+     
 def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
     
     err1 = np.zeros(np.amax(ind1)+1)

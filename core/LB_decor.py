@@ -4,7 +4,7 @@
 import numpy as np
 from coarse_decor import find_sigma
 
-@profile
+
 def spatial_decor(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.
@@ -79,7 +79,6 @@ def spatial_decor(ind1, ind2, ind3, mag, emag, x, y, use_weights=False, maxiter=
     return m, z, A, niter, chisq, npoints, npars
 
 
-@profile
 def temporal_decor(ind1, ind2, mag, emag, use_weights=False, maxiter=100, eps=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.

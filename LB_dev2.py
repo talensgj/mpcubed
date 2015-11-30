@@ -14,22 +14,21 @@ from usefull_functions_dev import flux2mag
 
 class CoarseDecorrelation():
     
-    def __init__(self, LBfile):
-        
-        self.LBfile = LBfile
+    def __init__(self, **kwargs):
         
         self.camgrid = 'polar'
-        self.camnx = 13500
-        self.camny = 720
+        self.camnx = kwargs.pop('camnx', 13500)
+        self.camny = kwargs.pop('camny', 720)
         
         self.ipxgrid = 'polar'
-        self.ipxnx = 270
-        self.ipxny = 720
+        self.ipxnx = kwargs.pop('ipxnx', 270)
+        self.ipxny = self.camny
         
         self.skygrid = 'healpix'
-        self.skynx = 8
+        self.skynx = kwargs.pop('skynx', 8)
     
-    @profile
+        self.maxiter = kwargs.pop('maxiter', 5)
+    
     def read_data(self, here):
         
         ascc = self.ascc[here]
@@ -73,7 +72,6 @@ class CoarseDecorrelation():
         
         return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq
     
-    @profile
     def spatial(self):
         
         decidx, decuni = np.unique(self.decidx, return_inverse=True)
@@ -100,7 +98,7 @@ class CoarseDecorrelation():
             intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
             
             # Calculate new spatial correction.
-            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y)
+            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y, verbose=False)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -116,7 +114,6 @@ class CoarseDecorrelation():
             
         return
         
-    @profile
     def temporal(self):
             
         skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
@@ -142,7 +139,7 @@ class CoarseDecorrelation():
             
             # Calculate new temporal correction.
             #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
-            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False)
+            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False, verbose=False)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -161,7 +158,9 @@ class CoarseDecorrelation():
             
         return
     
-    def calculate(self):
+    def calculate(self, LBfile, sysfile):
+
+        self.LBfile = LBfile
 
         self.f = fLCfile(self.LBfile)
         self.camgrid = PolarGrid(self.camnx, self.camny)
@@ -182,8 +181,11 @@ class CoarseDecorrelation():
         #self.lstlen = np.amax(lstseq) - np.amin(lstseq) + 1
         
         with h5py.File(self.LBfile, 'r') as f:
-            lstmin = f['data'].attrs['lstmin']
-            lstmax = f['data'].attrs['lstmax']
+            #lstmin = f['data'].attrs['lstmin']
+            #lstmax = f['data'].attrs['lstmax']
+            
+            lstmin = f['global'].attrs['lstmin']
+            lstmax = f['global'].attrs['lstmax']
             
         self.lstmin = lstmin
         self.lstlen = lstmax - lstmin + 1
@@ -203,12 +205,17 @@ class CoarseDecorrelation():
         
         self.got_sky = False
         
-        for niter in range(5):
+        for niter in range(self.maxiter):
         
+            print 'Iteration %i out of %i:'%(niter+1, self.maxiter)
+            
+            print '    Calculating camera systematics...'
             self.spatial()
+            
+            print '    Calculating atmospheric systematics...'
             self.temporal()
             
-        with h5py.File('/data2/talens/3mEast/LBtests/June2_sys_niter5_nosigma.hdf5') as f:
+        with h5py.File(sysfile) as f:
     
             #hdr = f.create_group('header')
             #hdr.create_dataset('decidx', data=decidx)
@@ -266,6 +273,6 @@ class CoarseDecorrelation():
             
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation('/data2/talens/3mEast/LBtests/June2_fLC_auto.hdf5')
-    obj.calculate()
+    obj = CoarseDecorrelation()
+    obj.calculate('/data2/talens/3mEast/LBtests/test.hdf5', '/data2/talens/3mEast/LBtests/test_sys.hdf5')
     

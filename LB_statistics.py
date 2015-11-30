@@ -12,7 +12,7 @@ from core.index_functions import index_statistics
 
 import matplotlib.pyplot as plt
 
-
+from fLCfile import fLCfile
 
 def pointing(filelist):
     
@@ -102,6 +102,97 @@ def coverage(filelist):
     plt.show()
     plt.close()
     
+def combined_global(filelist):
+    
+    ndates = len(filelist)
+    
+    alt0 = np.zeros(ndates)
+    az0 = np.zeros(ndates)
+    th0 = np.zeros(ndates)
+    x0 = np.zeros(ndates)
+    y0 = np.zeros(ndates)
+    
+    aversion = []
+    rversion = []
+    cversion = []
+    
+    exptime = np.zeros(ndates)
+    ccdtemp = np.zeros(ndates)
+    
+    for i in range(ndates):
+        with h5py.File(filelist[i], 'r') as f:
+            
+            if (i < 1):
+                
+                try: station = f['global'].attrs['station']
+                except: station = f['global'].attrs['STATION']
+            
+                try: camera = f['global'].attrs['camera']
+                except: camera = f['global'].attrs['CAMERA']
+            
+                try: naper = f['global'].attrs['naper']
+                except: naper = f['global'].attrs['NAPER']
+                
+                try: aper0 = f['global'].attrs['aper0']
+                except: aper0 = f['global'].attrs['APER0']
+                
+                try: aper1 = f['global'].attrs['aper1']
+                except: aper1 = f['global'].attrs['APER1']
+                
+                try: nstaper = f['global'].attrs['nstaper']
+                except: nstaper = f['global'].attrs['NSTAPER']
+                
+                try: skyrad0 = f['global'].attrs['skyrad0']
+                except: skyrad0 = f['global'].attrs['SKYRAD0']
+                
+                try: skyrad1 = f['global'].attrs['skyrad1']
+                except: skyrad1 = f['global'].attrs['SKYRAD1']
+            
+            try: alt0[i] = f['global'].attrs['alt0']
+            except: alt0[i] = f['global'].attrs['ALT0']
+            
+            try: az0[i] = f['global'].attrs['az0']
+            except: az0[i] = f['global'].attrs['AZ0']
+            
+            try: th0[i] = f['global'].attrs['th0']
+            except: th0[i] = f['global'].attrs['TH0']
+            
+            try: x0[i] = f['global'].attrs['x0']
+            except: x0[i] = f['global'].attrs['X0']
+            
+            try: y0[i] = f['global'].attrs['y0']
+            except: y0[i] = f['global'].attrs['Y0']
+            
+            try: aversion.append(f['global'].attrs['aversion'])
+            except: aversion.append(f['global'].attrs['AVERSION'])
+            
+            try: rversion.append(f['global'].attrs['rversion'])
+            except: rversion.append(f['global'].attrs['RVERSION'])
+            
+            try: cversion.append(f['global'].attrs['cversion'])
+            except: cversion.append(f['global'].attrs['CVERSION'])
+            
+            try: exptime[i] = f['global'].attrs['exptime']
+            except: exptime[i] = f['global'].attrs['EXPTIME']
+            
+            try: ccdtemp[i] = f['global'].attrs['ccdtemp']
+            except: ccdtemp[i] = f['global'].attrs['CCDTEMP']
+            
+
+    return station, camera, alt0, az0, th0, x0, y0, aversion, rversion, cversion, exptime, ccdtemp, naper, aper0, aper1, nstaper, skyrad0, skyrad1
+   
+def lstrange(filelist):
+    
+    obj = fLCfile(filelist[0])
+    lstseq = obj.read_data(['lstseq'])
+    lstmin = np.amin(lstseq)
+    
+    obj = fLCfile(filelist[-1])
+    lstseq = obj.read_data(['lstseq'])
+    lstmax = np.amax(lstseq)
+    
+    return lstmin, lstmax
+    
 def combined_header(filelist):
     
     ndates = len(filelist)
@@ -141,7 +232,7 @@ def combined_header(filelist):
     jdstart = index_statistics(idx, jdstart, statistic=np.amin)
     nobs = np.bincount(idx, nobs)
     
-    return ascc
+    return ascc, ra, dec, vmag, bmag, spectype, blend, blendvalue, jdstart, nobs
     
 def combined_lightcurve(filelist, ascc):
     
@@ -169,13 +260,64 @@ def combined_lightcurve(filelist, ascc):
     
 def file_generator(filelist):
     
-    ascc = combined_header(filelist)
+    station, camera, alt0, az0, th0, x0, y0, aversion, rversion, cversion, exptime, ccdtemp, naper, aper0, aper1, nstaper, skyrad0, skyrad1 = combined_global(filelist)
+    
+    lstmin, lstmax = lstrange(filelist)
+    
+    with h5py.File('/data2/talens/3mEast/LBtests/test.hdf5') as f:
+        grp = f.create_group('global')
+        
+        grp.attrs['station'] = station
+        grp.attrs['camera'] = camera
+        
+        grp.attrs['naper'] = naper
+        grp.attrs['aper0'] = aper0
+        grp.attrs['aper1'] = aper1
+        grp.attrs['nstaper'] = nstaper
+        grp.attrs['skyrad0'] = skyrad0
+        grp.attrs['skyrad1'] = skyrad1
+        
+        grp.create_dataset('filelist', data=filelist)
+        
+        grp.create_dataset('alt0', data=alt0)
+        grp.create_dataset('az0', data=az0)
+        grp.create_dataset('th0', data=th0)
+        grp.create_dataset('x0', data=x0)
+        grp.create_dataset('y0', data=y0)
+        
+        grp.create_dataset('rversion', data=rversion)
+        grp.create_dataset('cversion', data=cversion)
+        grp.create_dataset('aversion', data=aversion)
+        
+        grp.create_dataset('ccdtemp', data=ccdtemp)
+        grp.create_dataset('exptime', data=exptime)
+        
+        grp.attrs['lstmin'] = lstmin
+        grp.attrs['lstmax'] = lstmax
+    exit()
+    ascc, ra, dec, vmag, bmag, spectype, blend, blendvalue, jdstart, nobs = combined_header(filelist)
+    
+    with h5py.File('/data2/talens/test.hdf5') as f:
+        f.create_dataset('header_table/ascc', data=ascc) 
+        f.create_dataset('header_table/ra', data=ra) 
+        f.create_dataset('header_table/dec', data=dec) 
+        f.create_dataset('header_table/vmag', data=vmag) 
+        f.create_dataset('header_table/bmag', data=bmag) 
+        f.create_dataset('header_table/spectype', data=spectype) 
+        f.create_dataset('header_table/blend', data=blend) 
+        f.create_dataset('header_table/blendvalue', data=blendvalue) 
+        f.create_dataset('header_table/jdstart', data=jdstart)
+        f.create_dataset('header_table/nobs', data=nobs) 
     
     nstars = len(ascc)
     chunk = 50
     for i in range(0, nstars, chunk):
         print i, nstars
-        combined_lightcurve(filelist, ascc[i:i+chunk])
+        new_dict = combined_lightcurve(filelist, ascc[i:i+chunk])
+    
+        with h5py.File('/data2/talens/test.hdf5') as f:
+            for key, value in new_dict.iteritems():
+                f.create_dataset('data/' + key, data=value)
     
     return
     
@@ -185,8 +327,9 @@ def filelist_generator(fromdate, todate, camera):
     
 if __name__ == '__main__':
     
-    filelist = glob.glob('/data2/mascara/LaPalma/201506??LPC/fLC/fLC_201506??LPC.hdf5')
+    filelist = glob.glob('/data2/mascara/LaPalma/201506??LPE/fLC/fLC_201506??LPE.hdf5')
     filelist = np.sort(filelist)
-    filelist = filelist[16:]
+    filelist = filelist[14:]
+    print filelist
     
     file_generator(filelist)
