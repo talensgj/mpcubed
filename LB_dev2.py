@@ -15,6 +15,14 @@ from usefull_functions_dev import flux2mag
 class CoarseDecorrelation():
     
     def __init__(self, **kwargs):
+        """
+            Performs a coarse decorrelation on all data in a given Long Baseline
+            fLC file. Removes camera transmission, intrapixel variations and
+            sky transmission.
+        """
+        
+        # Initialize with defualt parameters unless arguments were given.
+        self.maxiter = kwargs.pop('maxiter', 5)
         
         self.camgrid = 'polar'
         self.camnx = kwargs.pop('camnx', 13500)
@@ -27,9 +35,13 @@ class CoarseDecorrelation():
         self.skygrid = 'healpix'
         self.skynx = kwargs.pop('skynx', 8)
     
-        self.maxiter = kwargs.pop('maxiter', 5)
+        return
     
     def read_data(self, here):
+        """
+            Reads portions of the data from file, creates appropriate indices,
+            removes flagged data and converts fluxes to magnitudes.
+        """
         
         ascc = self.ascc[here]
         ra = self.ra[here]
@@ -73,6 +85,10 @@ class CoarseDecorrelation():
         return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq
     
     def spatial(self):
+        """
+            Solves for the camera transmission and intrapixel variations which
+            are assumed to be time independent.
+        """
         
         decidx, decuni = np.unique(self.decidx, return_inverse=True)
         
@@ -115,7 +131,10 @@ class CoarseDecorrelation():
         return
         
     def temporal(self):
-            
+        """
+            Solves for the sky transmission as a function of position and time.
+        """
+        
         skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
         
         nbins = len(skyidx)
@@ -159,17 +178,24 @@ class CoarseDecorrelation():
         return
     
     def calculate(self, LBfile, sysfile):
-
+        """
+            Performs the coarse decorrelation on the given Long Baseline fLC file
+            and writes the result to the given output location.
+        """
+    
         self.LBfile = LBfile
 
+        # Set up the IO and coordinate grids.
         self.f = fLCfile(self.LBfile)
         self.camgrid = PolarGrid(self.camnx, self.camny)
         self.ipxgrid = PolarGrid(self.ipxnx, self.ipxny)
         self.skygrid = HealpixGrid(self.skynx)
         
+        # Read the required header data.
         self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
         self.nobs = self.nobs.astype('int')
         
+        # Create indices.
         self.staridx = np.arange(len(self.ascc))
         self.decidx = self.camgrid.find_decidx(self.dec)
         self.skyidx = self.skygrid.find_gridpoint(self.ra, self.dec)
@@ -180,16 +206,18 @@ class CoarseDecorrelation():
         #self.lstmin = np.amin(lstseq)
         #self.lstlen = np.amax(lstseq) - np.amin(lstseq) + 1
         
+        # Read the minimum and maximum lstseq.
         with h5py.File(self.LBfile, 'r') as f:
             #lstmin = f['data'].attrs['lstmin']
             #lstmax = f['data'].attrs['lstmax']
             
-            lstmin = f['global'].attrs['lstmin']
-            lstmax = f['global'].attrs['lstmax']
+            lstmin = f['global'].attrs['lstmin'].astype('int')
+            lstmax = f['global'].attrs['lstmax'].astype('int')
             
         self.lstmin = lstmin
         self.lstlen = lstmax - lstmin + 1
         
+        # Create arrays to hold the results.
         self.m = np.full(len(self.ascc), fill_value=np.nan)
         self.z = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
@@ -205,6 +233,7 @@ class CoarseDecorrelation():
         
         self.got_sky = False
         
+        # Perform the coarse decorrelation.
         for niter in range(self.maxiter):
         
             print 'Iteration %i out of %i:'%(niter+1, self.maxiter)
@@ -214,39 +243,44 @@ class CoarseDecorrelation():
             
             print '    Calculating atmospheric systematics...'
             self.temporal()
-            
+        
+        # Write the results to file.
         with h5py.File(sysfile) as f:
     
-            #hdr = f.create_group('header')
-            #hdr.create_dataset('decidx', data=decidx)
-            #hdr.create_dataset('niter', data=niter)
-            #hdr.create_dataset('chisq', data=chisq)
-            #hdr.create_dataset('npoints', data=npoints)
-            #hdr.create_dataset('npars', data=npars)
-    
-            #hdr = f.create_group('header')
-            #hdr.create_dataset('skyidx', data=skyidx)
-            #hdr.create_dataset('niter', data=niter) 
-            #hdr.create_dataset('chisq', data=chisq)
-            #hdr.create_dataset('npoints', data=npoints)
-            #hdr.create_dataset('npars', data=npars)
+            # Write the header.
+            hdr = f.create_group('header')
+            hdr.attrs['niter'] = self.maxiter
             
+            #hdr.create_dataset('spatial/niter', data = niter)
+            #hdr.create_dataset('spatial/chisq', data = chisq)
+            #hdr.create_dataset('spatial/npoints', data = npoints)
+            #hdr.create_dataset('spatial/npars', data = npars)
+            
+            #hdr.create_dataset('temporal/niter', data = niter)
+            #hdr.create_dataset('temporal/chisq', data = chisq)
+            #hdr.create_dataset('temporal/npoints', data = npoints)
+            #hdr.create_dataset('temporal/npars', data = npars)
+            
+            # Write the data.
             grp = f.create_group('data')
             
-            grp.create_dataset('magnitudes/ascc', data=self.ascc)
-            grp.create_dataset('magnitudes/m', data=self.m)
-            grp.create_dataset('magnitudes/sigma', data=self.sigma1)
-            grp.create_dataset('magnitudes/nobs', data=self.m_nobs)
+            # Write the magnitudes.
+            grp.create_dataset('magnitudes/ascc', data = self.ascc)
+            grp.create_dataset('magnitudes/m', data = self.m)
+            grp.create_dataset('magnitudes/sigma', data = self.sigma1)
+            grp.create_dataset('magnitudes/nobs', data = self.m_nobs)
             
+            # Write the camera transmission.
             idx, = np.where(~np.isnan(self.z))
-            grp.create_dataset('camtrans/idx', data=idx)
-            grp.create_dataset('camtrans/z', data=self.z[idx])
-            grp.create_dataset('camtrans/nobs', data=self.z_nobs[idx])
+            grp.create_dataset('camtrans/idx', data = idx)
+            grp.create_dataset('camtrans/z', data = self.z[idx])
+            grp.create_dataset('camtrans/nobs', data = self.z_nobs[idx])
             
             grp['camtrans'].attrs['grid'] = 'polar'
             grp['camtrans'].attrs['nx'] = self.camnx
             grp['camtrans'].attrs['ny'] = self.camny
             
+            # Write the intrapixel variations.
             idx, = np.where(~np.isnan(self.A[:,0]))
             grp.create_dataset('intrapix/idx', data=idx)
             grp.create_dataset('intrapix/a', data=self.A[idx,0])
@@ -259,6 +293,7 @@ class CoarseDecorrelation():
             grp['intrapix'].attrs['nx'] = self.ipxnx
             grp['intrapix'].attrs['ny'] = self.ipxny
             
+            # Write the sky transmission.
             idx, lstseq = np.where(~np.isnan(self.s))
             grp.create_dataset('skytrans/idx', data=idx)
             grp.create_dataset('skytrans/lstseq', data=lstseq)
@@ -274,5 +309,5 @@ class CoarseDecorrelation():
 if __name__ == '__main__':
     
     obj = CoarseDecorrelation()
-    obj.calculate('/data2/talens/3mEast/LBtests/test.hdf5', '/data2/talens/3mEast/LBtests/test_sys.hdf5')
+    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5', '/data2/talens/2015Q2/LPE/sys_201506BLPE.hdf5')
     
