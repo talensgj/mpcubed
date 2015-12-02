@@ -14,9 +14,37 @@ class SysFile():
         
         return
         
+    def read_header(self):
+        
+        with h5py.File(self.sysfile, 'r') as f:
+            
+            niter = f['header'].attrs['niter']
+            station = f['header'].attrs['station']
+            camera = f['header'].attrs['camera']
+        
+        return niter, station, camera
+        
+    def read_statistics(self, mode):
+        
+        with h5py.File(self.sysfile, 'r') as f:
+            
+            grp = f['header/' + mode]
+            niter = grp['niter'].value
+            chisq = grp['chisq'].value
+            npoints = grp['npoints'].value
+            npars = grp['npars'].value
+            
+        return niter, chisq, npoints, npars
+        
     def read_magnitudes(self):
         
-        return
+        with h5py.File(self.sysfile, 'r') as f:
+            
+            ascc = f['data/magnitudes/ascc'].value
+            m = f['data/magnitudes/z'].value
+            nobs = f['data/magnitudes/nobs'].value
+        
+        return ascc, m, nobs
         
     def read_camtrans(self):
         
@@ -31,7 +59,7 @@ class SysFile():
             
         pg = PolarGrid(nx, ny)
         z = pg.put_values_on_grid(z, idx, np.nan)
-        nobs = pg.put_values_on_grid(nobs, idx)
+        nobs = pg.put_values_on_grid(nobs, idx, np.nan)
 
         return z, nobs
         
@@ -54,7 +82,7 @@ class SysFile():
         b = pg.put_values_on_grid(b, idx, np.nan)
         c = pg.put_values_on_grid(c, idx, np.nan)
         d = pg.put_values_on_grid(d, idx, np.nan)
-        nobs = pg.put_values_on_grid(nobs, idx)
+        nobs = pg.put_values_on_grid(nobs, idx, np.nan)
         
         return a, b, c, d, nobs
     

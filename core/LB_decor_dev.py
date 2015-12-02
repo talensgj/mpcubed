@@ -109,6 +109,55 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
     
     return par1, par2, par3, niter, chisq, npoints, npars
 
+# UNTESTED
+def sigma_function(idx, residuals, weights):
+    
+    term2 = np.bincount(idx, (residuals**2)*(weights**2))
+    term1 = np.bincount(idx, weights)
+    
+    return term2 - term1
+
+# UNTESTED
+def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
+    
+    # Search for a solution between 0 and 2.
+    err1 = np.zeros(np.amax(idx) + 1)
+    err2 = 2*np.ones(np.amax(idx) + 1)
+    
+    # Compute the value of the fucntion at the beginning the interval.
+    weights = 1/(error**2 + (err1**2)[idx])
+    diff1 = sigma_function(idx, residuals, weights)
+    args1, = np.where(diff1 < 1e-10)
+    
+    # Compute the value of the fucntion at the end the interval.
+    weights = 1/(error**2 + (err2**2)[idx])
+    diff2 = sigma_function(idx, residuals, weights)
+    args2, = np.where(diff2 > 1e-10)
+    
+    # Find the solution.
+    for niter in range(maxiter):
+        
+        err3 = (err2 + err1)/2.
+        
+        weights = 1/(error**2 + (err3**2)[idx])
+        diff3 = sigma_function(idx, residuals, weights)
+        
+        here = (diff3 > 1e-10 )
+        err1[here] = err3[here]
+        diff1[here] = diff3[here]
+        err2[~here] = err3[~here]
+        diff2[~here] = diff3[~here]
+        
+        if np.all((err2 - err1) < eps):
+            break
+    
+    err3 = (err2 + err1)/2.
+    err3[args1] = 0.
+    err3[args2] = 2.
+            
+    return err3
+
+# UNTESTED
 def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.
@@ -152,73 +201,3 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
     chisq = np.sum(chisq)
     
     return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
-
-if __name__ == '__main__':
-    
-    import matplotlib.pyplot as plt
-    
-    t = np.linspace(0, 1, 1000)
-    magnitudes = 4 + 4*np.random.rand(100)
-    profile = np.exp(-t**2)
-    
-    idx1, idx2 = np.mgrid[0:100,0:1000]
-    value = magnitudes[idx1] + profile[idx2]
-    error = np.random.rand(100)
-    value = value + error[:,None]*np.random.randn(100,1000)
-    error = error[idx1]
-    
-    plt.imshow(value)
-    plt.show()
-    
-    idx1 = idx1.ravel()
-    idx2 = idx2.ravel()
-    value = value.ravel()
-    error = error.ravel()
-    
-    par1, par2, niter, chisq, npoints, npars = coarse_decor(idx1, idx2, value, error)
-    
-    offset = np.mean(par1 - magnitudes)
-    magnitudes = magnitudes + offset
-    profile = profile - offset
-    
-    plt.subplot(211)
-    plt.plot(magnitudes, magnitudes - par1, '.')
-
-    plt.subplot(212)
-    plt.plot(par2, '.')
-    plt.plot(profile)
-    plt.show()
-
-    t = np.linspace(0, 1, 1000)
-    magnitudes = 4 + 4*np.random.rand(100)
-    profile = np.exp(-t**2)
-    
-    idx1, idx2 = np.mgrid[0:100,0:1000]
-    value = magnitudes[idx1] + profile[idx2]
-    idx = np.random.randint(0, 100, 10)
-    value[idx] = value[idx] + 1*t
-    error = np.random.rand(100)
-    value = value + error[:,None]*np.random.randn(100,1000)
-    error = error[idx1]
-    
-    plt.imshow(value)
-    plt.show()
-    
-    idx1 = idx1.ravel()
-    idx2 = idx2.ravel()
-    value = value.ravel()
-    error = error.ravel()
-    
-    par1, par2, sigma1, sigma2, niter, chisq, npoints, npars = coarse_decor_sigmas(idx1, idx2, value, error)
-    
-    offset = np.mean(par1 - magnitudes)
-    magnitudes = magnitudes + offset
-    profile = profile - offset
-    
-    plt.subplot(211)
-    plt.plot(magnitudes, magnitudes - par1, '.')
-
-    plt.subplot(212)
-    plt.plot(par2, '.')
-    plt.plot(profile)
-    plt.show()

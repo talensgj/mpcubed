@@ -7,9 +7,11 @@ import glob
 import h5py
 import numpy as np
 
+from progressbar import ProgressBar
+
 from fLCfile import fLCfile
 from core.coordinate_grids import PolarGrid, HealpixGrid
-from core.LB_decor import spatial_decor, temporal_decor
+from core.LB_decor_dev import coarse_decor, coarse_decor_intrapix
 from usefull_functions_dev import flux2mag
 
 class CoarseDecorrelation():
@@ -97,6 +99,8 @@ class CoarseDecorrelation():
         chisq = np.zeros(nbins)
         npoints = np.zeros(nbins)
         npars = np.zeros(nbins)
+        
+        pbar = ProgressBar(maxval = nbins).start()
         for idx in range(nbins):
             
             # Read data.
@@ -114,7 +118,7 @@ class CoarseDecorrelation():
             intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
             
             # Calculate new spatial correction.
-            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = spatial_decor(ind1, ind2, ind3, mag, emag, x, y, verbose=False)
+            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_intrapix(ind1, ind2, ind3, mag, emag, x, y, verbose=False)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -127,6 +131,15 @@ class CoarseDecorrelation():
             self.m_nobs[staridx] = m_nobs
             self.z_nobs[camtransidx] = z_nobs
             self.A_nobs[intrapixidx] = A_nobs
+            
+            pbar.update(idx + 1)
+            
+        pbar.finish()
+            
+        self.niter_spatial = niter
+        self.chisq_spatial = chisq
+        self.npoints_spatial = npoints
+        self.npars_spatial = npars 
             
         return
         
@@ -142,6 +155,8 @@ class CoarseDecorrelation():
         chisq = np.zeros(nbins)
         npoints = np.zeros(nbins)
         npars = np.zeros(nbins)
+        
+        pbar = ProgressBar(maxval = nbins).start()
         for idx in range(nbins):
             
             # Read data.
@@ -158,7 +173,7 @@ class CoarseDecorrelation():
             
             # Calculate new temporal correction.
             #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
-            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=False, verbose=False)
+            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor(ind1, ind2, mag, emag, verbose=False)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -172,18 +187,32 @@ class CoarseDecorrelation():
             
             self.m_nobs[staridx] = m_nobs
             self.s_nobs[skyidx[idx], lstseq] = s_nobs
+            
+            pbar.update(idx + 1)
+           
+        pbar.finish()
+           
+        self.niter_temporal = niter
+        self.chisq_temporal = chisq
+        self.npoints_temporal = npoints
+        self.npars_temporal = npars 
            
         self.got_sky = True
             
         return
     
-    def calculate(self, LBfile, sysfile):
+    def calculate(self, LBfile, sysfile = None):
         """
             Performs the coarse decorrelation on the given Long Baseline fLC file
             and writes the result to the given output location.
         """
     
         self.LBfile = LBfile
+
+        if sysfile is None:
+            head, tail = os.path.split(self.LBfile)
+            tail = 'sys_'+tail.rsplit('_')[-1]
+            sysfile = os.path.join(head, tail)
 
         # Set up the IO and coordinate grids.
         self.f = fLCfile(self.LBfile)
@@ -200,19 +229,15 @@ class CoarseDecorrelation():
         self.decidx = self.camgrid.find_decidx(self.dec)
         self.skyidx = self.skygrid.find_gridpoint(self.ra, self.dec)
         
-        #lstseq, = self.f.read_data(['lstseq'], self.ascc, self.nobs) # May be too memory intensive?
-        #lstseq = lstseq.astype('int')
-        
-        #self.lstmin = np.amin(lstseq)
-        #self.lstlen = np.amax(lstseq) - np.amin(lstseq) + 1
-        
         # Read the minimum and maximum lstseq.
         with h5py.File(self.LBfile, 'r') as f:
-            #lstmin = f['data'].attrs['lstmin']
-            #lstmax = f['data'].attrs['lstmax']
+            
+            station = f['global'].attrs['station']
+            camera = f['global'].attrs['camera']
             
             lstmin = f['global'].attrs['lstmin'].astype('int')
             lstmax = f['global'].attrs['lstmax'].astype('int')
+            
             
         self.lstmin = lstmin
         self.lstlen = lstmax - lstmin + 1
@@ -249,17 +274,20 @@ class CoarseDecorrelation():
     
             # Write the header.
             hdr = f.create_group('header')
-            hdr.attrs['niter'] = self.maxiter
             
-            #hdr.create_dataset('spatial/niter', data = niter)
-            #hdr.create_dataset('spatial/chisq', data = chisq)
-            #hdr.create_dataset('spatial/npoints', data = npoints)
-            #hdr.create_dataset('spatial/npars', data = npars)
+            hdr.attrs['station'] = station
+            hdr.attrs['camera'] = camera
+            hdr.attrs['niter'] = niter
             
-            #hdr.create_dataset('temporal/niter', data = niter)
-            #hdr.create_dataset('temporal/chisq', data = chisq)
-            #hdr.create_dataset('temporal/npoints', data = npoints)
-            #hdr.create_dataset('temporal/npars', data = npars)
+            hdr.create_dataset('spatial/niter', data = self.niter_spatial)
+            hdr.create_dataset('spatial/chisq', data = self.chisq_spatial)
+            hdr.create_dataset('spatial/npoints', data = self.npoints_spatial)
+            hdr.create_dataset('spatial/npars', data = self.npars_spatial)
+            
+            hdr.create_dataset('temporal/niter', data = self.niter_temporal)
+            hdr.create_dataset('temporal/chisq', data = self.chisq_temporal)
+            hdr.create_dataset('temporal/npoints', data = self.npoints_temporal)
+            hdr.create_dataset('temporal/npars', data = self.npars_temporal)
             
             # Write the data.
             grp = f.create_group('data')
@@ -309,5 +337,4 @@ class CoarseDecorrelation():
 if __name__ == '__main__':
     
     obj = CoarseDecorrelation()
-    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5', '/data2/talens/2015Q2/LPE/sys_201506BLPE.hdf5')
-    
+    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5')

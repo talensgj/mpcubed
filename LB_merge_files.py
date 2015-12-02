@@ -230,7 +230,7 @@ if __name__ == '__main__':
     
     filelist = glob.glob('/data2/mascara/LaPalma/201506??LPE/fLC/fLC_201506??LPE.hdf5')
     filelist = np.sort(filelist)
-    filelist = filelist[14:]
+    filelist = filelist[:14]
     print filelist
-
-    LBfile(filelist, '/data2/talens/fLC_201506BLPE.hdf5')
+    
+    LBfile(filelist, '/data2/talens/LongBaselines/fLC_201506ALPS.hdf5')
