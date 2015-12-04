@@ -11,6 +11,26 @@ from numpy.lib.recfunctions import stack_arrays
 from fLCfile import fLCfile
 from core.index_functions import index_statistics
 
+def verify_filelist(filelist):
+    
+    ndates = len(filelist)
+    args = []
+    
+    for i in range(ndates):
+        with h5py.File(filelist[i], 'r') as f:
+            if 'global' in f.keys():
+                args.append(i)
+            else:
+                print 'Removing', filelist[i]
+                
+    filelist = filelist[args]
+    
+    if len(filelist) == 0:
+        print 'No valid files, exiting...'
+        exit()
+    
+    return filelist
+
 def lstrange(filename):
     
     obj = fLCfile(filename)
@@ -187,6 +207,8 @@ def LBfile(filelist, outfile):
         
     filelist = np.sort(filelist)
 
+    filelist = verify_filelist(filelist)
+
     # Find the lstseq range.
     lstmin, _ = lstrange(filelist[0])
     _, lstmax = lstrange(filelist[-1])
@@ -230,7 +252,7 @@ if __name__ == '__main__':
     
     filelist = glob.glob('/data2/mascara/LaPalma/201506??LPE/fLC/fLC_201506??LPE.hdf5')
     filelist = np.sort(filelist)
-    filelist = filelist[:14]
+    #filelist = filelist[15:]
     print filelist
     
-    LBfile(filelist, '/data2/talens/LongBaselines/fLC_201506ALPS.hdf5')
+    LBfile(filelist, '/data2/talens/LongBaselines/fLC_201506LPE.hdf5')

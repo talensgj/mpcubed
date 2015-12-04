@@ -23,6 +23,7 @@ def fix_nobs(filename):
         for i in range(len(ascc)):
             
             new_nobs[i] = f['data/' + ascc[i]].size
+            f['header/' + ascc[i]]['nobs'] = f['data/' + ascc[i]].size
             
         del f['header_table/nobs']
         f.create_dataset('header_table/nobs', data = new_nobs)

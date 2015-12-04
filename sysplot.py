@@ -32,7 +32,7 @@ class SysPlot():
         ha, dec = ha.ravel(), dec.ravel()
         
         site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('east')
+        cam = mascara.observer.Camera('central')
         
         alt, az = site.hadec2altaz(ha, dec, degree=True)
         phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
@@ -45,7 +45,7 @@ class SysPlot():
     def add_hadecgrid(self):
         
         site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('east')
+        cam = mascara.observer.Camera('central')
         
         ha = np.linspace(0, 360, 360)
         dec = np.linspace(-80, 80, 17)
@@ -131,7 +131,11 @@ class SysPlot():
         gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
         plt.subplot(gs[1,0], aspect='equal')
-        im = plt.pcolormesh(x, y, z.T, cmap=viridis)
+        
+        vmin = np.nanpercentile(z, 1)
+        vmax = np.nanpercentile(z, 99)
+        
+        im = plt.pcolormesh(x, y, z.T, cmap=viridis, vmin=vmin, vmax=vmax)
         self.add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
@@ -233,7 +237,8 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPE/sys_201506BLPE.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPC/sys_201506ALPC.hdf5')
+    obj.plot_intrapix()
     obj.plot_camtrans()
         
     

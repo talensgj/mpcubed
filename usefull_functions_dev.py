@@ -9,7 +9,7 @@ def flux2mag(flux, eflux = None, m0=25):
     mag = m0 - 2.5*np.log10(flux)
     
     if eflux is not None:
-        emag = 2.5/np.log(10.)*eflux/flux
+        emag = 2.5/np.log(10.)*np.abs(eflux/flux)
         return mag, emag
     
     return mag

@@ -259,6 +259,7 @@ class CoarseDecorrelation():
         self.got_sky = False
         
         # Perform the coarse decorrelation.
+        print 'Performing coarse decorrelation for:', tail
         for niter in range(self.maxiter):
         
             print 'Iteration %i out of %i:'%(niter+1, self.maxiter)
@@ -337,4 +338,4 @@ class CoarseDecorrelation():
 if __name__ == '__main__':
     
     obj = CoarseDecorrelation()
-    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5')
+    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506LPE.hdf5')
