@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from coarse_decor import find_sigma
 
 def coarse_decor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
