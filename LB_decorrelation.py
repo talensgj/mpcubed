@@ -10,21 +10,34 @@ import numpy as np
 from progressbar import ProgressBar
 
 from fLCfile import fLCfile
-from core.coordinate_grids import PolarGrid, HealpixGrid
-from core.LB_decor_dev import coarse_decor, coarse_decor_intrapix
 from usefull_functions_dev import flux2mag
+
+from core.coordinate_grids import PolarGrid, HealpixGrid
+from core.coarse_decor import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
+
 
 class CoarseDecorrelation():
     
-    def __init__(self, **kwargs):
+    def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
         """
             Performs a coarse decorrelation on all data in a given Long Baseline
             fLC file. Removes camera transmission, intrapixel variations and
             sky transmission.
         """
         
+        # File and aperture to work on.
+        self.LBfile = LBfile
+        self.aper = aperture
+        
+        if sysfile is None:
+            head, tail = os.path.split(self.LBfile)
+            prefix = 'sys%i_'%self.aper
+            tail = prefix + tail.rsplit('_')[-1]
+            sysfile = os.path.join(head, tail)
+        
         # Initialize with defualt parameters unless arguments were given.
-        self.maxiter = kwargs.pop('maxiter', 5)
+        self.sigmas = kwargs.pop('sigmas', False)
+        self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
         
         self.camgrid = 'polar'
         self.camnx = kwargs.pop('camnx', 13500)
@@ -36,6 +49,11 @@ class CoarseDecorrelation():
         
         self.skygrid = 'healpix'
         self.skynx = kwargs.pop('skynx', 8)
+    
+        # Options to coarse_decor functions.
+        self.inner_maxiter = kwargs.pop('inner_maxiter', 100)
+        self.dtol = kwargs.pop('dtol', 1e-3)
+        self.verbose = kwargs.pop('verbose', False)
     
         return
     
@@ -54,7 +72,7 @@ class CoarseDecorrelation():
         skyidx = self.skyidx[here]
         
         # Read data.
-        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(['flux0', 'eflux0', 'sky', 'x', 'y', 'lst', 'lstseq', 'flag'], ascc, nobs)
+        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag'], ascc, nobs)
         lstseq = lstseq.astype('int') - self.lstmin
         
         ra = np.repeat(ra, nobs)
@@ -110,7 +128,9 @@ class CoarseDecorrelation():
             # Apply known temporal correction.
             if self.got_sky == True:
                 mag = mag - self.s[skyidx, lstseq]
-                #emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+                
+                if self.sigmas:
+                    emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
             
             # Create unique indices.
             staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
@@ -118,7 +138,7 @@ class CoarseDecorrelation():
             intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
             
             # Calculate new spatial correction.
-            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_intrapix(ind1, ind2, ind3, mag, emag, x, y, verbose=False)
+            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
@@ -172,9 +192,11 @@ class CoarseDecorrelation():
             lstseq, ind2, s_nobs = np.unique(lstseq, return_inverse=True, return_counts=True)
             
             # Calculate new temporal correction.
-            #m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = temporal_decor(ind1, ind2, mag, emag, use_weights=True)
-            m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor(ind1, ind2, mag, emag, verbose=False)
-            
+            if self.sigmas:
+                m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_sigmas(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+            else:
+                m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+                
             offset = np.nanmedian(m - self.vmag[staridx])
             m = m - offset
             s = s + offset
@@ -182,8 +204,9 @@ class CoarseDecorrelation():
             self.m[staridx] = m
             self.s[skyidx[idx], lstseq] = s
             
-            #self.sigma1[staridx] = sigma1
-            #self.sigma2[skyidx[idx], lstseq] = sigma2
+            if self.sigmas:
+                self.sigma1[staridx] = sigma1
+                self.sigma2[skyidx[idx], lstseq] = sigma2
             
             self.m_nobs[staridx] = m_nobs
             self.s_nobs[skyidx[idx], lstseq] = s_nobs
@@ -201,18 +224,11 @@ class CoarseDecorrelation():
             
         return
     
-    def calculate(self, LBfile, sysfile = None):
+    def calculate(self):
         """
             Performs the coarse decorrelation on the given Long Baseline fLC file
             and writes the result to the given output location.
         """
-    
-        self.LBfile = LBfile
-
-        if sysfile is None:
-            head, tail = os.path.split(self.LBfile)
-            tail = 'sys_'+tail.rsplit('_')[-1]
-            sysfile = os.path.join(head, tail)
 
         # Set up the IO and coordinate grids.
         self.f = fLCfile(self.LBfile)
@@ -229,15 +245,20 @@ class CoarseDecorrelation():
         self.decidx = self.camgrid.find_decidx(self.dec)
         self.skyidx = self.skygrid.find_gridpoint(self.ra, self.dec)
         
-        # Read the minimum and maximum lstseq.
+        # Read global information.
         with h5py.File(self.LBfile, 'r') as f:
             
             station = f['global'].attrs['station']
             camera = f['global'].attrs['camera']
             
+            alt0 = f['global/alt0'].value
+            az0 = f['global/az0'].value
+            th0 = f['global/th0'].value
+            x0 = f['global/x0'].value
+            y0 = f['global/y0'].value
+            
             lstmin = f['global'].attrs['lstmin'].astype('int')
             lstmax = f['global'].attrs['lstmax'].astype('int')
-            
             
         self.lstmin = lstmin
         self.lstlen = lstmax - lstmin + 1
@@ -248,8 +269,9 @@ class CoarseDecorrelation():
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
         self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
-        self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
-        self.sigma2 = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
+        if self.sigmas:
+            self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
+            self.sigma2 = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
         
         self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
         self.z_nobs = np.full(self.camgrid.npix, fill_value=np.nan)
@@ -259,10 +281,10 @@ class CoarseDecorrelation():
         self.got_sky = False
         
         # Perform the coarse decorrelation.
-        print 'Performing coarse decorrelation for:', tail
-        for niter in range(self.maxiter):
+        print 'Performing coarse decorrelation for:', self.LBfile
+        for niter in range(self.outer_maxiter):
         
-            print 'Iteration %i out of %i:'%(niter+1, self.maxiter)
+            print 'Iteration %i out of %i:'%(niter + 1, self.outer_maxiter)
             
             print '    Calculating camera systematics...'
             self.spatial()
@@ -278,8 +300,18 @@ class CoarseDecorrelation():
             
             hdr.attrs['station'] = station
             hdr.attrs['camera'] = camera
-            hdr.attrs['niter'] = niter
             
+            hdr.attrs['alt0'] = np.mean(alt0)
+            hdr.attrs['az0'] = np.mean(az0)
+            hdr.attrs['th0'] = np.mean(th0)
+            hdr.attrs['x0'] = np.mean(x0)
+            hdr.attrs['y0'] = np.mean(y0)
+            
+            hdr.attrs['outer_maxiter'] = self.outer_maxiter
+            hdr.attrs['inner_maxiter'] = self.inner_maxiter
+            hdr.attrs['sigmas'] = self.sigmas
+            hdr.attrs['dtol'] = self.dtol
+           
             hdr.create_dataset('spatial/niter', data = self.niter_spatial)
             hdr.create_dataset('spatial/chisq', data = self.chisq_spatial)
             hdr.create_dataset('spatial/npoints', data = self.npoints_spatial)
@@ -295,9 +327,11 @@ class CoarseDecorrelation():
             
             # Write the magnitudes.
             grp.create_dataset('magnitudes/ascc', data = self.ascc)
+            grp.create_dataset('magnitudes/vmag', data = self.vmag)
             grp.create_dataset('magnitudes/m', data = self.m)
-            grp.create_dataset('magnitudes/sigma', data = self.sigma1)
             grp.create_dataset('magnitudes/nobs', data = self.m_nobs)
+            if self.sigmas:
+                grp.create_dataset('magnitudes/sigma', data = self.sigma1)
             
             # Write the camera transmission.
             idx, = np.where(~np.isnan(self.z))
@@ -327,8 +361,9 @@ class CoarseDecorrelation():
             grp.create_dataset('skytrans/idx', data=idx)
             grp.create_dataset('skytrans/lstseq', data=lstseq)
             grp.create_dataset('skytrans/s', data=self.s[idx, lstseq])
-            grp.create_dataset('skytrans/sigma', data=self.sigma2[idx, lstseq])
             grp.create_dataset('skytrans/nobs', data=self.s_nobs[idx, lstseq])
+            if self.sigmas:
+                grp.create_dataset('skytrans/sigma', data=self.sigma2[idx, lstseq])
             
             grp['skytrans'].attrs['grid'] = 'healpix'
             grp['skytrans'].attrs['nx'] = self.skynx
@@ -337,5 +372,5 @@ class CoarseDecorrelation():
             
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation()
-    obj.calculate('/data2/talens/2015Q2/LPE/fLC_201506LPE.hdf5')
+    obj = CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, outer_maxiter = 1)
+    obj.calculate()
