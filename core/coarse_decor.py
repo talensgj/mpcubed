@@ -2,34 +2,145 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from coarse_decor import find_sigma
+
+def coarse_decor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
-     
-def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
+    # Determine the number of datapoints and parameters to fit.
+    npoints = len(value)
+    npars1 = np.amax(idx1) + 1
+    npars2 = np.amax(idx2) + 1
+    npars = npars1 + npars2
     
-    err1 = np.zeros(np.amax(ind1)+1)
-    err2 = 2*np.ones(np.amax(ind1)+1)
-    
-    wgt = 1./(err*err + (err1[ind1])**2)
-    term2 = np.bincount(ind1, res*res*wgt*wgt)
-    term1 = np.bincount(ind1, wgt)
-    diff1 = term2 - term1
-    
-    args1, = np.where(diff1 < 1e-10)
-    
-    wgt = 1./(err*err + (err2[ind1])**2)
-    term2 = np.bincount(ind1, res*res*wgt*wgt)
-    term1 = np.bincount(ind1, wgt)
-    diff2 = term2 - term1
-    
-    args2, = np.where(diff2 > 1e-10)
+    # Create arrays.
+    weights = 1./error**2
+    par2 = np.zeros(npars2)
     
     for niter in range(maxiter):
+        
+        if verbose:
+            print 'niter = %i'%niter
+        
+        # Compute the parameters.
+        par1 = np.bincount(idx1, weights*(value - par2[idx2]))/np.bincount(idx1, weights)
+        par2 = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
+        
+        # Check if the solution has converged.
+        if (niter > 0):
+            
+            dcrit1 = np.nanmax(np.abs(par1 - par1_old))
+            dcrit2 = np.nanmax(np.abs(par2 - par2_old))
+            
+            if (dcrit1 < dtol) & (dcrit2 < dtol):
+                break
+        
+        par1_old = np.copy(par1)
+        par2_old = np.copy(par2)
+    
+    # Compute the chi-square of the fit.
+    chisq = weights*(value - par1[idx1] - par2[idx2])**2        
+    chisq = np.sum(chisq)
+    
+    return par1, par2, niter, chisq, npoints, npars
+
+def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
+    
+    # Determine the number of datapoints and parameters to fit.
+    npoints = len(value)
+    npars1 = np.amax(idx1) + 1
+    npars2 = np.amax(idx2) + 1
+    npars3 = 4*(np.amax(idx3) + 1)
+    npars = npars1 + npars2 + npars3
+    
+    # Create arrays.
+    weights = 1./error**2
+    par2 = np.zeros(npars2)
+    
+    snx = np.sin(2*np.pi*x)
+    csx = np.cos(2*np.pi*x)
+    sny = np.sin(2*np.pi*y)
+    csy = np.cos(2*np.pi*y)
+    
+    sol2 = 0
+    sol3 = 0
+    b = np.zeros(npars3/4)
+    d = np.zeros(npars3/4)
+    
+    for niter in range(maxiter):
+        
+        if verbose:
+            print 'niter = %i'%niter
+        
+        # Compute the parameters.
+        par1 = np.bincount(idx1, weights*(value - par2[idx2] - sol2 - sol3))/np.bincount(idx1, weights)
+        par2 = np.bincount(idx2, weights*(value - par1[idx1] - sol2 - sol3))/np.bincount(idx2, weights)
+        
+        sol1 = par1[idx1] + par2[idx2]
+        
+        a = np.bincount(idx3, weights*(value - sol1 - b[idx3]*csx - sol3)*snx)/np.bincount(idx3, weights*snx**2)
+        b = np.bincount(idx3, weights*(value - sol1 - a[idx3]*snx - sol3)*csx)/np.bincount(idx3, weights*csx**2)
+        
+        sol2 = a[idx3]*snx + b[idx3]*csx
+        
+        c = np.bincount(idx3, weights*(value - sol1 - sol2 - d[idx3]*csy)*sny)/np.bincount(idx3, weights*sny**2)
+        d = np.bincount(idx3, weights*(value - sol1 - sol2 - c[idx3]*sny)*csy)/np.bincount(idx3, weights*csy**2)
+        
+        sol3 = c[idx3]*sny + d[idx3]*csy
+        
+        par3 = np.vstack([a, b, c, d]).T
+        
+        # Check if the solution has converged.
+        if (niter > 0):
+            
+            dcrit1 = np.nanmax(np.abs(par1 - par1_old))
+            dcrit2 = np.nanmax(np.abs(par2 - par2_old))
+            dcrit3 = np.nanmax(np.abs(par3 - par3_old))
+            
+            if (dcrit1 < dtol) & (dcrit2 < dtol) & (dcrit3 < dtol):
+                break
+        
+        par1_old = np.copy(par1)
+        par2_old = np.copy(par2)
+        par3_old = np.copy(par3)
+    
+    # Compute the chi-square of the fit.
+    chisq = weights*(value - sol1 - sol2 - sol3)**2        
+    chisq = np.sum(chisq)
+    
+    return par1, par2, par3, niter, chisq, npoints, npars
+
+# UNTESTED
+def sigma_function(idx, residuals, weights):
+    
+    term2 = np.bincount(idx, (residuals**2)*(weights**2))
+    term1 = np.bincount(idx, weights)
+    
+    return term2 - term1
+
+# UNTESTED
+def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
+    
+    # Search for a solution between 0 and 2.
+    err1 = np.zeros(np.amax(idx) + 1)
+    err2 = 2*np.ones(np.amax(idx) + 1)
+    
+    # Compute the value of the fucntion at the beginning the interval.
+    weights = 1/(error**2 + (err1**2)[idx])
+    diff1 = sigma_function(idx, residuals, weights)
+    args1, = np.where(diff1 < 1e-10)
+    
+    # Compute the value of the fucntion at the end the interval.
+    weights = 1/(error**2 + (err2**2)[idx])
+    diff2 = sigma_function(idx, residuals, weights)
+    args2, = np.where(diff2 > 1e-10)
+    
+    # Find the solution.
+    for niter in range(maxiter):
+        
         err3 = (err2 + err1)/2.
         
-        wgt = 1./(err*err + (err3[ind1])**2)
-        term2 = np.bincount(ind1, res*res*wgt*wgt)
-        term1 = np.bincount(ind1, wgt)
-        diff3 = term2 - term1
+        weights = 1/(error**2 + (err3**2)[idx])
+        diff3 = sigma_function(idx, residuals, weights)
         
         here = (diff3 > 1e-10 )
         err1[here] = err3[here]
@@ -37,7 +148,7 @@ def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
         err2[~here] = err3[~here]
         diff2[~here] = diff3[~here]
         
-        if np.all((err2-err1) < eps):
+        if np.all((err2 - err1) < eps):
             break
     
     err3 = (err2 + err1)/2.
@@ -45,152 +156,48 @@ def find_sigma(ind1, res, err, maxiter=10, eps=1e-3):
     err3[args2] = 2.
             
     return err3
-    
-    
-def coarse_decorrelation(ind1, ind2, values, errors, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
-    """ 
-    Given data this code will fit a model of the form:
-    values = m[ind1] + z[ind2]
-    """
+
+# UNTESTED
+def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.
-    npoints = len(values)
-    npars1 = len(np.unique(ind1))
-    npars2 = len(np.unique(ind2))
+    npoints = len(value)
+    npars1 = np.amax(idx1) + 1
+    npars2 = np.amax(idx2) + 1
     npars = npars1 + npars2
     
-    # Create the necessary arrays.
-    weights = 1./(errors**2)
-    z = np.zeros(np.amax(ind2)+1)
-    sigma2 = np.zeros(np.amax(ind2)+1)
+    # Create arrays.
+    weights = 1./error**2
+    par2 = np.zeros(npars2)
+    sigma2 = np.zeros(npars2)
     
-    # Start the iterative solution.
     for niter in range(maxiter):
         
         if verbose:
             print 'niter = %i'%niter
         
-        # Computation of parameters.
-        m = np.bincount(ind1, weights*(values-z[ind2]))/np.bincount(ind1, weights)
-        z = np.bincount(ind2, weights*(values-m[ind1]))/np.bincount(ind2, weights)
+        # Compute the parameters.
+        par1 = np.bincount(idx1, weights*(value - par2[idx2]))/np.bincount(idx1, weights)
+        par2 = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
         
-        if use_weights:
-            res = values - m[ind1] - z[ind2]
-            sigma1 = find_sigma(ind1, res, np.sqrt(errors**2+(sigma2**2)[ind2]))
-            sigma2 = find_sigma(ind2, res, np.sqrt(errors**2+(sigma1**2)[ind1]))
-            weights = 1./(errors**2+(sigma1**2)[ind1]+(sigma2**2)[ind2])
+        sigma1 = find_sigma(idx1, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma2**2)[idx2]))
+        sigma2 = find_sigma(idx2, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma1**2)[idx1]))
+        weights = 1/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])
         
+        # Check if the solution has converged.
         if (niter > 0):
             
-            # Check if the solution has converged.
-            critm = np.nanmax(np.abs(m-m_old))
-            critz = np.nanmax(np.abs(z-z_old))
+            dcrit1 = np.nanmax(np.abs(par1 - par1_old))
+            dcrit2 = np.nanmax(np.abs(par2 - par2_old))
             
-            if verbose:
-                print ' critm = %g, critz = %g'%(critm, critz)
-            
-            if (critm < eps) & (critz < eps):
-                break
-
-        m_old = np.copy(m)
-        z_old = np.copy(z)
-    
-    # Compute the chi-square value of the solution.
-    chi_tmp = weights*(values - m[ind1] - z[ind2])**2
-    chisq = np.sum(chi_tmp)/(npoints-npars)
-    
-    if use_weights:
-        return m, z, sigma1, sigma2, niter, chisq, npoints, npars
-    else:
-        return m, z, niter, chisq, npoints, npars
-
-
-def coarse_positions(ind1, ind2, ind3, x, y, mag, emag, maxiter=100, eps=1e-3, verbose=False, use_weights=True):
-    """ 
-    Given data this code will fit a model of the form:
-    mag = m[ind1] + z[ind2] + a[ind3]*np.sin(2*np.pi*y) + b[ind3]*np.cos(2*np.pi*y)
-    """
-    
-    # Determine the number of datapoints and parameters to fit.
-    npoints = len(mag)
-    npars1 = len(np.unique(ind1))
-    npars2 = len(np.unique(ind2))
-    npars3 = 2*len(np.unique(ind3))
-    npars = npars1 + npars2 + npars3
-    
-    # Create the necessary arrays.
-    weights = 1./emag**2
-    sny = np.sin(2*np.pi*y)
-    csy = np.cos(2*np.pi*y)
-    snx = np.sin(2*np.pi*x)
-    csx = np.cos(2*np.pi*x)
-    z = np.zeros(np.amax(ind2)+1)
-    a = np.zeros(np.amax(ind3)+1)
-    b = np.zeros(np.amax(ind3)+1)
-    c = np.zeros(np.amax(ind3)+1)
-    d = np.zeros(np.amax(ind3)+1)
-    
-    # Start the iterative solution.
-    for niter in range(maxiter):
-        
-        if verbose:
-            print 'niter = %i'%niter
-        
-        # Computation of parameters.
-        m = np.bincount(ind1, weights*(mag-z[ind2]-a[ind3]*sny-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx))/np.bincount(ind1, weights)
-        z = np.bincount(ind2, weights*(mag-m[ind1]-a[ind3]*sny-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx))/np.bincount(ind2, weights)
-        
-        a = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-b[ind3]*csy-c[ind3]*snx-d[ind3]*csx)*sny)/np.bincount(ind3, weights*sny**2)
-        b = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-a[ind3]*sny-c[ind3]*snx-d[ind3]*csx)*csy)/np.bincount(ind3, weights*csy**2)
-        
-        c = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-a[ind3]*sny-b[ind3]*csy-d[ind3]*csx)*snx)/np.bincount(ind3, weights*snx**2)
-        d = np.bincount(ind3, weights*(mag-m[ind1]-z[ind2]-a[ind3]*sny-b[ind3]*csy-c[ind3]*snx)*csx)/np.bincount(ind3, weights*csx**2)
-        
-        if use_weights:
-            res = mag - m[ind1] - z[ind2] - a[ind3]*sny - b[ind3]*csy - c[ind3]*snx - d[ind3]*csx
-            sigma = find_sigma(ind1, res, emag)
-            weights = 1./(emag**2+(sigma**2)[ind1])
-        
-        if (niter > 0):
-            
-            # Check if the solution has converged.
-            critm = np.nanmax(np.abs(m-m_old))
-            critz = np.nanmax(np.abs(z-z_old))
-            crita = np.nanmax(np.abs(a-a_old))
-            critb = np.nanmax(np.abs(b-b_old))
-            critc = np.nanmax(np.abs(c-c_old))
-            critd = np.nanmax(np.abs(d-d_old))
-            
-            if verbose:
-                print ' critm = %g, critz = %g, crita = %g, critb = %g'%(critm, critz, crita, critb)
-            
-            if (critm < eps) & (critz < eps) & (crita < eps) & (critb < eps) & (critc < eps) & (critd < eps):
+            if (dcrit1 < dtol) & (dcrit2 < dtol):
                 break
         
-        m_old = np.copy(m)
-        z_old = np.copy(z)
-        a_old = np.copy(a)
-        b_old = np.copy(b)
-        c_old = np.copy(c)
-        d_old = np.copy(d)
+        par1_old = np.copy(par1)
+        par2_old = np.copy(par2)
     
-    # Compute the chi-square value of the solution.
-    chi_tmp = weights*(mag - m[ind1] - z[ind2] - a[ind3]*sny - b[ind3]*csy - c[ind3]*snx - d[ind3]*csx)**2
-    chisq = np.sum(chi_tmp)/(npoints-npars)
+    # Compute the chi-square of the fit.
+    chisq = weights*(value - par1[idx1] - par2[idx2])**2        
+    chisq = np.sum(chisq)
     
-    if use_weights:
-        return m, z, a, b, c, d, sigma, niter, chisq, npoints, npars
-    else:
-        return m, z, a, b, c, d, niter, chisq, npoints, npars
-
-if __name__ == '__main__':
-    
-    ind = np.repeat(np.arange(100), 50)
-    res = np.random.randn(5000)
-    err = .2*np.ones(5000)
-    
-    find_sigma(ind, res, err)
-    
-    
-    
-    
+    return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
