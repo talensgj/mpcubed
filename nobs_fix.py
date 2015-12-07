@@ -9,6 +9,8 @@ import numpy as np
 
 def fix_nobs(filename):
 
+    print 'Processing file:', filename
+
     with h5py.File(filename) as f:
         ascc = f['header_table/ascc'].value
         nobs = f['header_table/nobs'].value
