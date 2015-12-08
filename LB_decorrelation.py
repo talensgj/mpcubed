@@ -35,6 +35,8 @@ class CoarseDecorrelation():
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
+        self.sysfile = sysfile
+        
         # Initialize with defualt parameters unless arguments were given.
         self.sigmas = kwargs.pop('sigmas', False)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
@@ -259,24 +261,24 @@ class CoarseDecorrelation():
             
             lstmin = f['global'].attrs['lstmin'].astype('int')
             lstmax = f['global'].attrs['lstmax'].astype('int')
-            
+        
         self.lstmin = lstmin
-        self.lstlen = lstmax - lstmin + 1
+        lstlen = lstmax - lstmin + 1
         
         # Create arrays to hold the results.
         self.m = np.full(len(self.ascc), fill_value=np.nan)
         self.z = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
-        self.s = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
+        self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         if self.sigmas:
             self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
-            self.sigma2 = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
+            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
         self.z_nobs = np.full(self.camgrid.npix, fill_value=np.nan)
         self.A_nobs = np.full(self.ipxgrid.npix, fill_value=np.nan)
-        self.s_nobs = np.full((self.skygrid.npix, self.lstlen), fill_value=np.nan)
+        self.s_nobs = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         self.got_sky = False
         
@@ -293,7 +295,7 @@ class CoarseDecorrelation():
             self.temporal()
         
         # Write the results to file.
-        with h5py.File(sysfile) as f:
+        with h5py.File(self.sysfile) as f:
     
             # Write the header.
             hdr = f.create_group('header')
@@ -312,45 +314,45 @@ class CoarseDecorrelation():
             hdr.attrs['sigmas'] = self.sigmas
             hdr.attrs['dtol'] = self.dtol
            
-            hdr.create_dataset('spatial/niter', data = self.niter_spatial)
-            hdr.create_dataset('spatial/chisq', data = self.chisq_spatial)
-            hdr.create_dataset('spatial/npoints', data = self.npoints_spatial)
-            hdr.create_dataset('spatial/npars', data = self.npars_spatial)
+            hdr.create_dataset('spatial/niter', data = self.niter_spatial, dtype = 'uint32')
+            hdr.create_dataset('spatial/chisq', data = self.chisq_spatial, dtype = 'float64')
+            hdr.create_dataset('spatial/npoints', data = self.npoints_spatial, dtype = 'uint32')
+            hdr.create_dataset('spatial/npars', data = self.npars_spatial, dtype = 'uint32')
             
-            hdr.create_dataset('temporal/niter', data = self.niter_temporal)
-            hdr.create_dataset('temporal/chisq', data = self.chisq_temporal)
-            hdr.create_dataset('temporal/npoints', data = self.npoints_temporal)
-            hdr.create_dataset('temporal/npars', data = self.npars_temporal)
+            hdr.create_dataset('temporal/niter', data = self.niter_temporal, dtype = 'uint32')
+            hdr.create_dataset('temporal/chisq', data = self.chisq_temporal, dtype = 'float64')
+            hdr.create_dataset('temporal/npoints', data = self.npoints_temporal, dtype = 'uint32')
+            hdr.create_dataset('temporal/npars', data = self.npars_temporal, dtype = 'uint32')
             
             # Write the data.
             grp = f.create_group('data')
             
             # Write the magnitudes.
             grp.create_dataset('magnitudes/ascc', data = self.ascc)
-            grp.create_dataset('magnitudes/vmag', data = self.vmag)
-            grp.create_dataset('magnitudes/m', data = self.m)
-            grp.create_dataset('magnitudes/nobs', data = self.m_nobs)
+            grp.create_dataset('magnitudes/vmag', data = self.vmag, dtype = 'float32')
+            grp.create_dataset('magnitudes/nobs', data = self.m_nobs, dtype = 'uint32')
+            grp.create_dataset('magnitudes/mag', data = self.m, dtype = 'float32')
             if self.sigmas:
-                grp.create_dataset('magnitudes/sigma', data = self.sigma1)
+                grp.create_dataset('magnitudes/sigma', data = self.sigma1, dtype = 'float32')
             
             # Write the camera transmission.
             idx, = np.where(~np.isnan(self.z))
-            grp.create_dataset('camtrans/idx', data = idx)
-            grp.create_dataset('camtrans/z', data = self.z[idx])
-            grp.create_dataset('camtrans/nobs', data = self.z_nobs[idx])
+            grp.create_dataset('trans/idx', data = idx, dtype = 'uint32')
+            grp.create_dataset('trans/nobs', data = self.z_nobs[idx], dtype = 'uint32')
+            grp.create_dataset('trans/trans', data = self.z[idx], dtype = 'float32')
             
-            grp['camtrans'].attrs['grid'] = 'polar'
-            grp['camtrans'].attrs['nx'] = self.camnx
-            grp['camtrans'].attrs['ny'] = self.camny
+            grp['trans'].attrs['grid'] = 'polar'
+            grp['trans'].attrs['nx'] = self.camnx
+            grp['trans'].attrs['ny'] = self.camny
             
             # Write the intrapixel variations.
             idx, = np.where(~np.isnan(self.A[:,0]))
-            grp.create_dataset('intrapix/idx', data=idx)
-            grp.create_dataset('intrapix/a', data=self.A[idx,0])
-            grp.create_dataset('intrapix/b', data=self.A[idx,1])
-            grp.create_dataset('intrapix/c', data=self.A[idx,2])
-            grp.create_dataset('intrapix/d', data=self.A[idx,3])
-            grp.create_dataset('intrapix/nobs', data=self.A_nobs[idx])
+            grp.create_dataset('intrapix/idx', data = idx, dtype = 'uint32')
+            grp.create_dataset('intrapix/nobs', data = self.A_nobs[idx], dtype = 'uint32')
+            grp.create_dataset('intrapix/sinx', data = self.A[idx,0], dtype = 'float32')
+            grp.create_dataset('intrapix/cosx', data = self.A[idx,1], dtype = 'float32')
+            grp.create_dataset('intrapix/siny', data = self.A[idx,2], dtype = 'float32')
+            grp.create_dataset('intrapix/cosy', data = self.A[idx,3], dtype = 'float32')
             
             grp['intrapix'].attrs['grid'] = 'polar'
             grp['intrapix'].attrs['nx'] = self.ipxnx
@@ -358,19 +360,20 @@ class CoarseDecorrelation():
             
             # Write the sky transmission.
             idx, lstseq = np.where(~np.isnan(self.s))
-            grp.create_dataset('skytrans/idx', data=idx)
-            grp.create_dataset('skytrans/lstseq', data=lstseq)
-            grp.create_dataset('skytrans/s', data=self.s[idx, lstseq])
-            grp.create_dataset('skytrans/nobs', data=self.s_nobs[idx, lstseq])
+            grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
+            grp.create_dataset('clouds/lstseq', data = lstseq + self.lstmin, dtype = 'uint32')
+            grp.create_dataset('clouds/nobs', data = self.s_nobs[idx, lstseq], dtype = 'uint32')
+            grp.create_dataset('clouds/clouds', data = self.s[idx, lstseq], dtype = 'float32')
             if self.sigmas:
-                grp.create_dataset('skytrans/sigma', data=self.sigma2[idx, lstseq])
+                grp.create_dataset('clouds/sigma', data = self.sigma2[idx, lstseq], dtype = 'float32')
             
-            grp['skytrans'].attrs['grid'] = 'healpix'
-            grp['skytrans'].attrs['nx'] = self.skynx
-            grp['skytrans'].attrs['lstmin'] = self.lstmin
-            grp['skytrans'].attrs['lstlen'] = self.lstlen
+            grp['clouds'].attrs['grid'] = 'healpix'
+            grp['clouds'].attrs['nx'] = self.skynx
+            grp['clouds'].attrs['lstmin'] = self.lstmin
+            grp['clouds'].attrs['lstmax'] = lstmax
+            grp['clouds'].attrs['lstlen'] = lstlen
             
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, outer_maxiter = 1)
+    obj = CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506LPE.hdf5', 0)
     obj.calculate()

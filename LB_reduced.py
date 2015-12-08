@@ -96,26 +96,30 @@ class SysCorr():
             eskytrans = index_statistics(binidx, skytrans, statistic = 'std')
         
             with h5py.File(self.outfile) as g:
-                g.create_dataset('data/' + ascc + '/lstseq', data = lstseq)
-                g.create_dataset('data/' + ascc + '/nobs', data = nobs, dtype='int8')
-                g.create_dataset('data/' + ascc + '/mag0', data = bmag, dtype='float32')
-                g.create_dataset('data/' + ascc + '/emag0', data = emag, dtype='float32')
-                g.create_dataset('data/' + ascc + '/mag1', data = bmag, dtype='float32')
-                g.create_dataset('data/' + ascc + '/emag1', data = emag, dtype='float32')
-                g.create_dataset('data/' + ascc + '/jdmid', data = jdmid)
-                g.create_dataset('data/' + ascc + '/lst', data = lst)
+                g.create_dataset('data/' + ascc + '/lstseq', data = lstseq, dtype = 'uint32')
+                g.create_dataset('data/' + ascc + '/nobs', data = nobs, dtype = 'uint8')
+                
+                g.create_dataset('data/' + ascc + '/lst', data = lst, dtype = 'float64')
+                g.create_dataset('data/' + ascc + '/jdmid', data = jdmid, dtype = 'float64')
                 g.create_dataset('data/' + ascc + '/x', data = x, dtype='float32')
                 g.create_dataset('data/' + ascc + '/y', data = y, dtype='float32')
-                g.create_dataset('data/' + ascc + '/sky', data = bsky)
-                g.create_dataset('data/' + ascc + '/esky', data = esky)
-                g.create_dataset('data/' + ascc + '/camtrans0', data = bcamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/ecamtrans0', data = ecamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/camtrans1', data = bcamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/ecamtrans1', data = ecamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/skytrans0', data = bskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/eskytrans0', data = eskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/skytrans1', data = bskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/eskytrans1', data = eskytrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/sky', data = bsky, dtype = 'float64')
+                g.create_dataset('data/' + ascc + '/esky', data = esky, dtype = 'float64')
+                
+                g.create_dataset('data/' + ascc + '/mag0', data = bmag, dtype = 'float32')
+                g.create_dataset('data/' + ascc + '/emag0', data = emag, dtype = 'float32')
+                g.create_dataset('data/' + ascc + '/mag1', data = bmag, dtype = 'float32')
+                g.create_dataset('data/' + ascc + '/emag1', data = emag, dtype = 'float32')
+                
+                g.create_dataset('data/' + ascc + '/trans0', data = bcamtrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/etrans0', data = ecamtrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/trans1', data = bcamtrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/etrans1', data = ecamtrans, dtype='float32')
+                
+                g.create_dataset('data/' + ascc + '/clouds0', data = bskytrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/eclouds0', data = eskytrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/clouds1', data = bskytrans, dtype='float32')
+                g.create_dataset('data/' + ascc + '/eclouds1', data = eskytrans, dtype='float32')
             
             pbar.update(i + 1)
            

@@ -28,11 +28,14 @@ class SysPlot():
     
     def hadec2xy(self, ha, dec):
         
+        #f = SysFile(self.sysfile)
+        #alt0, az0, th0, x0, y0 = f.read_pointing()
+        
         tmp = ha.shape
         ha, dec = ha.ravel(), dec.ravel()
         
         site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('central')
+        cam = mascara.observer.Camera('east')
         
         alt, az = site.hadec2altaz(ha, dec, degree=True)
         phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
@@ -45,7 +48,7 @@ class SysPlot():
     def add_hadecgrid(self):
         
         site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('central')
+        cam = mascara.observer.Camera('east')
         
         ha = np.linspace(0, 360, 360)
         dec = np.linspace(-80, 80, 17)
@@ -89,41 +92,68 @@ class SysPlot():
         
         return
     
-    def plot_statistics(self, mode):
+    #def plot_statistics(self, mode):
         
+        #f = SysFile(self.sysfile)
+        #niter, chisq, npoints, npars = f.read_statistics(mode)
+        
+        #print 'chisq = %.3f'%(np.sum(chisq)/(np.sum(npoints) - np.sum(npars)))
+        #print 'mean(niter) = %i'%np.mean(niter)
+        #print 'mean(chisq) = %.3f'%np.mean(chisq/(npoints - npars))
+        
+        #plt.hist(niter, bins=np.linspace(.5, 99.5, 100))
+        #plt.show()
+        
+        #plt.hist(chisq/(npoints - npars), bins=np.linspace(0, 50, 51))
+        #plt.show()
+        
+        #return
+    
+    def plot_magnitudes(self):
+        
+        # Read the data.
         f = SysFile(self.sysfile)
-        niter, chisq, npoints, npars = f.read_statistics(mode)
+        ascc, vmag, mag, nobs = f.read_magnitudes()
         
-        print 'chisq = %.3f'%(np.sum(chisq)/(np.sum(npoints) - np.sum(npars)))
-        print 'mean(niter) = %i'%np.mean(niter)
-        print 'mean(chisq) = %.3f'%np.mean(chisq/(npoints - npars))
+        # Create the magnitudes plot.
+        fig = plt.figure(figsize=(13,9))
+
+        plt.suptitle('Magnitudes', size='xx-large')
+
+        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
-        plt.hist(niter, bins=np.linspace(.5, 99.5, 100))
+        plt.subplot(gs[1,0])
+        
+        plt.plot(vmag, mag, '.', alpha = .2)
+        plt.xlim(2, 8.4)
+        plt.xlabel('V [mag]')
+        plt.ylabel('M [mag]')
+        
+        plt.tight_layout()
         plt.show()
-        
-        plt.hist(chisq/(npoints - npars), bins=np.linspace(0, 50, 51))
-        plt.show()
+        plt.close()
         
         return
     
-    def plot_camtrans(self):
+    def plot_trans(self):
         
+        # Read the data.
         f = SysFile(self.sysfile)
-        z, nobs = f.read_camtrans()
+        pg, trans, nobs = f.read_trans()
         
-        z = z[1:-1,1:-1]
-        z = np.ma.masked_invalid(z)
+        # Remove the bounadry and mask NaNs.
+        trans = trans[1:-1,1:-1]
+        trans = np.ma.masked_invalid(trans)
         
         nobs = nobs[1:-1,1:-1]
         nobs = np.ma.masked_invalid(nobs)
         
-        ha = np.linspace(0, 360, 13501)
-        dec = np.linspace(-90, 90, 721)
-        
+        # Create the coordinate grid.
+        ha, dec = pg.bins1, pg.bins2
         ha, dec = np.meshgrid(ha, dec)
-        
         x, y = self.hadec2xy(ha, dec)
         
+        # Create the transmission plot.
         fig = plt.figure(figsize=(13,9))
 
         plt.suptitle('Transmission', size='xx-large')
@@ -132,10 +162,10 @@ class SysPlot():
         
         plt.subplot(gs[1,0], aspect='equal')
         
-        vmin = np.nanpercentile(z, 1)
-        vmax = np.nanpercentile(z, 99)
+        vmin = np.nanpercentile(trans, 1)
+        vmax = np.nanpercentile(trans, 99)
         
-        im = plt.pcolormesh(x, y, z.T, cmap=viridis, vmin=vmin, vmax=vmax)
+        im = plt.pcolormesh(x, y, trans.T, cmap=viridis, vmin=vmin, vmax=vmax)
         self.add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
@@ -147,21 +177,36 @@ class SysPlot():
         plt.show()
         plt.close()
         
-        plt.subplot(111, aspect='equal')
-        plt.pcolormesh(x, y, nobs.T)
-        plt.colorbar()
+        # Create the nobs plot.
+        fig = plt.figure(figsize=(13,9))
+
+        plt.suptitle('Transmission', size='xx-large')
+
+        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+        
+        plt.subplot(gs[1,0], aspect='equal')
+        
+        im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
         self.add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
+        
+        cax = plt.subplot(gs[1,1])
+        cb = plt.colorbar(im, cax = cax)
+        
+        plt.tight_layout()
         plt.show()
         plt.close()
         
+        return
+        
     def plot_intrapix(self):
         
+        # Read the data.
         f = SysFile(self.sysfile)
-        #niter, station, camera = f.read_header()
-        a, b, c, d, nobs = f.read_intrapix()
+        pg, a, b, c, d, nobs = f.read_intrapix()
         
+        # Remove the boundary and mask NaNs.
         a = a[1:-1,1:-1]
         a = np.ma.masked_invalid(a)
         
@@ -177,13 +222,12 @@ class SysPlot():
         nobs = nobs[1:-1,1:-1]
         nobs = np.ma.masked_invalid(nobs)
         
-        ha = np.linspace(0, 360, 271)
-        dec = np.linspace(-90, 90, 721)
-        
+        # Create the coordinate grid.
+        ha, dec = pg.bins1, pg.bins2
         ha, dec = np.meshgrid(ha, dec)
-        
         x, y = self.hadec2xy(ha, dec)
         
+        # Create the intrapixel plot.
         fig = plt.figure(figsize=(16, 10))
 
         plt.suptitle('Intrapixel variations.', size='xx-large')
@@ -226,20 +270,61 @@ class SysPlot():
         plt.show()
         plt.close()
         
-        plt.subplot(111, aspect='equal')
-        plt.pcolormesh(x, y, nobs.T)
-        plt.colorbar()
+        # Create the nobs plot.
+        fig = plt.figure(figsize=(13,9))
+
+        plt.suptitle('Intrapixel variations.', size='xx-large')
+
+        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+        
+        plt.subplot(gs[1,0], aspect='equal')
+        
+        im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
         self.add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
+        
+        cax = plt.subplot(gs[1,1])
+        cb = plt.colorbar(im, cax = cax)
+        
+        plt.tight_layout()
         plt.show()
         plt.close()
         
+        return
+        
+    def plot_clouds(self):
+        
+        import healpy
+        
+        # Read the data.
+        f = SysFile(self.sysfile)
+        hg, clouds, nobs, lstmin, lstmax = f.read_clouds()
+        
+        for i in range(0, clouds.shape[1], 50):
+            
+            if np.all(np.isnan(clouds[:,i])): continue
+            
+            healpy.mollview(clouds[:,i], title = 'Clouds', cmap = viridis, min=-.5, max=.5)
+            healpy.graticule(dpar = 10., dmer = 15.)
+            
+            #plt.tight_layout()
+            plt.show()
+            plt.close()
+            
+        return
+    
+        
+        
+        
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPC/sys_201506ALPC.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPE/sys0_201506ALPE.hdf5')
+    obj.plot_magnitudes()
+    obj.plot_trans()
     obj.plot_intrapix()
-    obj.plot_camtrans()
+    obj.plot_clouds()
+    
         
     
     
