@@ -305,7 +305,7 @@ class SysPlot():
             
             if np.all(np.isnan(clouds[:,i])): continue
             
-            healpy.mollview(clouds[:,i], title = 'Clouds', cmap = viridis, min=-.5, max=.5)
+            healpy.mollview(clouds[:,i], title = 'Clouds %i'%(i + lstmin), cmap = viridis, min=-.5, max=.5)
             healpy.graticule(dpar = 10., dmer = 15.)
             
             #plt.tight_layout()
@@ -319,7 +319,7 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPE/sys0_201506ALPE.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPE/sys1_201506BLPE.hdf5')
     obj.plot_magnitudes()
     obj.plot_trans()
     obj.plot_intrapix()

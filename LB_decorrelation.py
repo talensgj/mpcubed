@@ -375,5 +375,13 @@ class CoarseDecorrelation():
             
 if __name__ == '__main__':
     
-    obj = CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506LPE.hdf5', 0)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description = 'Solve for the systematics given a fLC file.')
+    parser.add_argument('LBfile', help = 'The input fLC file.')
+    parser.add_argument('aperture', type = int, help = 'The aperture to be reduced.')
+    parser.add_argument('-o', '--output', help = 'The output file.', default = None)
+    args = parser.parse_args()
+    
+    obj = CoarseDecorrelation(args.LBfile, args.aperture, args.output, sigmas = True)
     obj.calculate()

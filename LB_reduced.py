@@ -6,6 +6,7 @@ import glob
 
 import h5py
 import numpy as np
+from numpy.lib.recfunctions import stack_arrays
 
 from progressbar import ProgressBar
 
@@ -17,10 +18,25 @@ from usefull_functions_dev import flux2mag
 
 class SysCorr():
     
-    def __init__(self, LBfile, sysfile, outfile):
+    def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
         
         self.LBfile = LBfile
+        self.aper = aperture
+        
+        if sysfile is None:
+            head, tail = os.path.split(self.LBfile)
+            prefix = 'sys%i_'%self.aper
+            tail = prefix + tail.rsplit('_')[-1]
+            sysfile = os.path.join(head, tail)
+        
         self.sysfile = sysfile
+        
+        if outfile is None:
+            head, tail = os.path.split(self.LBfile)
+            prefix = 'tmp%i_'%self.aper
+            tail = prefix + tail.rsplit('_')[-1]
+            outfile = os.path.join(head, tail)
+        
         self.outfile = outfile
         
         return
@@ -41,7 +57,7 @@ class SysCorr():
             skyidx = self.skyidx[i]
             
             # Read data.
-            flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(['flux0', 'eflux0', 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag'], [ascc], [nobs])
+            flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag'], [ascc], [nobs])
             lstseq = lstseq.astype('int') - self.lstmin
                 
             ra = np.repeat(ra, nobs)
@@ -49,77 +65,69 @@ class SysCorr():
             ha = np.mod(lst*15. - ra, 360.)
             
             # Create indices.
-            camtransidx = self.camgrid.find_gridpoint(ha, dec)
-            intrapixidx = self.ipxgrid.find_gridpoint(ha, dec)
+            camtransidx = self.pgcam.find_gridpoint(ha, dec)
+            intrapixidx = self.pgipx.find_gridpoint(ha, dec)
             
             # Convert flux to magnitudes.
             mag, emag = flux2mag(flux, eflux)
 
             # Get correction
-            camtrans = self.z[camtransidx]
+            trans = self.trans[camtransidx]
             intrapix = self.a[intrapixidx]*np.sin(2*np.pi*x) + self.b[intrapixidx]*np.cos(2*np.pi*x) + self.c[intrapixidx]*np.sin(2*np.pi*y) + self.d[intrapixidx]*np.cos(2*np.pi*y)
-            skytrans = self.s[skyidx, lstseq]
-            correction = camtrans + intrapix + skytrans
+            clouds = self.clouds[skyidx, lstseq]
+            correction = trans + intrapix + clouds
 
             # Get new flags.
             flags = np.where((flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1), 0, 1)
             flags = flags + np.where(np.isnan(correction), 2, 0)
-            flags = flags + np.where((self.nobs_z[camtransidx] < 25) | (self.nobs_A[intrapixidx] < 25) | (self.nobs_s[skyidx, lstseq] < 25), 4, 0)
+            flags = flags + np.where((self.nobs_trans[camtransidx] < 25) | (self.nobs_ipx[intrapixidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 4, 0)
         
+            # Determine the bins.
             binidx = (lstseq + self.lstmin) // 50
-            here = (flags < 1)
             
+            # Remove bad data.
+            here = (flags < 1)
             binidx = binidx[here]
-            mag = mag[here]
-            correction = correction[here]
-            jdmid = jdmid[here]
+            
+            if (len(binidx) < 1):
+                continue
+            
             lst = lst[here]
+            jdmid = jdmid[here]
             x = x[here]
             y = y[here]
             sky = sky[here]
-            camtrans = camtrans[here]
-            skytrans = skytrans[here]
             
+            mag = mag[here]
+            trans = trans[here]
+            clouds = clouds[here]
+            correction = correction[here]
+            
+            # Bin the data.
             lstseq = np.unique(binidx)
             nobs = index_statistics(binidx, None, statistic = 'count')
-            bmag = index_statistics(binidx, mag - correction, statistic = 'mean')
-            emag = index_statistics(binidx, mag - correction, statistic = 'std')
-            jdmid = index_statistics(binidx, jdmid, statistic = 'mean')
             lst = index_statistics(binidx, lst, statistic = 'mean')
+            jdmid = index_statistics(binidx, jdmid, statistic = 'mean')
             x = index_statistics(binidx, x, statistic = 'mean')
             y = index_statistics(binidx, y, statistic = 'mean')
             bsky = index_statistics(binidx, sky, statistic = 'mean')
             esky = index_statistics(binidx, sky, statistic = 'std')
-            bcamtrans = index_statistics(binidx, camtrans, statistic = 'mean')
-            ecamtrans = index_statistics(binidx, camtrans, statistic = 'std')
-            bskytrans = index_statistics(binidx, skytrans, statistic = 'mean')
-            eskytrans = index_statistics(binidx, skytrans, statistic = 'std')
-        
+            
+            bmag = index_statistics(binidx, mag - correction, statistic = 'mean')
+            emag = index_statistics(binidx, mag - correction, statistic = 'std')
+            btrans = index_statistics(binidx, trans, statistic = 'mean')
+            etrans = index_statistics(binidx, trans, statistic = 'std')
+            bclouds = index_statistics(binidx, clouds, statistic = 'mean')
+            eclouds = index_statistics(binidx, clouds, statistic = 'std')
+            
+            arlist = [lstseq, nobs, lst, jdmid, x, y, bsky, esky, bmag, emag, btrans, etrans, bclouds, eclouds]
+            names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
+            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
+            record = np.rec.fromarrays(arlist, names = names, formats = formats)
+    
+            # Write the lightcurve to file.
             with h5py.File(self.outfile) as g:
-                g.create_dataset('data/' + ascc + '/lstseq', data = lstseq, dtype = 'uint32')
-                g.create_dataset('data/' + ascc + '/nobs', data = nobs, dtype = 'uint8')
-                
-                g.create_dataset('data/' + ascc + '/lst', data = lst, dtype = 'float64')
-                g.create_dataset('data/' + ascc + '/jdmid', data = jdmid, dtype = 'float64')
-                g.create_dataset('data/' + ascc + '/x', data = x, dtype='float32')
-                g.create_dataset('data/' + ascc + '/y', data = y, dtype='float32')
-                g.create_dataset('data/' + ascc + '/sky', data = bsky, dtype = 'float64')
-                g.create_dataset('data/' + ascc + '/esky', data = esky, dtype = 'float64')
-                
-                g.create_dataset('data/' + ascc + '/mag0', data = bmag, dtype = 'float32')
-                g.create_dataset('data/' + ascc + '/emag0', data = emag, dtype = 'float32')
-                g.create_dataset('data/' + ascc + '/mag1', data = bmag, dtype = 'float32')
-                g.create_dataset('data/' + ascc + '/emag1', data = emag, dtype = 'float32')
-                
-                g.create_dataset('data/' + ascc + '/trans0', data = bcamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/etrans0', data = ecamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/trans1', data = bcamtrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/etrans1', data = ecamtrans, dtype='float32')
-                
-                g.create_dataset('data/' + ascc + '/clouds0', data = bskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/eclouds0', data = eskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/clouds1', data = bskytrans, dtype='float32')
-                g.create_dataset('data/' + ascc + '/eclouds1', data = eskytrans, dtype='float32')
+                g.create_dataset(ascc, data = record)
             
             pbar.update(i + 1)
            
@@ -131,26 +139,28 @@ class SysCorr():
         
         # Read the correction terms.
         sys = SysFile(self.sysfile)
-        z, nobs_z = sys.read_camtrans()
-        a, b, c, d, nobs_A = sys.read_intrapix()
-        s, nobs_s, lstmin = sys.read_skytrans()
+        pgcam, trans, nobs_trans = sys.read_trans(ravel = True)
+        pgipx, a, b, c, d, nobs_ipx = sys.read_intrapix(ravel = True)
+        hg, clouds, nobs_clouds, lstmin, lstmax = sys.read_clouds()
     
-        # Should come from SysFile???
-        self.z = z.ravel()
-        self.nobs_z = nobs_z.ravel()
-        self.a = a.ravel()
-        self.b = b.ravel()
-        self.c = c.ravel()
-        self.d = d.ravel()
-        self.s = s
-        self.nobs_s = nobs_s
-        self.nobs_A = nobs_A.ravel()
-        self.camgrid = PolarGrid(13500, 720)
-        self.ipxgrid = PolarGrid(270, 720)
+        self.pgcam = pgcam
+        self.trans = trans
+        self.nobs_trans = nobs_trans
+        
+        self.pgipx = pgipx
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+        self.nobs_ipx = nobs_ipx
+        
+        self.hg = hg
+        self.clouds = clouds
+        self.nobs_clouds = nobs_clouds
         self.lstmin = lstmin
         
         # Put in self
-        f = fLCfile('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5')
+        f = fLCfile(self.LBfile)
         ascc, ra, dec, vmag, nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
         nobs = nobs.astype('int')
         
@@ -159,15 +169,55 @@ class SysCorr():
         self.dec = dec
         self.vmag = vmag
         self.nobs = nobs
-        
-        skygrid = HealpixGrid(8)
-        self.skyidx = skygrid.find_gridpoint(ra, dec)
+        self.skyidx = self.hg.find_gridpoint(ra, dec)
         
         self.correct()
         
         return
 
+def merge(filelist):
+    
+    nfiles = len(filelist)
+    
+    ascc = np.array([])
+    for i in range(nfiles):
+        
+        with h5py.File(filelist[i], 'r') as f:
+            ascc = np.append(ascc, f.keys())
+            
+    ascc = np.unique(ascc)
+    
+    for sID in ascc:
+        print sID
+        first = True
+        for i in range(nfiles):
+        
+            with h5py.File(filelist[i], 'r') as f:
+                
+                try:
+                    tmp = f[sID].value
+                except:
+                    pass
+                else:
+                    if first:
+                        lc = tmp
+                        first = False
+                    else:
+                        lc = stack_arrays((lc, tmp), asrecarray=True)
+        
+        with h5py.File('test.hdf5') as f:
+            for key in lc.dtype.names:
+                f.create_dataset('data/' + sID + '/' + key, data = lc[key])
+        
+        
+        
+    return
+
 if __name__ == '__main__':
     
-    obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', '/data2/talens/2015Q2/LPE/sys_201506ALPE.hdf5', '/data2/talens/2015Q2/LPE/cor_201506ALPE_v1.1.hdf5')
-    obj.run()
+    #obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5', 0)
+    #obj.run()
+    
+    filelist = glob.glob('/data2/talens/2015Q2/LPE/tmp0_*')
+    filelist = np.sort(filelist)
+    merge(filelist)
