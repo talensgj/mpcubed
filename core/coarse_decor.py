@@ -108,29 +108,76 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
     
     return par1, par2, par3, niter, chisq, npoints, npars
 
-# UNTESTED
-def sigma_function(idx, residuals, weights):
+#def sigma_function(idx, residuals, weights):
     
-    term2 = np.bincount(idx, (residuals**2)*(weights**2))
-    term1 = np.bincount(idx, weights)
+    #term2 = np.bincount(idx, (residuals**2)*(weights**2))
+    #term1 = np.bincount(idx, weights)
     
-    return term2 - term1
+    #return term2 - term1
 
-# UNTESTED
-def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
+#def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
+    
+    ## Search for a solution between 0 and 2.
+    #err1 = np.zeros(np.amax(idx) + 1)
+    #err2 = 2*np.ones(np.amax(idx) + 1)
+    
+    ## Compute the value of the fucntion at the beginning the interval.
+    #weights = 1/(error**2 + (err1**2)[idx])
+    #diff1 = sigma_function(idx, residuals, weights)
+    #args1, = np.where(diff1 < 1e-10)
+    
+    ## Compute the value of the fucntion at the end the interval.
+    #weights = 1/(error**2 + (err2**2)[idx])
+    #diff2 = sigma_function(idx, residuals, weights)
+    #args2, = np.where(diff2 > 1e-10)
+    
+    ## Find the solution.
+    #for niter in range(maxiter):
+        
+        #err3 = (err2 + err1)/2.
+        
+        #weights = 1/(error**2 + (err3**2)[idx])
+        #diff3 = sigma_function(idx, residuals, weights)
+        
+        #here = (diff3 > 1e-10 )
+        #err1[here] = err3[here]
+        #diff1[here] = diff3[here]
+        #err2[~here] = err3[~here]
+        #diff2[~here] = diff3[~here]
+        
+        #if np.all((err2 - err1) < eps):
+            #break
+    
+    #err3 = (err2 + err1)/2.
+    #err3[args1] = 0.
+    #err3[args2] = 2.
+            
+    #return err3
+
+def sigma_function(idx, ressq, errsq, err):
+    
+    weights = 1/(errsq + (err**2)[idx])
+    term = ressq*weights**2 - weights
+    term = np.bincount(idx, term)
+    
+    return term
+
+def find_sigma(idx, residuals, error, maxiter=10):
     
     # Search for a solution between 0 and 2.
-    err1 = np.zeros(np.amax(idx) + 1)
-    err2 = 2*np.ones(np.amax(idx) + 1)
+    N = np.amax(idx) + 1
+    err1 = np.zeros(N)
+    err2 = np.full(N, 2)
+    
+    ressq = residuals*residuals
+    errsq = error*error
     
     # Compute the value of the fucntion at the beginning the interval.
-    weights = 1/(error**2 + (err1**2)[idx])
-    diff1 = sigma_function(idx, residuals, weights)
+    diff1 = sigma_function(idx, ressq, errsq, err1)
     args1, = np.where(diff1 < 1e-10)
     
     # Compute the value of the fucntion at the end the interval.
-    weights = 1/(error**2 + (err2**2)[idx])
-    diff2 = sigma_function(idx, residuals, weights)
+    diff2 = sigma_function(idx, ressq, errsq, err2)
     args2, = np.where(diff2 > 1e-10)
     
     # Find the solution.
@@ -138,17 +185,10 @@ def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
         
         err3 = (err2 + err1)/2.
         
-        weights = 1/(error**2 + (err3**2)[idx])
-        diff3 = sigma_function(idx, residuals, weights)
+        diff3 = sigma_function(idx, ressq, errsq, err3)
         
-        here = (diff3 > 1e-10 )
-        err1[here] = err3[here]
-        diff1[here] = diff3[here]
-        err2[~here] = err3[~here]
-        diff2[~here] = diff3[~here]
-        
-        if np.all((err2 - err1) < eps):
-            break
+        err1 = np.where(diff3 > 1e-10, err3, err1)
+        err2 = np.where(diff3 > 1e-10, err2, err3)
     
     err3 = (err2 + err1)/2.
     err3[args1] = 0.
@@ -156,7 +196,6 @@ def find_sigma(idx, residuals, error, maxiter=10, eps=1e-3):
             
     return err3
 
-# UNTESTED
 def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.

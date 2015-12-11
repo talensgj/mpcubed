@@ -319,7 +319,7 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPE/sys1_201506BLPE.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPE/nosigmas/sys0_201505ALPE.hdf5')
     obj.plot_magnitudes()
     obj.plot_trans()
     obj.plot_intrapix()

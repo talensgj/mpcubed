@@ -20,7 +20,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 P = 2.21857312
 Tp = 2454037.612
 
-with h5py.File('/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5', 'r') as f:
+with h5py.File('/data2/talens/2015Q2/LPE/test.hdf5', 'r') as f:
     
     jdmid = f['data/807144/jdmid'].value
     lstseq = f['data/807144/lstseq'].value

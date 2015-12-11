@@ -215,7 +215,7 @@ def merge(filelist):
 
 if __name__ == '__main__':
     
-    #obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5', 0)
+    #obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201505ALPE.hdf5', 0)
     #obj.run()
     
     filelist = glob.glob('/data2/talens/2015Q2/LPE/tmp0_*')
