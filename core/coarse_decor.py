@@ -230,10 +230,22 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
             
             if (dcrit1 < dtol) & (dcrit2 < dtol):
                 break
+                
+        if (niter > 1):
+            
+            dcrit1 = np.nanmax(np.abs(par1 - par1_older))
+            dcrit2 = np.nanmax(np.abs(par2 - par2_older))
+            
+            if (dcrit1 < dtol) & (dcrit2 < dtol):
+                break
+        
+        if (niter > 0):
+            par1_older = np.copy(par1_old)
+            par2_older = np.copy(par2_old)
         
         par1_old = np.copy(par1)
         par2_old = np.copy(par2)
-    
+        
     # Compute the chi-square of the fit.
     chisq = weights*(value - par1[idx1] - par2[idx2])**2        
     chisq = np.sum(chisq)

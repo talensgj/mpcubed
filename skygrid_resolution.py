@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import healpy
 from viridis import viridis
 
-from index_functions import index_statistics
-from coordinate_grids import HealpixGrid
+from core.index_functions import index_statistics
+from core.coordinate_grids import HealpixGrid
 
-with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
-    hdr = f['table_header']
+with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 'r') as f:
+    hdr = f['header_table']
     ra = hdr['ra'].value
     dec = hdr['dec'].value
     print np.amin(dec), np.amax(dec)
@@ -20,37 +20,37 @@ with h5py.File('/data2/talens/Jul2015/fLC_20150716LPC.hdf5', 'r') as f:
     ax = plt.subplot(221)
     
     # Create the indices.
+    hg = HealpixGrid(8)
+    bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
+    count = index_statistics(binnum, ra, statistic='count', keeplength=False)
+    hmap = hg.put_values_on_grid(count, bins, fill_value=np.nan)
+    print np.amax(count)
+    healpy.mollview(hmap, min=1, max=200, sub=222, title='nside = 8', cmap=viridis, unit='# Stars')
+    healpy.graticule(dpar = 10., dmer = 15.)
+    ax.hist(count, bins = np.linspace(0.5, 200.5, 51), normed=True, histtype='step', label='nside = 8')
+    
     hg = HealpixGrid(16)
     bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
     count = index_statistics(binnum, ra, statistic='count', keeplength=False)
     hmap = hg.put_values_on_grid(count, bins, fill_value=np.nan)
     
-    healpy.mollview(hmap, min=1, max=50, sub=222, title='nside = 16', cmap=viridis, unit='# Stars')
-    healpy.graticule()
-    ax.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step', label='nside = 16')
+    healpy.mollview(hmap, min=1, max=150, sub=223, title='nside = 16', cmap=viridis, unit='# Stars')
+    healpy.graticule(dpar = 10., dmer = 15.)
+    ax.hist(count, bins = np.linspace(0.5, 150.5, 51), normed=True, histtype='step', label='nside = 16')
     
     hg = HealpixGrid(32)
     bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
     count = index_statistics(binnum, ra, statistic='count', keeplength=False)
     hmap = hg.put_values_on_grid(count, bins, fill_value=np.nan)
     
-    healpy.mollview(hmap, min=1, max=50, sub=223, title='nside = 32', cmap=viridis, unit='# Stars')
-    healpy.graticule()
-    ax.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step', label='nside = 32')
-    
-    hg = HealpixGrid(64)
-    bins, binnum = hg.find_gridpoint(ra, dec, compact=True)
-    count = index_statistics(binnum, ra, statistic='count', keeplength=False)
-    hmap = hg.put_values_on_grid(count, bins, fill_value=np.nan)
-    
-    healpy.mollview(hmap, min=1, max=50, sub=224, title='nside = 64', cmap=viridis, unit='# Stars')
-    healpy.graticule()
-    ax.hist(count, bins = np.linspace(0.5, 50.5, 51), normed=True, histtype='step', label='nside = 64')
+    healpy.mollview(hmap, min=1, max=150, sub=224, title='nside = 32', cmap=viridis, unit='# Stars')
+    healpy.graticule(dpar = 10., dmer = 15.)
+    ax.hist(count, bins = np.linspace(0.5, 150.5, 51), normed=True, histtype='step', label='nside = 32')
     
     plt.sca(ax)
     plt.title('2015-07-16 LPC')
     plt.legend()
-    plt.xlim(.5,50.5)
+    plt.xlim(.5,150.5)
     plt.xlabel('# Stars')
     
     plt.tight_layout()
