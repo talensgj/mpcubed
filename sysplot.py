@@ -28,15 +28,15 @@ class SysPlot():
     
     def hadec2xy(self, ha, dec):
         
-        #f = SysFile(self.sysfile)
-        #alt0, az0, th0, x0, y0 = f.read_pointing()
+        f = SysFile(self.sysfile)
+        alt0, az0, th0, x0, y0 = f.read_pointing()
         
         tmp = ha.shape
         ha, dec = ha.ravel(), dec.ravel()
         
         site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('east')
-        
+        #cam = mascara.observer.Camera('east')
+        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
         alt, az = site.hadec2altaz(ha, dec, degree=True)
         phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
         x, y = cam.PhiThe2XY(phi, theta)
@@ -319,11 +319,9 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPE/nosigmas/sys0_201505ALPE.hdf5')
-    obj.plot_magnitudes()
+    obj = SysPlot('/data2/talens/2015Q2/LPE/sigmas/sys0_201506ALPE.hdf5')
     obj.plot_trans()
-    obj.plot_intrapix()
-    obj.plot_clouds()
+    
     
         
     

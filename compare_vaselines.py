@@ -17,10 +17,10 @@ rcParams['axes.titlesize'] = 'xx-large'
 from viridis import viridis
 from sysfile import SysFile
 
-f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE.hdf5')
+f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE_test.hdf5')
 pg, trans0, nobs = f.read_trans()
 
-f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE_test.hdf5')
+f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE_test2.hdf5')
 pg, trans1, nobs = f.read_trans()
 
 trans0 = trans0[1:-1,1:-1]
@@ -30,7 +30,7 @@ trans1 = trans1[1:-1,1:-1]
 trans1 = np.ma.masked_invalid(trans1)
 
 image = (trans0 - trans1).T
-#image = image - np.nanmean(image, axis=1, keepdims=True)[:, None]
+image = image - np.nanmean(image, axis=1, keepdims=True)[:, None]
 
 #for i in range(720):
     #print image[i].mask
@@ -44,6 +44,10 @@ image = (trans0 - trans1).T
     #plt.ylim(-5e-3, 5e-3)
     #plt.show()
     #plt.close()
+
+#here = np.abs(image) < 1e-3
+#image[:,:] = 1
+#image[here] = 0
 
 plt.pcolormesh(pg.bins1, pg.bins2, image, vmin = -1e-3, vmax = 1e-3, cmap = viridis)
 plt.colorbar()

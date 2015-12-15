@@ -196,7 +196,7 @@ def find_sigma(idx, residuals, error, maxiter=10):
             
     return err3
 
-def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
+def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -205,9 +205,10 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
     npars = npars1 + npars2
     
     # Create arrays.
-    weights = 1./error**2
+    weights = 1/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])
+    
+    par1 = np.zeros(npars1)
     par2 = np.zeros(npars2)
-    sigma2 = np.zeros(npars2)
     
     for niter in range(maxiter):
         
@@ -215,11 +216,17 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
             print 'niter = %i'%niter
         
         # Compute the parameters.
-        par1 = np.bincount(idx1, weights*(value - par2[idx2]))/np.bincount(idx1, weights)
-        par2 = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
+        tmpa = np.bincount(idx1, weights*(value - par2[idx2]))/np.bincount(idx1, weights)
+        tmpb = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
         
-        sigma1 = find_sigma(idx1, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma2**2)[idx2]))
-        sigma2 = find_sigma(idx2, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma1**2)[idx1]))
+        tmpc = find_sigma(idx1, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma2**2)[idx2]))
+        tmpd = find_sigma(idx2, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma1**2)[idx1]))
+        
+        par1 = tmpa
+        par2 = tmpb
+        sigma1 = tmpc
+        sigma2 = tmpd
+        
         weights = 1/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])
         
         # Check if the solution has converged.
@@ -230,6 +237,13 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
             
             if (dcrit1 < dtol) & (dcrit2 < dtol):
                 break
+                
+            dcrit1 = np.nanargmax(np.abs(par1 - par1_old))
+            dcrit2 = np.nanargmax(np.abs(par2 - par2_old))
+                
+            print dcrit1, dcrit2
+            print par1[dcrit1], sigma1[dcrit1]
+            print par2[dcrit2], sigma2[dcrit2]
                 
         if (niter > 1):
             
@@ -250,4 +264,4 @@ def coarse_decor_sigmas(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbos
     chisq = weights*(value - par1[idx1] - par2[idx2])**2        
     chisq = np.sum(chisq)
     
-    return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
+    return par1_old, par2-par2_old, sigma1, sigma2, niter, chisq, npoints, npars

@@ -195,7 +195,7 @@ class CoarseDecorrelation():
             
             # Calculate new temporal correction.
             if self.sigmas:
-                m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_sigmas(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+                m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_sigmas(ind1, ind2, mag, emag, self.sigma1[staridx], self.sigma2[skyidx[idx], lstseq], maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             else:
                 m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
                 
@@ -272,8 +272,8 @@ class CoarseDecorrelation():
         self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         if self.sigmas:
-            self.sigma1 = np.full(len(self.ascc), fill_value=np.nan)
-            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+            self.sigma1 = np.full(len(self.ascc), fill_value=0)
+            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=0)
         
         self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
         self.z_nobs = np.full(self.camgrid.npix, fill_value=np.nan)
