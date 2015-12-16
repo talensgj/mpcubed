@@ -172,13 +172,15 @@ def find_sigma(idx, residuals, error, maxiter=10):
     ressq = residuals*residuals
     errsq = error*error
     
-    # Compute the value of the fucntion at the beginning the interval.
+    # Compute the value of the function at the beginning the interval.
     diff1 = sigma_function(idx, ressq, errsq, err1)
     args1, = np.where(diff1 < 1e-10)
+    print diff1[args1]
     
-    # Compute the value of the fucntion at the end the interval.
+    # Compute the value of the function at the end the interval.
     diff2 = sigma_function(idx, ressq, errsq, err2)
     args2, = np.where(diff2 > 1e-10)
+    print diff2[args1]
     
     # Find the solution.
     for niter in range(maxiter):
@@ -191,8 +193,11 @@ def find_sigma(idx, residuals, error, maxiter=10):
         err2 = np.where(diff3 > 1e-10, err2, err3)
     
     err3 = (err2 + err1)/2.
-    err3[args1] = 0.
-    err3[args2] = 2.
+    
+    print err3[args1]
+    
+    #err3[args1] = 0.
+    #err3[args2] = 2.
             
     return err3
 
@@ -206,6 +211,7 @@ def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, d
     
     # Create arrays.
     weights = 1/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])
+    par1 = np.zeros(npars1)
     par2 = np.zeros(npars2)
     
     for niter in range(maxiter):
@@ -229,8 +235,14 @@ def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, d
             
             if (dcrit1 < dtol) & (dcrit2 < dtol):
                 break
-        
-        # Check if the solution is oscillating?
+                
+            dcrit1 = np.nanargmax(np.abs(par1 - par1_old))
+            dcrit2 = np.nanargmax(np.abs(par2 - par2_old))
+                
+            print dcrit1, dcrit2
+            print par1[dcrit1], sigma1[dcrit1]
+            print par2[dcrit2], sigma2[dcrit2]
+                
         if (niter > 1):
             
             dcrit1 = np.nanmax(np.abs(par1 - par1_older))

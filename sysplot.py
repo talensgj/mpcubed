@@ -28,15 +28,19 @@ class SysPlot():
     
     def hadec2xy(self, ha, dec):
         
+        # Read the pointing from the file.
         f = SysFile(self.sysfile)
         alt0, az0, th0, x0, y0 = f.read_pointing()
+        
+        # Initialize the coordinate transformations.
+        site = mascara.observer.Site('LaPalma')
+        #cam = mascara.observer.Camera('east')
+        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
         
         tmp = ha.shape
         ha, dec = ha.ravel(), dec.ravel()
         
-        site = mascara.observer.Site('LaPalma')
-        #cam = mascara.observer.Camera('east')
-        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+        # Perfrom the coordinate transformations.
         alt, az = site.hadec2altaz(ha, dec, degree=True)
         phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
         x, y = cam.PhiThe2XY(phi, theta)
@@ -47,9 +51,16 @@ class SysPlot():
         
     def add_hadecgrid(self):
         
-        site = mascara.observer.Site('LaPalma')
-        cam = mascara.observer.Camera('east')
+        # Read the pointing from the file.
+        f = SysFile(self.sysfile)
+        alt0, az0, th0, x0, y0 = f.read_pointing()
         
+        # Initialize the coordinate transformations.
+        site = mascara.observer.Site('LaPalma')
+        #cam = mascara.observer.Camera('east')
+        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+        
+        # Add lines of constant declination.
         ha = np.linspace(0, 360, 360)
         dec = np.linspace(-80, 80, 17)
         ha, dec = np.meshgrid(ha, dec)
@@ -70,6 +81,7 @@ class SysPlot():
         
         plt.plot(x.T, y.T, c='k')
         
+        # Add lines of constant hour angle.
         ha = np.linspace(0, 345, 24)
         dec = np.linspace(-80, 80, 160)
         ha, dec = np.meshgrid(ha, dec)
@@ -319,9 +331,9 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPE/sigmas/sys0_201506ALPE.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPW/sys0_201506ALPW.hdf5')
     obj.plot_trans()
-    
+    obj.plot_intrapix()
     
         
     

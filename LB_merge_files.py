@@ -250,9 +250,9 @@ def LBfile(filelist, outfile):
     
 if __name__ == '__main__':
     
-    filelist = glob.glob('/data2/mascara/LaPalma/201505??LPE/fLC/fLC_201505??LPE.hdf5')
+    filelist = glob.glob('/data2/mascara/LaPalma/201505??LPC/fLC/fLC_201505??LPC.hdf5')
     filelist = np.sort(filelist)
-    filelist = filelist[15:]
+    filelist = filelist[:15]
     print filelist
 
-    LBfile(filelist, '/data2/talens/LongBaselines/fLC_201505BLPE.hdf5')
+    LBfile(filelist, '/data2/talens/LongBaselines/fLC_201505ALPC.hdf5')
