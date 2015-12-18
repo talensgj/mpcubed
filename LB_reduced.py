@@ -215,9 +215,9 @@ def merge(filelist):
 
 if __name__ == '__main__':
     
-    #obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201505ALPE.hdf5', 0)
-    #obj.run()
+    obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/sys0_201504ALPE_newsol.hdf5')
+    obj.run()
     
-    filelist = glob.glob('/data2/talens/2015Q2/LPE/tmp0_*')
-    filelist = np.sort(filelist)
-    merge(filelist)
+    #filelist = glob.glob('/data2/talens/2015Q2/LPE/tmp0_*')
+    #filelist = np.sort(filelist)
+    #merge(filelist)

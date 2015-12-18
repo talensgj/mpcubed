@@ -13,7 +13,7 @@ from fLCfile import fLCfile
 from usefull_functions_dev import flux2mag
 
 from core.coordinate_grids import PolarGrid, HealpixGrid
-from core.coarse_decor import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
+from core.coarse_decor_dev import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
 
 
 class CoarseDecorrelation():

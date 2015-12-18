@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 
 from fLCfile import fLCfile
-from core.coarse_decor_dev import coarse_decor, coarse_decor_sigmas
+from core.coarse_decor_dev import new_coarse_decor_sigmas, coarse_decor_sigmas
 from core.coordinate_grids import HealpixGrid
 from usefull_functions_dev import flux2mag
 
@@ -43,8 +43,27 @@ lstseq, idx2 = np.unique(lstseq, return_inverse=True)
 sigma1 = np.zeros(np.amax(idx1) + 1)
 sigma2 = np.zeros(np.amax(idx2) + 1)
 
-m, s, sigma1, sigma2, niter, chisq, npoints, npars = coarse_decor_sigmas(idx1, idx2, mag0, emag0, sigma1, sigma2, verbose = True)
-print s[7961], sigma2[7961]
+m, s0, sigma1, sigma2a, niter, chisq, npoints, npars = coarse_decor_sigmas(idx1, idx2, mag0, emag0, sigma1, sigma2, verbose = True,)
+m, s1, sigma1, sigma2b, niter, chisq, npoints, npars = new_coarse_decor_sigmas(idx1, idx2, mag0, emag0, sigma1, sigma2, verbose = True)
+
+ax = plt.subplot(211)
+plt.plot(s0, '.')
+plt.plot(s1, '.')
+plt.subplot(212, sharex=ax)
+plt.plot(s0 - s1, '.')
+plt.show()
+
+ax = plt.subplot(211)
+plt.plot(sigma2a, '.')
+plt.plot(sigma2b, '.')
+plt.subplot(212, sharex=ax)
+plt.plot(sigma2a - sigma2b, '.')
+plt.show()
+
+exit()
+x0 = s[7961]
+y0 = sigma2[7961]
+print x0, y0
 plt.plot(s, '.')
 plt.show()
 
@@ -83,70 +102,48 @@ for i in range(nx):
         term = np.bincount(idx2, (mag0 - m[idx1] - s[idx2])/(emag0**2 + sigma1[idx1]**2 + sigma2[idx2]**2))
         
         cloudf[i,j] = term[7961]
+   
+plt.figure(figsize=(10,10))
         
 plt.subplot(221)
+plt.title(r'$\chi^2$')
 plt.pcolormesh(xgrid, ygrid, chisq.T)
 plt.xlim(-.055, -.035)
 plt.ylim(0, .05)
+plt.xlabel(r'$s$')
+plt.ylabel(r'$\sigma$')
 
 plt.subplot(222)
+plt.title(r'$-\ln(L)$')
 plt.pcolormesh(xgrid, ygrid, logL.T)
 plt.contour(x, y, logL.T, [np.amin(logL)+1], colors='k')
+plt.scatter(x0, y0, marker='+', s=40, c='w')
+plt.xlim(-.055, -.035)
+plt.ylim(0, .05)
+plt.xlabel(r'$s$')
+plt.ylabel(r'$\sigma$')
 
 plt.subplot(223)
+plt.title(r'$\partial_{\sigma}\ln(L)$')
 plt.pcolormesh(xgrid, ygrid, sigmaf.T)
 plt.contour(x, y, sigmaf.T, [0.], colors='k')
+plt.scatter(x0, y0, marker='+', s=40, c='w')
+plt.xlim(-.055, -.035)
+plt.ylim(0, .05)
+plt.xlabel(r'$s$')
+plt.ylabel(r'$\sigma$')
 
 plt.subplot(224)
+plt.title(r'$\partial_{s}\ln(L)$')
 plt.pcolormesh(xgrid, ygrid, cloudf.T)
 plt.contour(x, y, cloudf.T, [0.], colors='k')
+plt.scatter(x0, y0, marker='+', s=40, c='w')
+plt.xlim(-.055, -.035)
+plt.ylim(0, .05)
+plt.xlabel(r'$s$')
+plt.ylabel(r'$\sigma$')
 
+plt.tight_layout()
 plt.show()
 
 exit()
-
-# 12, 7961
-
-nx = 50
-ny = 51
-
-xgrid = np.linspace(-.1, 0, nx + 1)
-ygrid = np.linspace(0, .05, ny + 1)
-
-x = (xgrid[:-1] + xgrid[1:])/2.
-y = (ygrid[:-1] + ygrid[1:])/2.
-
-
-
-for i in range(nx):
-    s[7961] = x[i]
-    
-    for j in range(ny):
-        sigma2[7961] = y[j]
-        
-        prefactor[i,j] = np.sum(np.log(emag0**2 + sigma1[idx1]**2 + sigma2[idx2]**2))
-        chisq[i,j] = np.sum((mag0 - m[idx1] - s[idx2])**2/(emag0**2 + sigma1[idx1]**2 + sigma2[idx2]**2))
-
-logL = prefactor + chisq
-logL = logL - np.amin(logL)
-
-print np.amin(logL), np.amax(logL)
-
-plt.subplot(111)
-plt.pcolormesh(xgrid, ygrid, logL.T, vmin=0, vmax=10)
-plt.contour(x, y, logL.T, np.linspace(0, 1, 10), colors = 'k')
-plt.scatter([-0.0437, -0.0454], [0.0, .0322])
-plt.show()
-
-exit()
-
-plt.subplot(121)
-plt.imshow(prefactor)
-plt.subplot(122)
-plt.imshow(chisq)
-plt.show()
-
-plt.pcolormesh(ygrid, xgrid, -(chisq + prefactor))
-plt.colorbar()
-plt.scatter([0.0, .0322], [-0.0454, -0.0437])
-plt.show()

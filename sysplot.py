@@ -331,7 +331,7 @@ class SysPlot():
         
 if __name__ == '__main__':
     
-    obj = SysPlot('/data2/talens/2015Q2/LPW/sys0_201506ALPW.hdf5')
+    obj = SysPlot('/data2/talens/2015Q2/LPC/sys0_201506ALPC.hdf5')
     obj.plot_trans()
     obj.plot_intrapix()
     
