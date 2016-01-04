@@ -17,10 +17,10 @@ rcParams['axes.titlesize'] = 'xx-large'
 from viridis import viridis
 from sysfile import SysFile
 
-f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE_test.hdf5')
+f = SysFile('/data2/talens/2015Q2/LPE/sigmas/sys0_201505ALPE.hdf5')
 pg, trans0, nobs = f.read_trans()
 
-f = SysFile('/data2/talens/2015Q2/LPE/sys0_201504ALPE_test2.hdf5')
+f = SysFile('/data2/talens/2015Q2/LPE/new_solver/sys0_201505ALPE.hdf5')
 pg, trans1, nobs = f.read_trans()
 
 trans0 = trans0[1:-1,1:-1]

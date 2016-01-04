@@ -194,7 +194,9 @@ def BLS(time, flux, flux_err, **options):
     time = time - time[0]
     
     #dchisq = np.zeros((nfreq,np.shape(flux)[1]))
+    depth = np.zeros((nfreq))
     dchisq = np.zeros((nfreq))
+    hchisq = np.zeros((nfreq))
     # Loop over frequency domain.
     for i in xrange(nfreq):
         
@@ -210,9 +212,11 @@ def BLS(time, flux, flux_err, **options):
         bins = np.linspace(0., 1., nbins[i]+1)
         r_cum = cumsum_to_grid(phase_fold, bins, weights_fold)
         s_cum = cumsum_to_grid(phase_fold, bins, flux_fold*weights_fold)
+        q_cum = cumsum_to_grid(phase_fold, bins, flux_fold**2*weights_fold)
         
-        r_cum = np.append(r_cum, r_cum[1:NumSteps*ES+1]+r_cum[-1], axis=0)
-        s_cum = np.append(s_cum, s_cum[1:NumSteps*ES+1]+s_cum[-1], axis=0)
+        r_cum = np.append(r_cum, r_cum[1:NumSteps*ES+1] + r_cum[-1], axis=0)
+        s_cum = np.append(s_cum, s_cum[1:NumSteps*ES+1] + s_cum[-1], axis=0)
+        q_cum = np.append(q_cum, q_cum[1:NumSteps*ES+1] + q_cum[-1], axis=0)
         
         # Calculate the indices of the start and end of transit for all epochs
         # and durations.
@@ -221,14 +225,22 @@ def BLS(time, flux, flux_err, **options):
         i2 = i1+(i2+1)*ES
        
         # Compute arrays of r and s values.
-        r = r_cum[i2]-r_cum[i1-1]
-        s = s_cum[i2]-s_cum[i1-1]
+        r = r_cum[i2] - r_cum[i1 - 1]
+        s = s_cum[i2] - s_cum[i1 - 1]
+        q = q_cum[i2] - q_cum[i1 - 1]
         
         # Find the quality of the best fit.
-        dchisq_tmp = (s**2.*t)/(r*(t-r))
-        dchisq[i] = np.nanmax(dchisq_tmp, axis=(0,1))
+        depth_tmp = s*t/(r*(t - r))
+        dchisq_tmp = s*depth_tmp
+        hchisq_tmp = chisq0 - s**2/(t - r) - q
+        
+        args = np.nanargmax(dchisq_tmp.ravel())
+
+        depth[i] = depth_tmp.ravel()[args]
+        dchisq[i] = dchisq_tmp.ravel()[args]
+        hchisq[i] = hchisq_tmp.ravel()[args]
     
-    return freq*SecInDay, dchisq
+    return freq*SecInDay, dchisq, depth, hchisq
         
 
 def main():

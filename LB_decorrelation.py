@@ -25,10 +25,18 @@ class CoarseDecorrelation():
             sky transmission.
         """
         
-        # File and aperture to work on.
+        # fLC file and aperture to work on.
         self.LBfile = LBfile
         self.aper = aperture
         
+        if not os.path.isfile(self.LBfile):
+            print 'File not found:', self.LBfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Calculating corrections for aperture %i of file:'%self.aper, self.LBfile
+        
+        # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
             prefix = 'sys%i_'%self.aper
@@ -37,8 +45,15 @@ class CoarseDecorrelation():
         
         self.sysfile = sysfile
         
+        if os.path.isfile(self.sysfile):
+            print 'Systematics file already exists:', self.sysfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Writing results to:', self.sysfile
+        
         # Initialize with defualt parameters unless arguments were given.
-        self.sigmas = kwargs.pop('sigmas', False)
+        self.sigmas = kwargs.pop('sigmas', True)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
         
         self.camgrid = 'polar'
@@ -127,6 +142,8 @@ class CoarseDecorrelation():
             here = (decuni == idx)
             mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here)
             
+            if (len(mag) == 0): continue
+            
             # Apply known temporal correction.
             if self.got_sky == True:
                 mag = mag - self.s[skyidx, lstseq]
@@ -184,6 +201,8 @@ class CoarseDecorrelation():
             # Read data.
             here = (skyuni == idx)
             mag, emag, x, y, staridx, camtransidx, intrapixidx, _, lstseq = self.read_data(here)
+            
+            if (len(mag) == 0): continue
             
             # Apply known spatial correction.
             mag = mag - self.z[camtransidx]
@@ -377,11 +396,11 @@ if __name__ == '__main__':
     
     import argparse
     
-    parser = argparse.ArgumentParser(description = 'Solve for the systematics given a fLC file.')
+    parser = argparse.ArgumentParser(description = 'Solve for the systematics given an fLC file.')
     parser.add_argument('LBfile', help = 'The input fLC file.')
     parser.add_argument('aperture', type = int, help = 'The aperture to be reduced.')
-    parser.add_argument('-o', '--output', help = 'The output file.', default = None)
+    parser.add_argument('-s', '--sysfile', help = 'The name of the systematics file.', default = None)
     args = parser.parse_args()
     
-    obj = CoarseDecorrelation(args.LBfile, args.aperture, args.output, sigmas = True)
+    obj = CoarseDecorrelation(args.LBfile, args.aperture, args.sysfile)
     obj.calculate()

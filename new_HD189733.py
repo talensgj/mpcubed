@@ -6,7 +6,7 @@ import numpy as  np
 
 from core.coarse_decor import coarse_decor
 from core.BLS_ms import BLS
-from scipy.signal import lombscargle
+from freq_fit import remove_freq
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -20,7 +20,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 P = 2.21857312
 Tp = 2454037.612
 
-with h5py.File('/data2/talens/2015Q2/LPE/test.hdf5', 'r') as f:
+with h5py.File('/data2/talens/2015Q2/LPE/new_solver/red0_2015Q2LPE.hdf5', 'r') as f:
     
     jdmid = f['data/807144/jdmid'].value
     lstseq = f['data/807144/lstseq'].value
@@ -62,12 +62,23 @@ idx1 = lstseq // 270
 idx2 = lstseq % 270
 
 a, b, niter, chisq, npoint, npars = coarse_decor(idx1, idx2, mag0, emag0)
+pars, fit = remove_freq(jdmid, mag0 - a[idx1], 1/.99727, 3, weights=1/emag0**2)
 
-plt.plot(idx2, mag0, '.')
-plt.plot(idx2, a[idx1] + b[idx2], '.')
+ax = plt.subplot(311)
+plt.plot(idx2, mag0 - a[idx1], '.')
+plt.plot(idx2, b[idx2], '.')
+
+plt.subplot(312, sharex=ax, sharey=ax)
+plt.plot(idx2, mag0 - a[idx1], '.')
+plt.plot(idx2, fit, '.')
+
+plt.subplot(313, sharex=ax)
+plt.plot(idx2, b[idx2] - fit, '.')
+plt.ylim(-.02, .02)
+
 plt.show()
 
-mag0 = mag0 - (a[idx1] + b[idx2])
+mag0 = mag0 - (a[idx1] + fit)
 
 phase = (jdmid - Tp)/P
 phase = np.mod(phase+.5, 1)-.5
@@ -81,15 +92,29 @@ plt.ylabel(r'$\Delta m$')
 plt.tight_layout()
 plt.show()
 
-freq, dchisq = BLS(jdmid, mag0, emag0)
+freq, dchisq, depth, hchisq = BLS(jdmid, mag0, emag0)
 
+plt.figure(figsize=(18, 10))
 plt.plot(freq, dchisq)
+plt.axvline(1/P, c='k')
+plt.ylim(0, 1200)
+plt.xlabel('Frequency [1/day]')
+plt.ylabel(r'$\Delta\chi^2$')
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(18, 10))
+plt.plot(freq, depth)
 plt.axvline(1/P, c='k')
 plt.xlabel('Frequency [1/day]')
 plt.ylabel(r'$\Delta\chi^2$')
 plt.tight_layout()
 plt.show()
 
-plt.semilogy(freq, dchisq)
-plt.axvline(1/P)
+plt.figure(figsize=(18, 10))
+plt.plot(freq, hchisq)
+plt.axvline(1/P, c='k')
+plt.xlabel('Frequency [1/day]')
+plt.ylabel(r'$\Delta\chi^2$')
+plt.tight_layout()
 plt.show()

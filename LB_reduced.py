@@ -20,9 +20,18 @@ class SysCorr():
     
     def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
         
+        # fLC file and aperture to work on.
         self.LBfile = LBfile
         self.aper = aperture
         
+        if not os.path.isfile(self.LBfile):
+            print 'File not found:', self.LBfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Applying corrections to aperture %i of file:'%self.aper, self.LBfile
+        
+        # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
             prefix = 'sys%i_'%self.aper
@@ -31,6 +40,14 @@ class SysCorr():
         
         self.sysfile = sysfile
         
+        if not os.path.isfile(self.sysfile):
+            print 'Systematics file not found:', self.sysfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Reading corrections from:', self.sysfile
+        
+        # The output file.
         if outfile is None:
             head, tail = os.path.split(self.LBfile)
             prefix = 'tmp%i_'%self.aper
@@ -39,17 +56,25 @@ class SysCorr():
         
         self.outfile = outfile
         
+        if os.path.isfile(self.outfile):
+            print 'Output file already exists:', self.outfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Writing results to:', self.outfile
+        
         return
         
     def correct(self):
 
-        nstars = len(self.ascc)
-        
+        # Open the fLCfile.
         f = fLCfile(self.LBfile)
         
+        nstars = len(self.ascc)
         pbar = ProgressBar(maxval = nstars).start()
         for i in range(nstars):
             
+            # Get the header information for this star.
             ascc = self.ascc[i]
             ra = self.ra[i]
             dec = self.dec[i]
@@ -59,19 +84,19 @@ class SysCorr():
             # Read data.
             flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag'], [ascc], [nobs])
             lstseq = lstseq.astype('int') - self.lstmin
-                
+            
+            # Convert flux to magnitudes.
+            mag, emag = flux2mag(flux, eflux)
+            
+            # Create indices.    
             ra = np.repeat(ra, nobs)
             dec = np.repeat(dec, nobs)
             ha = np.mod(lst*15. - ra, 360.)
             
-            # Create indices.
             camtransidx = self.pgcam.find_gridpoint(ha, dec)
             intrapixidx = self.pgipx.find_gridpoint(ha, dec)
             
-            # Convert flux to magnitudes.
-            mag, emag = flux2mag(flux, eflux)
-
-            # Get correction
+            # Get the correction terms.
             trans = self.trans[camtransidx]
             intrapix = self.a[intrapixidx]*np.sin(2*np.pi*x) + self.b[intrapixidx]*np.cos(2*np.pi*x) + self.c[intrapixidx]*np.sin(2*np.pi*y) + self.d[intrapixidx]*np.cos(2*np.pi*y)
             clouds = self.clouds[skyidx, lstseq]
@@ -120,6 +145,7 @@ class SysCorr():
             bclouds = index_statistics(binidx, clouds, statistic = 'mean')
             eclouds = index_statistics(binidx, clouds, statistic = 'std')
             
+            # Create a record array.
             arlist = [lstseq, nobs, lst, jdmid, x, y, bsky, esky, bmag, emag, btrans, etrans, bclouds, eclouds]
             names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
             formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
@@ -137,40 +163,21 @@ class SysCorr():
 
     def run(self):
         
+        # Read the required header data.
+        f = fLCfile(self.LBfile)
+        self.ascc, self.ra, self.dec, self.vmag, self.nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
+        self.nobs = self.nobs.astype('int')
+        
         # Read the correction terms.
         sys = SysFile(self.sysfile)
-        pgcam, trans, nobs_trans = sys.read_trans(ravel = True)
-        pgipx, a, b, c, d, nobs_ipx = sys.read_intrapix(ravel = True)
-        hg, clouds, nobs_clouds, lstmin, lstmax = sys.read_clouds()
-    
-        self.pgcam = pgcam
-        self.trans = trans
-        self.nobs_trans = nobs_trans
+        self.pgcam, self.trans, self.nobs_trans = sys.read_trans(ravel = True)
+        self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix(ravel = True)
+        self.hg, self.clouds, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
         
-        self.pgipx = pgipx
-        self.a = a
-        self.b = b
-        self.c = c
-        self.d = d
-        self.nobs_ipx = nobs_ipx
+        # Create indices.
+        self.skyidx = self.hg.find_gridpoint(self.ra, self.dec)
         
-        self.hg = hg
-        self.clouds = clouds
-        self.nobs_clouds = nobs_clouds
-        self.lstmin = lstmin
-        
-        # Put in self
-        f = fLCfile(self.LBfile)
-        ascc, ra, dec, vmag, nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
-        nobs = nobs.astype('int')
-        
-        self.ascc = ascc
-        self.ra = ra
-        self.dec = dec
-        self.vmag = vmag
-        self.nobs = nobs
-        self.skyidx = self.hg.find_gridpoint(ra, dec)
-        
+        # Aplly the corrections.
         self.correct()
         
         return
@@ -208,16 +215,23 @@ def merge(filelist):
         with h5py.File('test.hdf5') as f:
             for key in lc.dtype.names:
                 f.create_dataset('data/' + sID + '/' + key, data = lc[key])
-        
-        
-        
+
     return
 
 if __name__ == '__main__':
     
-    obj = SysCorr('/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/sys0_201504ALPE_newsol.hdf5')
-    obj.run()
+    #import argparse
     
-    #filelist = glob.glob('/data2/talens/2015Q2/LPE/tmp0_*')
-    #filelist = np.sort(filelist)
-    #merge(filelist)
+    #parser = argparse.ArgumentParser(description = 'Apply the systematics corrections to a given fLC file.')
+    #parser.add_argument('LBfile', help = 'The input fLC file.')
+    #parser.add_argument('aperture', type = int, help = 'The aperture to be reduced.')
+    #parser.add_argument('-s', '--sysfile', help = 'The systematics file to use.', default = None)
+    #parser.add_argument('-o', '--outfile', help = 'The output file.', default = None)
+    #args = parser.parse_args()
+    
+    #obj = SysCorr(args.LBfile, args.aperture, args.sysfile, args.outfile)
+    #obj.run()
+    
+    filelist = glob.glob('/data2/talens/2015Q2/LPW/tmp0_*')
+    filelist = np.sort(filelist)
+    merge(filelist)
