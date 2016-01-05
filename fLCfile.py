@@ -62,6 +62,13 @@ class fLCfile():
                     data[j][select[i]:select[i+1]] = lc[fields[j]]
             
         return data
+           
+    def read_star(self, ascc):
+        
+        with h5py.File(self.fLCfile, 'r') as f:
+            lc = f['data/' + ascc].value
+        
+        return lc
             
     def visualize(self, ascc, mode='ha'):
         

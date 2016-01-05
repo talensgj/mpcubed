@@ -173,7 +173,7 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
         #sigma1 = find_sigma(idx1, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma2**2)[idx2]))
         #sigma2 = find_sigma(idx2, value - par1[idx1] - par2[idx2], np.sqrt(error**2 + (sigma1**2)[idx1]))
         #weights = 1/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])
-
+        
         ## Check if the solution has converged.
         #if (niter > 0):
             
@@ -181,19 +181,15 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
             #dcrit2 = np.nanmax(np.abs(par2 - par2_old))
             
             #if (dcrit1 < dtol) & (dcrit2 < dtol):
-                #print 'Good solution.'
                 #break
-                
-            #dcrit1 = np.nanargmax(np.abs(par1 - par1_old))
-            #dcrit2 = np.nanargmax(np.abs(par2 - par2_old))
-                
+        
+        ## Check if the solution is oscillating?
         #if (niter > 1):
             
             #dcrit1 = np.nanmax(np.abs(par1 - par1_older))
             #dcrit2 = np.nanmax(np.abs(par2 - par2_older))
             
             #if (dcrit1 < dtol) & (dcrit2 < dtol):
-                #print 'Oscillating solution.'
                 #break
         
         #if (niter > 0):
@@ -204,11 +200,11 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
         #par2_old = np.copy(par2)
         
     ## Compute the chi-square of the fit.
-    #chisq = weights*(value - par1[idx1] - par2[idx2])**2  
+    #chisq = weights*(value - par1[idx1] - par2[idx2])**2        
     #chisq = np.sum(chisq)
     
     #return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
-
+    
 def sigma_function(idx1, idx2, value, error, par1, sigma1, err):
     
     weights = 1/(error**2 + (sigma1**2)[idx1] + (err**2)[idx2])
@@ -276,19 +272,15 @@ def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, d
             dcrit2 = np.nanmax(np.abs(par2 - par2_old))
             
             if (dcrit1 < dtol) & (dcrit2 < dtol):
-                print 'Good solution.'
                 break
-                
-            dcrit1 = np.nanargmax(np.abs(par1 - par1_old))
-            dcrit2 = np.nanargmax(np.abs(par2 - par2_old))
-                
+        
+        # Check if the solution is oscillating?
         if (niter > 1):
             
             dcrit1 = np.nanmax(np.abs(par1 - par1_older))
             dcrit2 = np.nanmax(np.abs(par2 - par2_older))
             
             if (dcrit1 < dtol) & (dcrit2 < dtol):
-                print 'Oscillating solution.'
                 break
         
         if (niter > 0):

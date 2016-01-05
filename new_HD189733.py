@@ -20,7 +20,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 P = 2.21857312
 Tp = 2454037.612
 
-with h5py.File('/data2/talens/2015Q2/LPE/new_solver/red0_2015Q2LPE.hdf5', 'r') as f:
+with h5py.File('/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5', 'r') as f:
     
     jdmid = f['data/807144/jdmid'].value
     lstseq = f['data/807144/lstseq'].value
@@ -29,7 +29,20 @@ with h5py.File('/data2/talens/2015Q2/LPE/new_solver/red0_2015Q2LPE.hdf5', 'r') a
     emag0 = f['data/807144/emag0'].value
     clouds0 = f['data/807144/clouds0'].value
 
+plt.errorbar(jdmid, mag0, yerr = emag0/np.sqrt(nobs))
+plt.show()
+
 here = (nobs == 50)
+jdmid = jdmid[here]
+lstseq = lstseq[here]
+mag0 = mag0[here]
+emag0 = emag0[here]
+clouds0 = clouds0[here]
+
+plt.hist(emag0, bins = np.linspace(0, .2, 21))
+plt.show()
+
+here = (emag0 < .35)
 jdmid = jdmid[here]
 lstseq = lstseq[here]
 mag0 = mag0[here]
@@ -38,31 +51,21 @@ clouds0 = clouds0[here]
 
 emag0 = emag0/np.sqrt(50.)
 
-plt.hist(emag0, bins = np.linspace(0, .2, 21))
-plt.show()
+#plt.hist(clouds0, bins = np.linspace(-1, 1, 21))
+#plt.show()
 
-here = (emag0 < .01)
-jdmid = jdmid[here]
-lstseq = lstseq[here]
-mag0 = mag0[here]
-emag0 = emag0[here]
-clouds0 = clouds0[here]
-
-plt.hist(clouds0, bins = np.linspace(-1, 1, 21))
-plt.show()
-
-here = (clouds0 < .05)
-jdmid = jdmid[here]
-lstseq = lstseq[here]
-mag0 = mag0[here]
-emag0 = emag0[here]
-clouds0 = clouds0[here]
+#here = (clouds0 < .05)
+#jdmid = jdmid[here]
+#lstseq = lstseq[here]
+#mag0 = mag0[here]
+#emag0 = emag0[here]
+#clouds0 = clouds0[here]
 
 idx1 = lstseq // 270
 idx2 = lstseq % 270
 
 a, b, niter, chisq, npoint, npars = coarse_decor(idx1, idx2, mag0, emag0)
-pars, fit = remove_freq(jdmid, mag0 - a[idx1], 1/.99727, 3, weights=1/emag0**2)
+pars, fit = remove_freq(jdmid, mag0 - a[idx1], 1/.99727, 5, weights=1/emag0**2)
 
 ax = plt.subplot(311)
 plt.plot(idx2, mag0 - a[idx1], '.')

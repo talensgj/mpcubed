@@ -13,7 +13,7 @@ from fLCfile import fLCfile
 from usefull_functions_dev import flux2mag
 
 from core.coordinate_grids import PolarGrid, HealpixGrid
-from core.coarse_decor_dev import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
+from core.coarse_decor import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
 
 
 class CoarseDecorrelation():
@@ -89,7 +89,8 @@ class CoarseDecorrelation():
         skyidx = self.skyidx[here]
         
         # Read data.
-        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag'], ascc, nobs)
+        fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag']
+        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(fields, ascc, nobs)
         lstseq = lstseq.astype('int') - self.lstmin
         
         ra = np.repeat(ra, nobs)
@@ -159,12 +160,11 @@ class CoarseDecorrelation():
             # Calculate new spatial correction.
             m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
+            # Simple magnitude calibration.
             offset = np.nanmedian(m - self.vmag[staridx])
-            m = m - offset
-            z = z + offset
             
-            self.m[staridx] = m
-            self.z[camtransidx] = z
+            self.m[staridx] = m - offset
+            self.z[camtransidx] = z + offset
             self.A[intrapixidx] = A
             
             self.m_nobs[staridx] = m_nobs
@@ -217,13 +217,12 @@ class CoarseDecorrelation():
                 m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor_sigmas(ind1, ind2, mag, emag, self.sigma1[staridx], self.sigma2[skyidx[idx], lstseq], maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             else:
                 m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = coarse_decor(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
-                
-            offset = np.nanmedian(m - self.vmag[staridx])
-            m = m - offset
-            s = s + offset
             
-            self.m[staridx] = m
-            self.s[skyidx[idx], lstseq] = s
+            # Simple magnitude calibration.
+            offset = np.nanmedian(m - self.vmag[staridx])
+            
+            self.m[staridx] = m - offset
+            self.s[skyidx[idx], lstseq] = s + offset
             
             if self.sigmas:
                 self.sigma1[staridx] = sigma1
@@ -245,7 +244,7 @@ class CoarseDecorrelation():
             
         return
     
-    def calculate(self):
+    def run(self):
         """
             Performs the coarse decorrelation on the given Long Baseline fLC file
             and writes the result to the given output location.
@@ -391,7 +390,9 @@ class CoarseDecorrelation():
             grp['clouds'].attrs['lstmin'] = self.lstmin
             grp['clouds'].attrs['lstmax'] = lstmax
             grp['clouds'].attrs['lstlen'] = lstlen
-            
+        
+        return
+
 if __name__ == '__main__':
     
     import argparse
@@ -403,4 +404,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     obj = CoarseDecorrelation(args.LBfile, args.aperture, args.sysfile)
-    obj.calculate()
+    obj.run()

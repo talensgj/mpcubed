@@ -12,7 +12,7 @@ from progressbar import ProgressBar
 
 from fLCfile import fLCfile
 from sysfile import SysFile
-from core.coordinate_grids import PolarGrid, HealpixGrid
+
 from core.index_functions import index_statistics
 from usefull_functions_dev import flux2mag
 
@@ -82,7 +82,8 @@ class SysCorr():
             skyidx = self.skyidx[i]
             
             # Read data.
-            flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag'], [ascc], [nobs])
+            fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
+            flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(fields, [ascc], [nobs])
             lstseq = lstseq.astype('int') - self.lstmin
             
             # Convert flux to magnitudes.
@@ -182,56 +183,18 @@ class SysCorr():
         
         return
 
-def merge(filelist):
-    
-    nfiles = len(filelist)
-    
-    ascc = np.array([])
-    for i in range(nfiles):
-        
-        with h5py.File(filelist[i], 'r') as f:
-            ascc = np.append(ascc, f.keys())
-            
-    ascc = np.unique(ascc)
-    
-    for sID in ascc:
-        print sID
-        first = True
-        for i in range(nfiles):
-        
-            with h5py.File(filelist[i], 'r') as f:
-                
-                try:
-                    tmp = f[sID].value
-                except:
-                    pass
-                else:
-                    if first:
-                        lc = tmp
-                        first = False
-                    else:
-                        lc = stack_arrays((lc, tmp), asrecarray=True)
-        
-        with h5py.File('test.hdf5') as f:
-            for key in lc.dtype.names:
-                f.create_dataset('data/' + sID + '/' + key, data = lc[key])
-
-    return
-
 if __name__ == '__main__':
     
-    #import argparse
+    import argparse
     
-    #parser = argparse.ArgumentParser(description = 'Apply the systematics corrections to a given fLC file.')
-    #parser.add_argument('LBfile', help = 'The input fLC file.')
-    #parser.add_argument('aperture', type = int, help = 'The aperture to be reduced.')
-    #parser.add_argument('-s', '--sysfile', help = 'The systematics file to use.', default = None)
-    #parser.add_argument('-o', '--outfile', help = 'The output file.', default = None)
-    #args = parser.parse_args()
+    parser = argparse.ArgumentParser(description = 'Apply the systematics corrections to a given fLC file.')
+    parser.add_argument('LBfile', help = 'The input fLC file.')
+    parser.add_argument('aperture', type = int, help = 'The aperture to be reduced.')
+    parser.add_argument('-s', '--sysfile', help = 'The systematics file to use.', default = None)
+    parser.add_argument('-o', '--outfile', help = 'The output file.', default = None)
+    args = parser.parse_args()
     
-    #obj = SysCorr(args.LBfile, args.aperture, args.sysfile, args.outfile)
-    #obj.run()
+    obj = SysCorr(args.LBfile, args.aperture, args.sysfile, args.outfile)
+    obj.run()
     
-    filelist = glob.glob('/data2/talens/2015Q2/LPW/tmp0_*')
-    filelist = np.sort(filelist)
-    merge(filelist)
+    
