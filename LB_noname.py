@@ -54,7 +54,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Apply the systematics corrections to a given fLC file.')
     parser.add_argument('path', help = 'Path to the temporary files.')
     parser.add_argument('aperture', type = int, help = 'The aperture to be merged.')
-    parser.add_argument('-o', '--outfile', help = 'The output file.', default = None)
+    parser.add_argument('outfile', help = 'The output file.')
     args = parser.parse_args()
     
     if not os.path.exists(args.path):
@@ -62,10 +62,13 @@ if __name__ == '__main__':
         print 'exiting...'
         exit()
     
+    if os.path.isfile(args.outfile):
+        print args.outfile, 'already exists.'
+        print 'exiting...'
+        exit()
+    
     expression = os.path.join(args.path, 'tmp%i_*'%args.aperture)
     filelist = glob.glob(expression)
     filelist = np.sort(filelist)
-    
-    
-    
-    make_quarterfile(filelist)
+
+    make_quarterfile(filelist, args.outfile)

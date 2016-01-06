@@ -19,6 +19,10 @@ from usefull_functions_dev import flux2mag
 class SysCorr():
     
     def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
+        """
+        Given an fLC file and a systematics file it computes the systematics
+        corrected lightcurve, bins it and writes the result to a temporary file.
+        """
         
         # fLC file and aperture to work on.
         self.LBfile = LBfile
@@ -178,7 +182,7 @@ class SysCorr():
         # Create indices.
         self.skyidx = self.hg.find_gridpoint(self.ra, self.dec)
         
-        # Aplly the corrections.
+        # Apply the corrections.
         self.correct()
         
         return
