@@ -243,7 +243,7 @@ def combine_data(filelist, ascc):
 
     return stardict
    
-def merge_files(filelist, outfile):
+def fLCmerge(filelist, outfile):
     """ 
     Given a list of fLC files combines them to one file.
     """
@@ -304,33 +304,3 @@ def merge_files(filelist, outfile):
     print 'Done'
 
     return
-    
-if __name__ == '__main__':
-    
-    import argparse
-    
-    filepath = '/data2/mascara/LaPalma'
-    outpath = '/data2/talens/LongBaselines'
-    
-    parser = argparse.ArgumentParser(description = 'Combine fLC files into one file.')
-    parser.add_argument('date', help = 'YYYYMM, the year and month to combine files from.')
-    parser.add_argument('camera', help = 'The camera to combine files from.')
-    parser.add_argument('mode', type = int, choices = [0, 1, 2], help = 'The baseline to create.')
-    parser.add_argument('--filepath', help = 'Path to the fLC files.', default = filepath)
-    parser.add_argument('--outpath', help = 'Directory to write the combined file to.', default = outpath)
-    args = parser.parse_args()
-    
-    if (args.mode == 0):
-        part = 'A'
-        dates = [args.date + '%.2i'%i + args.camera for i in range(1, 16)]
-    if (args.mode == 1):
-        part = 'B'
-        dates = [args.date + '%.2i'%i + args.camera for i in range(16, 32)]
-    if (args.mode == 2):
-        part = ''
-        dates = [args.date + '%.2i'%i + args.camera for i in range(1, 32)]
-    
-    filelist = [os.path.join(args.filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
-    outfile = os.path.join(args.outpath, 'fLC_%s%s%s.hdf5'%(args.date, part, args.camera))
-    
-    merge_files(filelist, outfile)
