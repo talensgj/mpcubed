@@ -93,18 +93,4 @@ class fLCfile():
         
         return data
         
-if __name__ == '__main__':
-    
-    import argparse
-    
-    parser = argparse.ArgumentParser(description = 'Outputs the global group for a given fLC file.')
-    parser.add_argument('fLCfile', help = 'The input fLC file.')
-    args = parser.parse_args()
-    
-    f = fLCfile(args.fLCfile)
-    data = f.read_global()
-
-    for key, value in data:
-        print key, value
-        
     

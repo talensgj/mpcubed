@@ -11,10 +11,10 @@ from numpy.lib.recfunctions import stack_arrays
 from progressbar import ProgressBar
 
 import misc
-from IO import fLCfile
-from IO import sysfile
+import IO
 from coordinates import grids
-from core import coarse_decor
+from core.coarse_decor import coarse_decor, coarse_decor_intrapix, coarse_decor_sigmas
+from core.index_functions import index_statistics
 
 def create_baseline(date, camera, mode, filepath, outpath):
     
@@ -35,7 +35,7 @@ def create_baseline(date, camera, mode, filepath, outpath):
     filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
     
-    fLCmerge(filelist, outfile)
+    IO.fLCmerge(filelist, outfile)
     
     return outfile
 
@@ -141,7 +141,7 @@ class CoarseDecorrelation():
         skyidx = skyidx[here]
         
         # Convert flux to magnitudes:
-        mag, emag = flux2mag(flux, eflux)
+        mag, emag = misc.flux2mag(flux, eflux)
         
         return mag, emag, x, y, staridx, camtransidx, intrapixidx, skyidx, lstseq
     
@@ -274,10 +274,10 @@ class CoarseDecorrelation():
         """
 
         # Set up the IO and coordinate grids.
-        self.f = fLCfile(self.LBfile)
-        self.camgrid = PolarGrid(self.camnx, self.camny)
-        self.ipxgrid = PolarGrid(self.ipxnx, self.ipxny)
-        self.skygrid = HealpixGrid(self.skynx)
+        self.f = IO.fLCfile(self.LBfile)
+        self.camgrid = grids.PolarGrid(self.camnx, self.camny)
+        self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
+        self.skygrid = grids.HealpixGrid(self.skynx)
         
         # Read the required header data.
         self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
@@ -473,7 +473,7 @@ class SysCorr():
     def correct(self):
 
         # Open the fLCfile.
-        f = fLCfile(self.LBfile)
+        f = IO.fLCfile(self.LBfile)
         
         nstars = len(self.ascc)
         pbar = ProgressBar(maxval = nstars).start()
@@ -492,7 +492,7 @@ class SysCorr():
             lstseq = lstseq.astype('int') - self.lstmin
             
             # Convert flux to magnitudes.
-            mag, emag = flux2mag(flux, eflux)
+            mag, emag = misc.flux2mag(flux, eflux)
             
             # Create indices.    
             ra = np.repeat(ra, nobs)
@@ -570,7 +570,7 @@ class SysCorr():
     def run(self):
         
         # Read the required header data.
-        f = fLCfile(self.LBfile)
+        f = IO.fLCfile(self.LBfile)
         self.ascc, self.ra, self.dec, self.vmag, self.nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
         self.nobs = self.nobs.astype('int')
         

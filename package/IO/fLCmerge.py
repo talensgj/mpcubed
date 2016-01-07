@@ -8,8 +8,8 @@ import h5py
 import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
-from IO.fLCfile import fLCfile
-from core.index_functions import index_statistics
+from fLCfile import fLCfile
+from ..core.index_functions import index_statistics
 
 def verify_filelist(filelist):
     """

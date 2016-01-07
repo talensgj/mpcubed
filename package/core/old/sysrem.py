@@ -3,7 +3,6 @@
 
 import numpy as np
 
-
 def sysrem(ind1, ind2, values, errors, maxiter=100, eps=1e-3, verbose=False):
     """ 
     Given data this code will fit a model of the form:

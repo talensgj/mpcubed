@@ -16,7 +16,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from package.IO.fLCfile import fLCfile
+from .. import IO
 
 class fLCplot():
     
@@ -28,7 +28,7 @@ class fLCplot():
         
     def coverage(self):
         
-        f = fLCfile(self.fLCfile)
+        f = IO.fLCfile(self.fLCfile)
         ra, dec, nobs = f.read_header(['ra', 'dec', 'nobs'])
         
         plt.figure(figsize = (16, 8))
@@ -55,7 +55,7 @@ class fLCplot():
 
     def star_overview(self, ascc):
         
-        f = fLCfile(self.fLCfile)
+        f = IO.fLCfile(self.fLCfile)
         lc = f.read_star(ascc)
         
         here = (lc['flag'] > 0)
@@ -313,9 +313,3 @@ class fLCplot():
         #plt.show()
         #plt.close()
 
-
-
-if __name__ == '__main__':
-    
-    obj = fLCPlot('/data2/talens/2015Q2/LPC/fLC_201506ALPC.hdf5')
-    obj.star_overview('807144')

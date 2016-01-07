@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from core import index_functions
 
 def flux2mag(flux, eflux = None, m0 = 25):
     

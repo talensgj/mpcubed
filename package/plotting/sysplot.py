@@ -16,7 +16,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 import mascara
-from sysfile import SysFile
+from .. import IO
 
 class SysPlot():
     
@@ -29,7 +29,7 @@ class SysPlot():
     def hadec2xy(self, ha, dec):
         
         # Read the pointing from the file.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         alt0, az0, th0, x0, y0 = f.read_pointing()
         
         # Initialize the coordinate transformations.
@@ -52,7 +52,7 @@ class SysPlot():
     def add_hadecgrid(self):
         
         # Read the pointing from the file.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         alt0, az0, th0, x0, y0 = f.read_pointing()
         
         # Initialize the coordinate transformations.
@@ -124,7 +124,7 @@ class SysPlot():
     def plot_magnitudes(self):
         
         # Read the data.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         ascc, vmag, mag, nobs = f.read_magnitudes()
         
         # Create the magnitudes plot.
@@ -150,7 +150,7 @@ class SysPlot():
     def plot_trans(self):
         
         # Read the data.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         pg, trans, nobs = f.read_trans()
         
         # Remove the bounadry and mask NaNs.
@@ -215,7 +215,7 @@ class SysPlot():
     def plot_intrapix(self):
         
         # Read the data.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         pg, a, b, c, d, nobs = f.read_intrapix()
         
         # Remove the boundary and mask NaNs.
@@ -310,7 +310,7 @@ class SysPlot():
         import healpy
         
         # Read the data.
-        f = SysFile(self.sysfile)
+        f = IO.SysFile(self.sysfile)
         hg, clouds, nobs, lstmin, lstmax = f.read_clouds()
         
         for i in range(0, clouds.shape[1], 50):
@@ -325,17 +325,3 @@ class SysPlot():
             plt.close()
             
         return
-    
-        
-        
-        
-if __name__ == '__main__':
-    
-    obj = SysPlot('/data2/talens/2015Q2/LPC/sys0_201506ALPC.hdf5')
-    obj.plot_trans()
-    obj.plot_intrapix()
-    
-        
-    
-    
-    

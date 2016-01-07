@@ -4,7 +4,7 @@
 import h5py
 import numpy as np
 
-from core.coordinate_grids import PolarGrid, HealpixGrid
+from ..coordinates import grids
 
 class SysFile():
     
@@ -75,7 +75,7 @@ class SysFile():
             nx = f['data/trans'].attrs['nx']
             ny = f['data/trans'].attrs['ny']
             
-        pg = PolarGrid(nx, ny)
+        pg = grids.PolarGrid(nx, ny)
         trans = pg.put_values_on_grid(trans, idx, np.nan)
         nobs = pg.put_values_on_grid(nobs, idx, np.nan)
 
@@ -98,7 +98,7 @@ class SysFile():
             nx = f['data/intrapix'].attrs['nx']
             ny = f['data/intrapix'].attrs['ny']
             
-        pg = PolarGrid(nx, ny)
+        pg = grids.PolarGrid(nx, ny)
         sinx = pg.put_values_on_grid(sinx, idx, np.nan)
         cosx = pg.put_values_on_grid(cosx, idx, np.nan)
         siny = pg.put_values_on_grid(siny, idx, np.nan)
@@ -126,7 +126,7 @@ class SysFile():
     
         lstseq = lstseq - lstmin
     
-        hg = HealpixGrid(nx)
+        hg = grids.HealpixGrid(nx)
         
         tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
         tmp[idx, lstseq] = clouds
@@ -137,21 +137,3 @@ class SysFile():
         nobs = tmp
 
         return hg, clouds, nobs, lstmin, lstmax
-
-if __name__ == '__main__':
-    
-    import matplotlib.pyplot as plt
-    
-    obj = SysFile('/data2/talens/2015Q2/LPE/sys_201506BLPE.hdf5')
-    z, nobs = obj.read_camtrans()
-    a, b, c, d, nobs = obj.read_intrapix()
-    s, nobs, lstmin = obj.read_skytrans()
-    print lstmin
-    exit()
-    plt.subplot(111, aspect='auto')
-    plt.imshow(nobs.T, aspect='auto', origin='lower', interpolation='None')
-    plt.colorbar()
-    plt.show()
-    
-    
-    
