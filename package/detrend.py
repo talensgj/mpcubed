@@ -575,7 +575,7 @@ class SysCorr():
         self.nobs = self.nobs.astype('int')
         
         # Read the correction terms.
-        sys = SysFile(self.sysfile)
+        sys = IO.SysFile(self.sysfile)
         self.pgcam, self.trans, self.nobs_trans = sys.read_trans(ravel = True)
         self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix(ravel = True)
         self.hg, self.clouds, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
