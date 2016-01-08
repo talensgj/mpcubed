@@ -4,208 +4,153 @@
 import numpy as np
 import healpy
 
-class PolarGrid():
-    
-    # Does not deal with out of range bins correctly.
+class PolarGrid(object):
+    """ Return a polar coordinate grid."""
     
     def __init__(self, nx, ny):
         
         self.nx = nx
         self.ny = ny
         
-        self.bins1 = np.linspace(0, 360, self.nx+1)
-        self.bins2 = np.linspace(-90, 90, self.ny+1)
+        self.xedges = np.linspace(0, 360, self.nx+1)
+        self.yedges = np.linspace(-90, 90, self.ny+1)
         
         self.npix = (nx + 2)*(ny + 2)
     
-    def find_raidx(self, ra, compact=False):
+    def _ra2idx(self, ra):
         
-        ind = np.searchsorted(self.bins1, ra, 'right')
+        idx = np.searchsorted(self.xedges, ra, 'right')
         
-        if not compact:
-            return ind
-        else: 
-            return np.unique(ind, return_inverse=True)
+        return idx
         
-    def find_decidx(self, dec, compact=False):
+    def _dec2idx(self, dec):
         
-        ind = np.searchsorted(self.bins2, dec, 'right')
+        idx = np.searchsorted(self.yedges, dec, 'right')
         
-        if not compact:
-            return ind
-        else: 
-            return np.unique(ind, return_inverse=True)
+        return idx
     
-    def find_gridpoint(self, ra, dec, compact=False):
+    def radec2idx(self, ra, dec):
         
-        ind1 = self.find_raidx(ra)
-        ind2 = self.find_decidx(dec)
+        idx1 = self._ra2idx(ra)
+        idx2 = self._dec2idx(dec)
         
-        if np.any(ind1==0) | np.any(ind1==self.nx+1):
-            print 'Warning 1'
-        if np.any(ind2==0) | np.any(ind2==self.ny+1):
-            print 'Warning 2'
-        
-        ind = np.ravel_multi_index([ind1,ind2], (self.nx+2, self.ny+2))
-        
-        if not compact:
-            return ind
-        else:
-            return np.unique(ind, return_inverse=True)
-        
-    def find_ra(self, raidx):
+        return idx1, idx2
+            
+    def _idx2ra(self, idx):
         
         ra = np.full(self.nx+2, fill_value=np.nan)
-        ra[1:-1] = (self.bins1[:-1]+self.bins1[1:])/2.
+        ra[1:-1] = (self.xedges[:-1] + self.yedges[1:])/2.
         
-        return ra[raidx]
+        return ra[idx]
         
-    def find_dec(self, decidx):
+    def _idx2dec(self, idx):
         
         dec = np.full(self.ny+2, fill_value=np.nan)
-        dec[1:-1] = (self.bins2[:-1]+self.bins2[1:])/2.
+        dec[1:-1] = (self.yedges[:-1] + self.yedges[1:])/2.
         
-        return dec[decidx]
+        return dec[idx]
         
-    def grid_coordinates(self, ind=None):
+    def idx2radec(self, idx1, idx2):
         
-        ra = (self.bins1[:-1]+self.bins1[1:])/2.
-        dec = (self.bins2[:-1]+self.bins2[1:])/2.
+        ra = self._idx2ra(idx1)
+        dec = self._idx2dec(idx2)
         
-        ra, dec = np.meshgrid(ra, dec)
-        ra = np.ravel(ra)
-        dec = np.ravel(dec)
+        return ra, dec
         
-        if ind is None:
-            return ra, dec
-        else:
-            return ra[ind], dec[ind]
-            
-    def put_values_on_grid(self, values, ind=None, fill_value=0):
+    def values2grid(self, idx1, idx2, values, fill_value=0):
         
-        array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
-        
-        if ind is None:
-            array[:len(values)] = values
-        else:
-            array[ind] = values
-        
-        array = array.reshape((self.nx+2, self.ny+2))
+        array = np.full((self.nx+2, self.ny+2), fill_value=fill_value)
+        array[idx1, idx2] = values
         
         return array
 
-    
-class CartesianGrid():
-    
-    def __init__(self, nx, ny, margin=0, Lx=4008, Ly=2672):
-        
-        self.nx = nx
-        self.ny = ny
-        
-        self.bins1 = np.linspace(margin, Lx-margin, self.nx+1)
-        self.bins2 = np.linspace(margin, Ly-margin, self.ny+1)
-        
-        self.npix = (nx + 2)*(ny + 2)
-        
-    def find_xidx(self, x, compact=False):
-        
-        ind = np.searchsorted(self.bins1, x, 'right')
-        
-        if not compact:
-            return ind
-        else: 
-            return np.unique(ind, return_inverse=True)
-            
-    def find_yidx(self, y, compact=False):
-        
-        ind = np.searchsorted(self.bins2, y, 'right')
-        
-        if not compact:
-            return ind
-        else: 
-            return np.unique(ind, return_inverse=True)
-        
-    def find_gridpoint(self, x, y, compact=False):
-        
-        ind1 = self.find_xidx(x)
-        ind2 = self.find_yidx(y)
-        
-        if np.any(ind1==0) | np.any(ind1==self.nx+1):
-            print 'Warning 1'
-        if np.any(ind2==0) | np.any(ind2==self.ny+1):
-            print 'Warning 2'
-        
-        ind = np.ravel_multi_index([ind1,ind2], (self.nx+2, self.ny+2))
-    
-        if not compact:
-            return ind
-        else:
-            return np.unique(ind, return_inverse=True)
-        
-    def xidx2x(self, xidx):
-        
-        x = np.full(self.nx+2, fill_value=np.nan)
-        x[1:-1] = (self.bins1[:-1]+self.bins1[1:])/2.
-        
-        return x[xidx]
-        
-    def yidx2y(self, yidx):
-        
-        y = np.full(self.ny+2, fill_value=np.nan)
-        y[1:-1] = (self.bins2[:-1]+self.bins2[1:])/2.
-        
-        return y[yidx]
-        
-        
-    def put_values_on_grid(self, values, ind=None, fill_value=0):
-        
-        array = np.full((self.nx+2)*(self.ny+2), fill_value=fill_value)
-        
-        if ind is None:
-            array[:len(values)] = values
-        else:
-            array[ind] = values
-        
-        array = array.reshape((self.nx+2, self.ny+2))
-        
-        return array
 
-    
-class HealpixGrid():
+class HealpixGrid(object):
+    """Return a healpix coordinate grid."""
     
     def __init__(self, nside):
         
         self.nside = nside
         self.npix = healpy.nside2npix(self.nside)
     
-    def find_gridpoint(self, ra, dec, compact=False):
+    def radec2idx(self, ra, dec):
         
-        ind = healpy.ang2pix(self.nside, (90-dec)*np.pi/180., ra*np.pi/180.)
+        idx = healpy.ang2pix(self.nside, (90. - dec)*np.pi/180., ra*np.pi/180.)
         
-        if not compact:
-            return ind
-        else:
-            return np.unique(ind, return_inverse=True)
+        return idx
             
-    def grid_coordinates(self, ind=None):
+    def idx2radec(self, idx):
     
-        if ind is None:
-            theta, phi = healpy.pix2ang(self.nside, np.arange(self.npix))
-        else:
-            theta, phi = healpy.pix2ang(self.nside, ind)
-            
-        dec = 90-theta*180./np.pi
+        theta, phi = healpy.pix2ang(self.nside, idx)
+        dec = 90. - theta*180./np.pi
         ra = phi*180./np.pi
             
         return ra, dec
         
-    def put_values_on_grid(self, values, ind=None, fill_value=0):
+    def values2grid(self, idx, values, fill_value=0):
         
         array = np.full(self.npix, fill_value=fill_value)
+        array[idx] = values
         
-        if ind is None:
-            array[:len(values)] = values
-        else:
-            array[ind] = values
+        return array
+
+    
+class CartesianGrid(object):
+    """Return a cartesian coordinate grid."""
+    
+    def __init__(self, nx, ny, margin=0, Lx=4008, Ly=2672):
+        
+        self.nx = nx
+        self.ny = ny
+        
+        self.xedges = np.linspace(margin, Lx-margin, self.nx+1)
+        self.yedges = np.linspace(margin, Ly-margin, self.ny+1)
+        
+        self.npix = (nx + 2)*(ny + 2)
+        
+    def _x2idx(self, x):
+        
+        idx = np.searchsorted(self.xedges, x, 'right')
+        
+        return idx
+
+    def _y2idx(self, y):
+        
+        idx = np.searchsorted(self.yedges, y, 'right')
+        
+        return idx
+        
+    def xy2idx(self, x, y):
+        
+        idx1 = self._x2idx(x)
+        idx2 = self._y2idx(y)
+        
+        return idx1, idx2
+        
+    def _idx2x(self, idx):
+        
+        x = np.full(self.nx+2, fill_value=np.nan)
+        x[1:-1] = (self.bins1[:-1] + self.bins1[1:])/2.
+        
+        return x[idx]
+        
+    def _idx2y(self, idx):
+        
+        y = np.full(self.ny+2, fill_value=np.nan)
+        y[1:-1] = (self.bins2[:-1] + self.bins2[1:])/2.
+        
+        return y[idx]
+    
+    def idx2xy(self, idx1, idx2):
+        
+        x = self._idx2x(idx1)
+        y = self._idx2y(idx2)
+        
+        return x, y    
+    
+    def values2grid(self, idx1, idx2, values, fill_value=0):
+        
+        array = np.full((self.nx+2, self.ny+2), fill_value=fill_value)
+        array[idx1, idx2] = values
         
         return array

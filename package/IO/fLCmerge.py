@@ -9,7 +9,7 @@ import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
 from fLCfile import fLCfile
-from ..core.index_functions import index_statistics
+from ..core.statistics import idxstats
 
 def verify_filelist(filelist):
     """
@@ -205,7 +205,7 @@ def combine_header(filelist):
     headerdict['spectype'] = spectype[args]
     headerdict['blend'] = blend[args]
     headerdict['blendvalue'] = blendvalue[args]
-    headerdict['jdstart'] = index_statistics(idx, jdstart, statistic=np.amin)
+    headerdict['jdstart'] = idxstats(idx, jdstart, statistic=np.amin)
     headerdict['nobs'] = np.bincount(idx, nobs)
     
     return headerdict

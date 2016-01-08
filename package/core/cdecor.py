@@ -3,7 +3,8 @@
 
 import numpy as np
 
-def coarse_decor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
+    """Perform a coarse decorrelation."""
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -18,7 +19,7 @@ def coarse_decor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True)
     for niter in range(maxiter):
         
         if verbose:
-            print 'niter = %i'%niter
+            print 'niter = {}'.format(niter)
         
         # Compute the parameters.
         par1 = np.bincount(idx1, weights*(value - par2[idx2]))/np.bincount(idx1, weights)
@@ -42,7 +43,8 @@ def coarse_decor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True)
     
     return par1, par2, niter, chisq, npoints, npars
 
-def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
+    """Perform a coarse decorrelation with intrapixel variations.""" 
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -68,7 +70,7 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
     for niter in range(maxiter):
         
         if verbose:
-            print 'niter = %i'%niter
+            print 'niter = {}'.format(niter)
         
         # Compute the parameters.
         par1 = np.bincount(idx1, weights*(value - par2[idx2] - sol2 - sol3))/np.bincount(idx1, weights)
@@ -205,7 +207,7 @@ def coarse_decor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dto
     
     #return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
     
-def sigma_function(idx1, idx2, value, error, par1, sigma1, err):
+def _sigma_function(idx1, idx2, value, error, par1, sigma1, err):
     
     weights = 1/(error**2 + (sigma1**2)[idx1] + (err**2)[idx2])
     par2 = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
@@ -213,7 +215,7 @@ def sigma_function(idx1, idx2, value, error, par1, sigma1, err):
     
     return par2, diff
     
-def find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
+def _find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     
     # Search for a solution between 0 and 2.
     N = np.amax(idx2) + 1
@@ -221,18 +223,18 @@ def find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     err2 = 2*np.ones(N)
     
     # Compute the value of the function at the beginning the interval.
-    par2, diff1 = sigma_function(idx1, idx2, value, error, par1, sigma1, err1)
+    par2, diff1 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err1)
     args1, = np.where(diff1 < 1e-10)
     
     # Compute the value of the function at the end the interval.
-    par2, diff2 = sigma_function(idx1, idx2, value, error, par1, sigma1, err2)
+    par2, diff2 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err2)
     args2, = np.where(diff2 > 1e-10)
     
     # Find the solution.
     for niter in range(maxiter):
         
         err3 = (err1 + err2)/2.
-        par2, diff3 = sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
+        par2, diff3 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
     
         err1 = np.where(diff3 > 1e-10, err3, err1)
         err2 = np.where(diff3 > 1e-10, err2, err3)
@@ -241,11 +243,12 @@ def find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     err3[args1] = 0.
     err3[args2] = 2.
     
-    par2, _ = sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
+    par2, _ = _sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
     
     return par2, err3
     
-def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
+    """Perform a coarse decorrelation with extra error terms."""
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -259,11 +262,11 @@ def coarse_decor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, d
     for niter in range(maxiter):
         
         if verbose:
-            print 'niter = %i'%niter
+            print 'niter = {}'.format(niter)
             
         # Compute the parameters.
-        par1, sigma1 = find_sigma(idx2, idx1, value, error, par2, sigma2)
-        par2, sigma2 = find_sigma(idx1, idx2, value, error, par1, sigma1)
+        par1, sigma1 = _find_sigma(idx2, idx1, value, error, par2, sigma2)
+        par2, sigma2 = _find_sigma(idx1, idx2, value, error, par1, sigma1)
         
         # Check if the solution has converged.
         if (niter > 0):

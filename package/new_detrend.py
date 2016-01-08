@@ -16,29 +16,102 @@ from coordinates import grids
 from core import cdecor
 from core import statistics
 
-def create_baseline(date, camera, mode, filepath, outpath):
+def _spatial(self):
+    """Solve for the transmission and intrapixel variations."""
     
-    if (mode == 0):
-        part = 'A'
-        dates = [date + '%.2i'%i + camera for i in range(1, 16)]
-    elif (mode == 1):
-        part = 'B'
-        dates = [date + '%.2i'%i + camera for i in range(16, 32)]
-    elif (mode == 2):
-        part = ''
-        dates = [date + '%.2i'%i + camera for i in range(1, 32)]
-    else:
-        print 'Unknown value for mode.'
-        print 'exiting...'
-        exit()
+    decidx, decuni = np.unique(self.decidx, return_inverse=True)
     
-    filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
-    outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
+    nbins = len(decidx)
+    for idx in range(nbins):
+        
+        # Read data.
+        here = (decuni == idx)
+        mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here) # Unclear function call + plu how to to split it over multiple lines?
+        
+        #mag = data[0] if I first capure output as single entity.
+        #emag = data.emag if I make output named tuple.
+        
+        if (len(mag) == 0): continue
+        
+        # Apply known temporal correction.
+        if self.got_sky:
+            mag = mag - self.s[skyidx, lstseq]
+        
+        if self.got_sky & self.sigmas:
+            emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + 
+                           self.sigma2[skyidx, lstseq]**2)
+        
+        # Create unique indices.
+        staridx, ind1 = np.unique(staridx, return_inverse=True)
+        camtransidx, ind2 = np.unique(camtransidx, return_inverse=True)
+        intrapixidx, ind3 = np.unique(intrapixidx, return_inverse=True)
+        
+        # Calculate new spatial correction.
+        m, z, A, quality = cdecor.cdecor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+        
+        # Simple magnitude calibration.
+        offset = np.nanmedian(m - self.vmag[staridx])
+        
+        # Store results.
+        self.m[staridx] = m - offset
+        self.z[camtransidx, decidx[idx]] = z + offset
+        self.A[intrapixidx, decidx[idx]] = A
+        
+        self.spatial_niter[idx] = quality.niter #switched name around _
+        self.spatial_chisq[idx] = quality.chisq
+        self.spatial_npoints[idx] = quality.npoints
+        self.spatial_npars[idx] = quality.npars 
+        
+        # The count might be moved into the reader, make it easier to do it only once.
+        self.nobs_m[staridx] = np.bincount(ind1) #switched name around _
+        self.nobs_z[camtransidx, decidx[idx]] = np.bincount(ind2)
+        self.nobs_A[intrapixidx, decidx[idx]] = np.bincount(ind3)
+        
+    return
     
-    IO.fLCmerge(filelist, outfile)
-    
-    return outfile
 
+def coarse_decorrelation(LBfile, aperture, sysfile = None, **kwargs):
+    
+    if sysfile is None:
+        head, tail = os.path.split(self.LBfile)
+        prefix = 'sys%i_'%self.aper
+        tail = prefix + tail.rsplit('_')[-1]
+        sysfile = os.path.join(head, tail)
+        
+    # Initialize with defualt parameters unless arguments were given.
+    sigmas = kwargs.pop('sigmas', True)
+    outer_maxiter = kwargs.pop('outer_maxiter', 5)
+    
+    camgrid = 'polar'
+    camnx = kwargs.pop('camnx', 13500)
+    camny = kwargs.pop('camny', 720)
+    
+    ipxgrid = 'polar'
+    ipxnx = kwargs.pop('ipxnx', 270)
+    ipxny = self.camny
+    
+    skygrid = 'healpix'
+    skynx = kwargs.pop('skynx', 8)
+
+    # Options to coarse_decor functions.
+    inner_maxiter = kwargs.pop('inner_maxiter', 100)
+    dtol = kwargs.pop('dtol', 1e-3)
+    verbose = kwargs.pop('verbose', False)
+    
+    # Perform the coarse decorrelation.
+    print 'Performing coarse decorrelation for:', LBfile
+    for niter in range(outer_maxiter):
+    
+        print 'Iteration %i out of %i:'%(niter + 1, outer_maxiter)
+        
+        print '    Calculating camera systematics...'
+        _spatial(LBfile, aperture, sysfile)
+        
+        print '    Calculating atmospheric systematics...'
+        _temporal(LBfile, aperture, sysfile)
+    
+    return sysfile
+    
 class CoarseDecorrelation():
     
     def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
@@ -418,214 +491,3 @@ class CoarseDecorrelation():
             grp['clouds'].attrs['lstlen'] = lstlen
         
         return
-
-
-class SysCorr():
-    
-    def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
-        """
-        Given an fLC file and a systematics file it computes the systematics
-        corrected lightcurve, bins it and writes the result to a temporary file.
-        """
-        
-        # fLC file and aperture to work on.
-        self.LBfile = LBfile
-        self.aper = aperture
-        
-        if not os.path.isfile(self.LBfile):
-            print 'File not found:', self.LBfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Applying corrections to aperture %i of file:'%self.aper, self.LBfile
-        
-        # The systematics file.
-        if sysfile is None:
-            head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_'%self.aper
-            tail = prefix + tail.rsplit('_')[-1]
-            sysfile = os.path.join(head, tail)
-        
-        self.sysfile = sysfile
-        
-        if not os.path.isfile(self.sysfile):
-            print 'Systematics file not found:', self.sysfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Reading corrections from:', self.sysfile
-        
-        # The output file.
-        if outfile is None:
-            head, tail = os.path.split(self.LBfile)
-            prefix = 'tmp%i_'%self.aper
-            tail = prefix + tail.rsplit('_')[-1]
-            outfile = os.path.join(head, tail)
-        
-        self.outfile = outfile
-        
-        if os.path.isfile(self.outfile):
-            print 'Output file already exists:', self.outfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Writing results to:', self.outfile
-        
-        return
-        
-    def correct(self):
-
-        # Open the fLCfile.
-        f = IO.fLCfile(self.LBfile)
-        
-        nstars = len(self.ascc)
-        pbar = ProgressBar(maxval = nstars).start()
-        for i in range(nstars):
-            
-            # Get the header information for this star.
-            ascc = self.ascc[i]
-            ra = self.ra[i]
-            dec = self.dec[i]
-            nobs = self.nobs[i]
-            skyidx = self.skyidx[i]
-            
-            # Read data.
-            fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
-            flux, eflux, sky, x, y, jdmid, lst, lstseq, flags = f.read_data(fields, [ascc], [nobs])
-            lstseq = lstseq.astype('int') - self.lstmin
-            
-            # Convert flux to magnitudes.
-            mag, emag = misc.flux2mag(flux, eflux)
-            
-            # Create indices.    
-            ra = np.repeat(ra, nobs)
-            dec = np.repeat(dec, nobs)
-            ha = np.mod(lst*15. - ra, 360.)
-            
-            camtransidx = self.pgcam.find_gridpoint(ha, dec)
-            intrapixidx = self.pgipx.find_gridpoint(ha, dec)
-            
-            # Get the correction terms.
-            trans = self.trans[camtransidx]
-            intrapix = self.a[intrapixidx]*np.sin(2*np.pi*x) + self.b[intrapixidx]*np.cos(2*np.pi*x) + self.c[intrapixidx]*np.sin(2*np.pi*y) + self.d[intrapixidx]*np.cos(2*np.pi*y)
-            clouds = self.clouds[skyidx, lstseq]
-            correction = trans + intrapix + clouds
-
-            # Get new flags.
-            flags = np.where((flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1), 0, 1)
-            flags = flags + np.where(np.isnan(correction), 2, 0)
-            flags = flags + np.where((self.nobs_trans[camtransidx] < 25) | (self.nobs_ipx[intrapixidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 4, 0)
-        
-            # Determine the bins.
-            binidx = (lstseq + self.lstmin) // 50
-            
-            # Remove bad data.
-            here = (flags < 1)
-            binidx = binidx[here]
-            
-            if (len(binidx) < 1):
-                continue
-            
-            lst = lst[here]
-            jdmid = jdmid[here]
-            x = x[here]
-            y = y[here]
-            sky = sky[here]
-            
-            mag = mag[here]
-            trans = trans[here]
-            clouds = clouds[here]
-            correction = correction[here]
-            
-            # Bin the data.
-            lstseq = np.unique(binidx)
-            nobs = statistics.idxstats(binidx, None, statistic = 'count')
-            lst = statistics.idxstats(binidx, lst, statistic = 'mean')
-            jdmid = statistics.idxstats(binidx, jdmid, statistic = 'mean')
-            x = statistics.idxstats(binidx, x, statistic = 'mean')
-            y = statistics.idxstats(binidx, y, statistic = 'mean')
-            bsky = statistics.idxstats(binidx, sky, statistic = 'mean')
-            esky = statistics.idxstats(binidx, sky, statistic = 'std')
-            
-            bmag = statistics.idxstats(binidx, mag - correction, statistic = 'mean')
-            emag = statistics.idxstats(binidx, mag - correction, statistic = 'std')
-            btrans = statistics.idxstats(binidx, trans, statistic = 'mean')
-            etrans = statistics.idxstats(binidx, trans, statistic = 'std')
-            bclouds = statistics.idxstats(binidx, clouds, statistic = 'mean')
-            eclouds = statistics.idxstats(binidx, clouds, statistic = 'std')
-            
-            # Create a record array.
-            arlist = [lstseq, nobs, lst, jdmid, x, y, bsky, esky, bmag, emag, btrans, etrans, bclouds, eclouds]
-            names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
-            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
-            record = np.rec.fromarrays(arlist, names = names, formats = formats)
-    
-            # Write the lightcurve to file.
-            with h5py.File(self.outfile) as g:
-                g.create_dataset(ascc, data = record)
-            
-            pbar.update(i + 1)
-           
-        pbar.finish()
-            
-        return
-
-    def run(self):
-        
-        # Read the required header data.
-        f = IO.fLCfile(self.LBfile)
-        self.ascc, self.ra, self.dec, self.vmag, self.nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
-        self.nobs = self.nobs.astype('int')
-        
-        # Read the correction terms.
-        sys = IO.SysFile(self.sysfile)
-        self.pgcam, self.trans, self.nobs_trans = sys.read_trans(ravel = True)
-        self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix(ravel = True)
-        self.hg, self.clouds, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
-        
-        # Create indices.
-        self.skyidx = self.hg.find_gridpoint(self.ra, self.dec)
-        
-        # Apply the corrections.
-        self.correct()
-        
-        return
-        
-def make_quarterfile(filelist, redfile):
-
-    nfiles = len(filelist)
-    
-    # Create a list of unique stars in the files.
-    ascc = np.array([])
-    for i in range(nfiles):
-        with h5py.File(filelist[i], 'r') as f:
-            ascc = np.append(ascc, f.keys())
-            
-    ascc = np.unique(ascc)
-    
-    # Read the data.
-    for sID in ascc:
-        first = True
-        for i in range(nfiles):
-        
-            with h5py.File(filelist[i], 'r') as f:
-                
-                # Try to read the star.
-                try:
-                    tmp = f[sID].value
-                except:
-                    continue
-                
-                # Add the data to the lightcurve.
-                if first:
-                    lc = tmp
-                    first = False
-                else:
-                    lc = stack_arrays((lc, tmp), asrecarray=True)
-        
-        # Write the data to the redfile.
-        with h5py.File(redfile) as f:
-            for key in lc.dtype.names:
-                f.create_dataset('data/' + sID + '/' + key, data = lc[key])
-
-    return
