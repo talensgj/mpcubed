@@ -379,6 +379,7 @@ class CoarseDecorrelation():
             
             # Write the camera transmission.
             self.z = np.ravel(self.z)
+            self.z_nobs = np.ravel(self.z_nobs)
             idx, = np.where(~np.isnan(self.z))
             grp.create_dataset('trans/idx', data = idx, dtype = 'uint32')
             grp.create_dataset('trans/nobs', data = self.z_nobs[idx], dtype = 'uint32')
@@ -390,6 +391,7 @@ class CoarseDecorrelation():
             
             # Write the intrapixel variations.
             self.A = np.reshape(self.A, ((self.ipxgrid.nx+2)*(self.ipxgrid.ny+2), 4))
+            self.A_nobs = np.ravel(self.A_nobs)
             idx, = np.where(~np.isnan(self.A[:,0]))
             grp.create_dataset('intrapix/idx', data = idx, dtype = 'uint32')
             grp.create_dataset('intrapix/nobs', data = self.A_nobs[idx], dtype = 'uint32')
@@ -592,6 +594,8 @@ class SysCorr():
         return
         
 def make_quarterfile(filelist, redfile):
+    """ Merge the temporary files created by SysCorr."""
+    ### NEEDS HEADER ###
 
     nfiles = len(filelist)
     

@@ -8,118 +8,17 @@ import h5py
 import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
-from progressbar import ProgressBar
-
 import misc
 import IO
 from coordinates import grids
 from core import cdecor
 from core import statistics
 
-def _spatial(self):
-    """Solve for the transmission and intrapixel variations."""
-    
-    decidx, decuni = np.unique(self.decidx, return_inverse=True)
-    
-    nbins = len(decidx)
-    for idx in range(nbins):
-        
-        # Read data.
-        here = (decuni == idx)
-        mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here) # Unclear function call + plu how to to split it over multiple lines?
-        
-        #mag = data[0] if I first capure output as single entity.
-        #emag = data.emag if I make output named tuple.
-        
-        if (len(mag) == 0): continue
-        
-        # Apply known temporal correction.
-        if self.got_sky:
-            mag = mag - self.s[skyidx, lstseq]
-        
-        if self.got_sky & self.sigmas:
-            emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + 
-                           self.sigma2[skyidx, lstseq]**2)
-        
-        # Create unique indices.
-        staridx, ind1 = np.unique(staridx, return_inverse=True)
-        camtransidx, ind2 = np.unique(camtransidx, return_inverse=True)
-        intrapixidx, ind3 = np.unique(intrapixidx, return_inverse=True)
-        
-        # Calculate new spatial correction.
-        m, z, A, quality = cdecor.cdecor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
-        
-        # Simple magnitude calibration.
-        offset = np.nanmedian(m - self.vmag[staridx])
-        
-        # Store results.
-        self.m[staridx] = m - offset
-        self.z[camtransidx, decidx[idx]] = z + offset
-        self.A[intrapixidx, decidx[idx]] = A
-        
-        self.spatial_niter[idx] = quality.niter #switched name around _
-        self.spatial_chisq[idx] = quality.chisq
-        self.spatial_npoints[idx] = quality.npoints
-        self.spatial_npars[idx] = quality.npars 
-        
-        # The count might be moved into the reader, make it easier to do it only once.
-        self.nobs_m[staridx] = np.bincount(ind1) #switched name around _
-        self.nobs_z[camtransidx, decidx[idx]] = np.bincount(ind2)
-        self.nobs_A[intrapixidx, decidx[idx]] = np.bincount(ind3)
-        
-    return
-    
-
-def coarse_decorrelation(LBfile, aperture, sysfile = None, **kwargs):
-    
-    if sysfile is None:
-        head, tail = os.path.split(self.LBfile)
-        prefix = 'sys%i_'%self.aper
-        tail = prefix + tail.rsplit('_')[-1]
-        sysfile = os.path.join(head, tail)
-        
-    # Initialize with defualt parameters unless arguments were given.
-    sigmas = kwargs.pop('sigmas', True)
-    outer_maxiter = kwargs.pop('outer_maxiter', 5)
-    
-    camgrid = 'polar'
-    camnx = kwargs.pop('camnx', 13500)
-    camny = kwargs.pop('camny', 720)
-    
-    ipxgrid = 'polar'
-    ipxnx = kwargs.pop('ipxnx', 270)
-    ipxny = self.camny
-    
-    skygrid = 'healpix'
-    skynx = kwargs.pop('skynx', 8)
-
-    # Options to coarse_decor functions.
-    inner_maxiter = kwargs.pop('inner_maxiter', 100)
-    dtol = kwargs.pop('dtol', 1e-3)
-    verbose = kwargs.pop('verbose', False)
-    
-    # Perform the coarse decorrelation.
-    print 'Performing coarse decorrelation for:', LBfile
-    for niter in range(outer_maxiter):
-    
-        print 'Iteration %i out of %i:'%(niter + 1, outer_maxiter)
-        
-        print '    Calculating camera systematics...'
-        _spatial(LBfile, aperture, sysfile)
-        
-        print '    Calculating atmospheric systematics...'
-        _temporal(LBfile, aperture, sysfile)
-    
-    return sysfile
     
 class CoarseDecorrelation():
     
     def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
-        """
-            Performs a coarse decorrelation on all data in a given Long Baseline
-            fLC file. Removes camera transmission, intrapixel variations and
-            sky transmission.
-        """
+        """ Perform a coarse decorrelation on all data in a given file."""
         
         # fLC file and aperture to work on.
         self.LBfile = LBfile
@@ -168,13 +67,14 @@ class CoarseDecorrelation():
         self.dtol = kwargs.pop('dtol', 1e-3)
         self.verbose = kwargs.pop('verbose', False)
     
+        # Perform the coarse decorrelation.
+        self._calculate()
+    
         return
     
-    def read_data(self, here):
-        """
-            Reads portions of the data from file, creates appropriate indices,
-            removes flagged data and converts fluxes to magnitudes.
-        """
+    def _read_data(self, here): # Clean up the funcion call.
+        """ Read a portion of the data, create indices and remove flagged
+        datapoints."""
         
         ascc = self.ascc[here]
         ra = self.ra[here]
@@ -219,85 +119,67 @@ class CoarseDecorrelation():
         
         return mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, skyidx, lstseq
     
-    def spatial(self):
-        """
-            Solves for the camera transmission and intrapixel variations which
-            are assumed to be time independent.
+    def _spatial(self):
+        """ Solve for the time-independent camera transmission and intrapixel 
+        variations.
         """
         
         decidx, decuni = np.unique(self.decidx, return_inverse=True)
-        
+    
         nbins = len(decidx)
-        niter = np.zeros(nbins)
-        chisq = np.zeros(nbins)
-        npoints = np.zeros(nbins)
-        npars = np.zeros(nbins)
-        
-        pbar = ProgressBar(maxval = nbins).start()
         for idx in range(nbins):
             
             # Read data.
             here = (decuni == idx)
-            mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self.read_data(here)
+            mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self._read_data(here)
             
             if (len(mag) == 0): continue
             
             # Apply known temporal correction.
-            if self.got_sky == True:
+            if self.got_sky:
                 mag = mag - self.s[skyidx, lstseq]
-                
-                if self.sigmas:
-                    emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+            
+            if self.got_sky & self.sigmas:
+                emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
             
             # Create unique indices.
-            staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
-            camtransidx, ind2, z_nobs = np.unique(camtransidx, return_inverse=True, return_counts=True)
-            intrapixidx, ind3, A_nobs = np.unique(intrapixidx, return_inverse=True, return_counts=True)
+            staridx, ind1 = np.unique(staridx, return_inverse=True)
+            camtransidx, ind2 = np.unique(camtransidx, return_inverse=True)
+            intrapixidx, ind3 = np.unique(intrapixidx, return_inverse=True)
             
             # Calculate new spatial correction.
-            m, z, A, niter[idx], chisq[idx], npoints[idx], npars[idx] = cdecor.cdecor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+            m, z, A, quality = cdecor.cdecor_intrapix(ind1, ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
             # Simple magnitude calibration.
             offset = np.nanmedian(m - self.vmag[staridx])
             
+            # Store results.
             self.m[staridx] = m - offset
             self.z[camtransidx, decidx[idx]] = z + offset
             self.A[intrapixidx, decidx[idx]] = A
             
-            self.m_nobs[staridx] = m_nobs
-            self.z_nobs[camtransidx, decidx[idx]] = z_nobs
-            self.A_nobs[intrapixidx, decidx[idx]] = A_nobs
+            self.spatial_niter[idx] = quality.niter
+            self.spatial_chisq[idx] = quality.chisq
+            self.spatial_npoints[idx] = quality.npoints
+            self.spatial_npars[idx] = quality.npars 
             
-            pbar.update(idx + 1)
-            
-        pbar.finish()
-            
-        self.niter_spatial = niter
-        self.chisq_spatial = chisq
-        self.npoints_spatial = npoints
-        self.npars_spatial = npars 
+            self.nobs_m[staridx] = np.bincount(ind1)
+            self.nobs_z[camtransidx, decidx[idx]] = np.bincount(ind2)
+            self.nobs_A[intrapixidx, decidx[idx]] = np.bincount(ind3)
             
         return
         
-    def temporal(self):
-        """
-            Solves for the sky transmission as a function of position and time.
-        """
+    def _temporal(self):
+        """ Solve for the time-dependent sky transmission."""
         
         skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
         
         nbins = len(skyidx)
-        niter = np.zeros(nbins)
-        chisq = np.zeros(nbins)
-        npoints = np.zeros(nbins)
-        npars = np.zeros(nbins)
-        
-        pbar = ProgressBar(maxval = nbins).start()
         for idx in range(nbins):
             
             # Read data.
             here = (skyuni == idx)
-            mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, _, lstseq = self.read_data(here)
+            mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, _, lstseq = self._read_data(here)
             
             if (len(mag) == 0): continue
             
@@ -306,18 +188,19 @@ class CoarseDecorrelation():
             mag = mag - np.sum(self.A[intrapixidx, decidx]*np.array([np.sin(2*np.pi*x), np.cos(2*np.pi*x), np.sin(2*np.pi*y), np.cos(2*np.pi*y)]).T, axis=1)
             
             # Create unique indices.
-            staridx, ind1, m_nobs = np.unique(staridx, return_inverse=True, return_counts=True)
-            lstseq, ind2, s_nobs = np.unique(lstseq, return_inverse=True, return_counts=True)
+            staridx, ind1 = np.unique(staridx, return_inverse=True)
+            lstseq, ind2 = np.unique(lstseq, return_inverse=True)
             
             # Calculate new temporal correction.
             if self.sigmas:
-                m, s, sigma1, sigma2, niter[idx], chisq[idx], npoints[idx], npars[idx] = cdecor.cdecor_sigmas(ind1, ind2, mag, emag, self.sigma1[staridx], self.sigma2[skyidx[idx], lstseq], maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+                m, s, sigma1, sigma2, quality = cdecor.cdecor_sigmas(ind1, ind2, mag, emag, self.sigma1[staridx], self.sigma2[skyidx[idx], lstseq], maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             else:
-                m, s, niter[idx], chisq[idx], npoints[idx], npars[idx] = cdecor.cdecor(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+                m, s, quality = cdecor.cdecor(ind1, ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
             # Simple magnitude calibration.
             offset = np.nanmedian(m - self.vmag[staridx])
             
+            # Store results.
             self.m[staridx] = m - offset
             self.s[skyidx[idx], lstseq] = s + offset
             
@@ -325,27 +208,20 @@ class CoarseDecorrelation():
                 self.sigma1[staridx] = sigma1
                 self.sigma2[skyidx[idx], lstseq] = sigma2
             
-            self.m_nobs[staridx] = m_nobs
-            self.s_nobs[skyidx[idx], lstseq] = s_nobs
+            self.temporal_niter[idx] = quality.niter
+            self.temporal_chisq[idx] = quality.chisq
+            self.temporal_npoints[idx] = quality.npoints
+            self.temporal_npars[idx] = quality.npars 
             
-            pbar.update(idx + 1)
-           
-        pbar.finish()
-           
-        self.niter_temporal = niter
-        self.chisq_temporal = chisq
-        self.npoints_temporal = npoints
-        self.npars_temporal = npars 
-           
+            self.nobs_m[staridx] = np.bincount(ind1)
+            self.nobs_s[skyidx[idx], lstseq] = np.bincount(ind2)
+            
         self.got_sky = True
             
         return
     
-    def run(self):
-        """
-            Performs the coarse decorrelation on the given Long Baseline fLC file
-            and writes the result to the given output location.
-        """
+    def _calculate(self):
+        """ Perform the coarse decorrelation."""
 
         # Set up the IO and coordinate grids.
         self.f = IO.fLCfile(self.LBfile)
@@ -381,6 +257,18 @@ class CoarseDecorrelation():
         lstlen = lstmax - lstmin + 1
         
         # Create arrays to hold the results.
+        nbins = len(np.unique(self.decidx))
+        self.spatial_niter = np.full(nbins, fill_value = np.nan)
+        self.spatial_chisq = np.full(nbins, fill_value = np.nan)
+        self.spatial_npoints = np.full(nbins, fill_value = np.nan)
+        self.spatial_npars = np.full(nbins, fill_value = np.nan)
+        
+        nbins = len(np.unique(self.skyidx))
+        self.temporal_niter = np.full(nbins, fill_value = np.nan)
+        self.temporal_chisq = np.full(nbins, fill_value = np.nan)
+        self.temporal_npoints = np.full(nbins, fill_value = np.nan)
+        self.temporal_npars = np.full(nbins, fill_value = np.nan)
+        
         self.m = np.full(len(self.ascc), fill_value=np.nan)
         self.z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
         self.A = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4), fill_value=np.nan)
@@ -390,10 +278,10 @@ class CoarseDecorrelation():
             self.sigma1 = np.full(len(self.ascc), fill_value=0)
             self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=0)
         
-        self.m_nobs = np.full(len(self.ascc), fill_value=np.nan)
-        self.z_nobs = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
-        self.A_nobs = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2), fill_value=np.nan)
-        self.s_nobs = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        self.nobs_m = np.full(len(self.ascc), fill_value=np.nan)
+        self.nobs_z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
+        self.nobs_A = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2), fill_value=np.nan)
+        self.nobs_s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         self.got_sky = False
         
@@ -404,10 +292,10 @@ class CoarseDecorrelation():
             print 'Iteration %i out of %i:'%(niter + 1, self.outer_maxiter)
             
             print '    Calculating camera systematics...'
-            self.spatial()
+            self._spatial()
             
             print '    Calculating atmospheric systematics...'
-            self.temporal()
+            self._temporal()
         
         # Write the results to file.
         with h5py.File(self.sysfile) as f:
@@ -429,15 +317,15 @@ class CoarseDecorrelation():
             hdr.attrs['sigmas'] = self.sigmas
             hdr.attrs['dtol'] = self.dtol
            
-            hdr.create_dataset('spatial/niter', data = self.niter_spatial, dtype = 'uint32')
-            hdr.create_dataset('spatial/chisq', data = self.chisq_spatial, dtype = 'float64')
-            hdr.create_dataset('spatial/npoints', data = self.npoints_spatial, dtype = 'uint32')
-            hdr.create_dataset('spatial/npars', data = self.npars_spatial, dtype = 'uint32')
+            hdr.create_dataset('spatial/niter', data = self.spatial_niter, dtype = 'uint32')
+            hdr.create_dataset('spatial/chisq', data = self.spatial_chisq, dtype = 'float64')
+            hdr.create_dataset('spatial/npoints', data = self.spatial_npoints, dtype = 'uint32')
+            hdr.create_dataset('spatial/npars', data = self.spatial_npars, dtype = 'uint32')
             
-            hdr.create_dataset('temporal/niter', data = self.niter_temporal, dtype = 'uint32')
-            hdr.create_dataset('temporal/chisq', data = self.chisq_temporal, dtype = 'float64')
-            hdr.create_dataset('temporal/npoints', data = self.npoints_temporal, dtype = 'uint32')
-            hdr.create_dataset('temporal/npars', data = self.npars_temporal, dtype = 'uint32')
+            hdr.create_dataset('temporal/niter', data = self.temporal_niter, dtype = 'uint32')
+            hdr.create_dataset('temporal/chisq', data = self.temporal_chisq, dtype = 'float64')
+            hdr.create_dataset('temporal/npoints', data = self.temporal_npoints, dtype = 'uint32')
+            hdr.create_dataset('temporal/npars', data = self.temporal_npars, dtype = 'uint32')
             
             # Write the data.
             grp = f.create_group('data')
@@ -445,16 +333,17 @@ class CoarseDecorrelation():
             # Write the magnitudes.
             grp.create_dataset('magnitudes/ascc', data = self.ascc)
             grp.create_dataset('magnitudes/vmag', data = self.vmag, dtype = 'float32')
-            grp.create_dataset('magnitudes/nobs', data = self.m_nobs, dtype = 'uint32')
+            grp.create_dataset('magnitudes/nobs', data = self.nobs_m, dtype = 'uint32')
             grp.create_dataset('magnitudes/mag', data = self.m, dtype = 'float32')
             if self.sigmas:
                 grp.create_dataset('magnitudes/sigma', data = self.sigma1, dtype = 'float32')
             
             # Write the camera transmission.
             self.z = np.ravel(self.z)
+            self.nobs_z = np.ravel(self.nobs_z)
             idx, = np.where(~np.isnan(self.z))
             grp.create_dataset('trans/idx', data = idx, dtype = 'uint32')
-            grp.create_dataset('trans/nobs', data = self.z_nobs[idx], dtype = 'uint32')
+            grp.create_dataset('trans/nobs', data = self.nobs_z[idx], dtype = 'uint32')
             grp.create_dataset('trans/trans', data = self.z[idx], dtype = 'float32')
             
             grp['trans'].attrs['grid'] = 'polar'
@@ -463,9 +352,10 @@ class CoarseDecorrelation():
             
             # Write the intrapixel variations.
             self.A = np.reshape(self.A, ((self.ipxgrid.nx+2)*(self.ipxgrid.ny+2), 4))
+            self.nobs_A = np.ravel(self.nobs_A)
             idx, = np.where(~np.isnan(self.A[:,0]))
             grp.create_dataset('intrapix/idx', data = idx, dtype = 'uint32')
-            grp.create_dataset('intrapix/nobs', data = self.A_nobs[idx], dtype = 'uint32')
+            grp.create_dataset('intrapix/nobs', data = self.nobs_A[idx], dtype = 'uint32')
             grp.create_dataset('intrapix/sinx', data = self.A[idx,0], dtype = 'float32')
             grp.create_dataset('intrapix/cosx', data = self.A[idx,1], dtype = 'float32')
             grp.create_dataset('intrapix/siny', data = self.A[idx,2], dtype = 'float32')
@@ -479,7 +369,7 @@ class CoarseDecorrelation():
             idx, lstseq = np.where(~np.isnan(self.s))
             grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
             grp.create_dataset('clouds/lstseq', data = lstseq + self.lstmin, dtype = 'uint32')
-            grp.create_dataset('clouds/nobs', data = self.s_nobs[idx, lstseq], dtype = 'uint32')
+            grp.create_dataset('clouds/nobs', data = self.nobs_s[idx, lstseq], dtype = 'uint32')
             grp.create_dataset('clouds/clouds', data = self.s[idx, lstseq], dtype = 'float32')
             if self.sigmas:
                 grp.create_dataset('clouds/sigma', data = self.sigma2[idx, lstseq], dtype = 'float32')

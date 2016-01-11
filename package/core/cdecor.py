@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from collections import namedtuple
+
+Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
 def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     """Perform a coarse decorrelation."""
@@ -41,7 +44,7 @@ def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     chisq = weights*(value - par1[idx1] - par2[idx2])**2        
     chisq = np.sum(chisq)
     
-    return par1, par2, niter, chisq, npoints, npars
+    return par1, par2, Quality(niter, chisq, npoints, npars)
 
 def cdecor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
     """Perform a coarse decorrelation with intrapixel variations.""" 
@@ -108,7 +111,7 @@ def cdecor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3
     chisq = weights*(value - sol1 - sol2 - sol3)**2        
     chisq = np.sum(chisq)
     
-    return par1, par2, par3, niter, chisq, npoints, npars
+    return par1, par2, par3, Quality(niter, chisq, npoints, npars)
 
 #def sigma_function(idx, ressq, errsq, err):
     
@@ -297,4 +300,4 @@ def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e
     chisq = (value - par1[idx1] - par2[idx2])**2/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])     
     chisq = np.sum(chisq)
     
-    return par1, par2, sigma1, sigma2, niter, chisq, npoints, npars
+    return par1, par2, sigma1, sigma2, Quality(niter, chisq, npoints, npars)
