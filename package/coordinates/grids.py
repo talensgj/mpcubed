@@ -16,6 +16,8 @@ class PolarGrid(object):
         self.yedges = np.linspace(-90, 90, self.ny+1)
         
         self.npix = (nx + 2)*(ny + 2)
+        
+        return
     
     def _ra2idx(self, ra):
         
@@ -72,6 +74,8 @@ class HealpixGrid(object):
         
         self.nside = nside
         self.npix = healpy.nside2npix(self.nside)
+        
+        return
     
     def radec2idx(self, ra, dec):
         
@@ -107,6 +111,8 @@ class CartesianGrid(object):
         self.yedges = np.linspace(margin, Ly-margin, self.ny+1)
         
         self.npix = (nx + 2)*(ny + 2)
+        
+        return
         
     def _x2idx(self, x):
         

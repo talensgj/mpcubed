@@ -17,17 +17,9 @@ class SysFile():
     def read_header(self):
         
         with h5py.File(self.sysfile, 'r') as f:
-            
-            station = f['header'].attrs['station']
-            camera = f['header'].attrs['camera']
-            
-            outer_maxiter = f['header'].attrs['outer_maxiter']
-            sigmas = f['header'].attrs['sigmas']
-            
-            inner_maxiter = f['header'].attrs['inner_maxiter']
-            dtol = f['header'].attrs['dtol']
+            data = f['header'].attrs.items()
         
-        return station, camera, outer_maxiter, sigmas, inner_maxiter, dtol
+        return data
         
     def read_pointing(self):
         
@@ -64,11 +56,12 @@ class SysFile():
         
         return ascc, vmag, mag, nobs
         
-    def read_trans(self, ravel = False):
+    def read_trans(self):
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            idx = f['data/trans/idx'].value
+            idx1 = f['data/trans/idx1'].value
+            idx2 = f['data/trans/idx2'].value
             trans = f['data/trans/trans'].value
             nobs = f['data/trans/nobs'].value
             
@@ -76,19 +69,17 @@ class SysFile():
             ny = f['data/trans'].attrs['ny']
             
         pg = grids.PolarGrid(nx, ny)
-        trans = pg.put_values_on_grid(trans, idx, np.nan)
-        nobs = pg.put_values_on_grid(nobs, idx, np.nan)
-
-        if ravel:
-            return pg, trans.ravel(), nobs.ravel()
+        trans = pg.values2grid(idx1, idx2, trans, np.nan)
+        nobs = pg.values2grid(idx1, idx2, nobs, np.nan)
 
         return pg, trans, nobs
         
-    def read_intrapix(self, ravel = False):
+    def read_intrapix(self):
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            idx = f['data/intrapix/idx'].value
+            idx1 = f['data/intrapix/idx1'].value
+            idx2 = f['data/intrapix/idx2'].value
             sinx = f['data/intrapix/sinx'].value
             cosx = f['data/intrapix/cosx'].value
             siny = f['data/intrapix/siny'].value
@@ -99,14 +90,11 @@ class SysFile():
             ny = f['data/intrapix'].attrs['ny']
             
         pg = grids.PolarGrid(nx, ny)
-        sinx = pg.put_values_on_grid(sinx, idx, np.nan)
-        cosx = pg.put_values_on_grid(cosx, idx, np.nan)
-        siny = pg.put_values_on_grid(siny, idx, np.nan)
-        cosy = pg.put_values_on_grid(cosy, idx, np.nan)
-        nobs = pg.put_values_on_grid(nobs, idx, np.nan)
-        
-        if ravel:
-            return pg, sinx.ravel(), cosx.ravel(), siny.ravel(), cosy.ravel(), nobs.ravel()
+        sinx = pg.values2grid(idx1, idx2, sinx, np.nan)
+        cosx = pg.values2grid(idx1, idx2, cosx, np.nan)
+        siny = pg.values2grid(idx1, idx2, siny, np.nan)
+        cosy = pg.values2grid(idx1, idx2, cosy, np.nan)
+        nobs = pg.values2grid(idx1, idx2, nobs, np.nan)
         
         return pg, sinx, cosx, siny, cosy, nobs
     

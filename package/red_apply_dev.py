@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
+import numpy as np
+import IO
 
 class SysCorr():
     
@@ -40,19 +44,19 @@ class SysCorr():
         
         # Read the correction terms.
         sys = IO.SysFile(self.sysfile)
-        self.pgcam, self.trans, self.nobs_trans = sys.read_trans(ravel = True)
-        self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix(ravel = True)
+        self.pgcam, self.trans, self.nobs_trans = sys.read_trans()
+        self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix()
         self.hg, self.clouds, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
         
         # Create indices.
-        self.skyidx = self.hg.find_gridpoint(self.ra, self.dec)
+        self.skyidx = self.hg.radec2idx(self.ra, self.dec)
         
         return
         
     def get_correction(self, ascc):
 
         # Get the header information for this star.
-        i, = np.where(self.ascc = ascc)
+        i, = np.where(self.ascc == ascc)
         ra = self.ra[i]
         dec = self.dec[i]
         nobs = self.nobs[i]
@@ -68,26 +72,26 @@ class SysCorr():
         dec = np.repeat(dec, nobs)
         ha = np.mod(lst*15. - ra, 360.)
         
-        camtransidx = self.pgcam.find_gridpoint(ha, dec)
-        intrapixidx = self.pgipx.find_gridpoint(ha, dec)
+        camidx, decidx = self.pgcam.radec2idx(ha, dec)
+        ipxidx, decidx = self.pgipx.radec2idx(ha, dec)
         
         # Get the correction terms.
-        trans = self.trans[camtransidx]
-        intrapix = self.a[intrapixidx]*np.sin(2*np.pi*x) + self.b[intrapixidx]*np.cos(2*np.pi*x) + self.c[intrapixidx]*np.sin(2*np.pi*y) + self.d[intrapixidx]*np.cos(2*np.pi*y)
+        trans = self.trans[camidx, decidx]
+        intrapix = self.a[ipxidx, decidx]*np.sin(2*np.pi*x) + self.b[ipxidx, decidx]*np.cos(2*np.pi*x) + self.c[ipxidx, decidx]*np.sin(2*np.pi*y) + self.d[ipxidx, decidx]*np.cos(2*np.pi*y)
         clouds = self.clouds[skyidx, lstseq]
         
         correction = trans + intrapix + clouds
         
         # Get new flags.
-        flags = flags + np.where(np.isnan(correction), 1, 0)
-        flags = flags + np.where((self.nobs_trans[camtransidx] < 25) | (self.nobs_ipx[intrapixidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
+        flags = np.where(np.isnan(correction), 1, 0)
+        flags = flags + np.where((self.nobs_trans[camidx, decidx] < 25) | (self.nobs_ipx[ipxidx, decidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
         
         return trans, intrapix, clouds, flags
 
     def _apply_correction(self, ascc):
         
         # Get the header information for this star.
-        i, = np.where(self.ascc = ascc)
+        i, = np.where(self.ascc == ascc)
         ra = self.ra[i]
         dec = self.dec[i]
         nobs = self.nobs[i]

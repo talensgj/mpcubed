@@ -339,27 +339,25 @@ class CoarseDecorrelation():
                 grp.create_dataset('magnitudes/sigma', data = self.sigma1, dtype = 'float32')
             
             # Write the camera transmission.
-            self.z = np.ravel(self.z)
-            self.nobs_z = np.ravel(self.nobs_z)
-            idx, = np.where(~np.isnan(self.z))
-            grp.create_dataset('trans/idx', data = idx, dtype = 'uint32')
-            grp.create_dataset('trans/nobs', data = self.nobs_z[idx], dtype = 'uint32')
-            grp.create_dataset('trans/trans', data = self.z[idx], dtype = 'float32')
+            idx1, idx2 = np.where(~np.isnan(self.z))
+            grp.create_dataset('trans/idx1', data = idx1, dtype = 'uint32')
+            grp.create_dataset('trans/idx2', data = idx2, dtype = 'uint32')
+            grp.create_dataset('trans/nobs', data = self.nobs_z[idx1, idx2], dtype = 'uint32')
+            grp.create_dataset('trans/trans', data = self.z[idx1, idx2], dtype = 'float32')
             
             grp['trans'].attrs['grid'] = 'polar'
             grp['trans'].attrs['nx'] = self.camnx
             grp['trans'].attrs['ny'] = self.camny
             
             # Write the intrapixel variations.
-            self.A = np.reshape(self.A, ((self.ipxgrid.nx+2)*(self.ipxgrid.ny+2), 4))
-            self.nobs_A = np.ravel(self.nobs_A)
-            idx, = np.where(~np.isnan(self.A[:,0]))
-            grp.create_dataset('intrapix/idx', data = idx, dtype = 'uint32')
-            grp.create_dataset('intrapix/nobs', data = self.nobs_A[idx], dtype = 'uint32')
-            grp.create_dataset('intrapix/sinx', data = self.A[idx,0], dtype = 'float32')
-            grp.create_dataset('intrapix/cosx', data = self.A[idx,1], dtype = 'float32')
-            grp.create_dataset('intrapix/siny', data = self.A[idx,2], dtype = 'float32')
-            grp.create_dataset('intrapix/cosy', data = self.A[idx,3], dtype = 'float32')
+            idx1, idx2 = np.where(~np.isnan(self.A[:,:,0]))
+            grp.create_dataset('intrapix/idx1', data = idx1, dtype = 'uint32')
+            grp.create_dataset('intrapix/idx2', data = idx2, dtype = 'uint32')
+            grp.create_dataset('intrapix/nobs', data = self.nobs_A[idx1, idx2], dtype = 'uint32')
+            grp.create_dataset('intrapix/sinx', data = self.A[idx1, idx2, 0], dtype = 'float32')
+            grp.create_dataset('intrapix/cosx', data = self.A[idx1, idx2, 1], dtype = 'float32')
+            grp.create_dataset('intrapix/siny', data = self.A[idx1, idx2, 2], dtype = 'float32')
+            grp.create_dataset('intrapix/cosy', data = self.A[idx1, idx2, 3], dtype = 'float32')
             
             grp['intrapix'].attrs['grid'] = 'polar'
             grp['intrapix'].attrs['nx'] = self.ipxnx

@@ -7,18 +7,14 @@ import numpy as np
 class fLCfile():
     
     def __init__(self, fLCfile):
-        """
-        Read data from a standard fLC file.
-        """
+        """ Read data from a standard fLC file."""
         
         self.fLCfile = fLCfile
     
         return
         
     def read_global(self):
-        """
-        Read the data from the global group.
-        """
+        """ Read the global group."""
         
         with h5py.File(self.fLCfile, 'r') as f:
             data = f['global'].attrs.items()
@@ -26,9 +22,7 @@ class fLCfile():
         return data
         
     def read_header(self, fields, ascc=None):
-        """
-        Read data from the header.
-        """
+        """ Read the specified fields from the header_table."""
         
         if ascc is None:
             
@@ -55,9 +49,7 @@ class fLCfile():
         return data
     
     def read_data(self, fields, ascc=None, nobs=None):
-        """
-        Read data from the lightcurves of multiple stars.
-        """
+        """ Read the specified fields from the lightcurves."""
         
         if ascc is None:
             # If no stars are specified read stars and nobs from the header.
@@ -84,9 +76,7 @@ class fLCfile():
         return data
            
     def read_star(self, ascc):
-        """
-        Read the full lightcurve of a particular star.
-        """
+        """ Read the lightcurve of the specified star."""
         
         with h5py.File(self.fLCfile, 'r') as f:
             data = f['data/' + ascc].value

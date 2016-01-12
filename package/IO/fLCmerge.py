@@ -12,9 +12,6 @@ from fLCfile import fLCfile
 from ..core.statistics import idxstats
 
 def verify_filelist(filelist):
-    """
-    Given a list of fLC file it checks that they contain data.
-    """
     
     ndates = len(filelist)
     args = []
@@ -44,10 +41,6 @@ def verify_filelist(filelist):
     return filelist
 
 def lstrange(filename):
-    """ 
-    Given an fLC file it reads all lstseq indices and return the minimum
-    and maximum indices.
-    """
     
     # Read the lstseq.
     f = fLCfile(filename)
@@ -60,10 +53,6 @@ def lstrange(filename):
     return lstmin, lstmax
 
 def combine_global(filelist):
-    """
-    Given a list of fLC files it reads the global and combines them into a
-    single global.
-    """
     
     ndates = len(filelist)
     
@@ -159,10 +148,6 @@ def combine_global(filelist):
     return attrdict, arrdict
 
 def combine_header(filelist):
-    """
-    Given a list of fLC files it reads the header and combines them into a
-    single header.
-    """
     
     ndates = len(filelist)
     
@@ -211,10 +196,6 @@ def combine_header(filelist):
     return headerdict
 
 def combine_data(filelist, ascc):
-    """
-    Given a list of fLC files and ascc numbers combines all the lightcurves
-    for these stars.
-    """
     
     ndates = len(filelist)
     nstars = len(ascc)
@@ -244,16 +225,11 @@ def combine_data(filelist, ascc):
     return stardict
    
 def fLCmerge(filelist, outfile):
-    """ 
-    Given a list of fLC files combines them to one file.
-    """
         
     filelist = np.sort(filelist)
 
     # Check that the files exist and contain data.
-    print 'Verifying the filelist.'
     filelist = verify_filelist(filelist)
-    print 'Done.'
 
     if os.path.isfile(outfile):
         print 'Output file already exists:', outfile
@@ -265,7 +241,6 @@ def fLCmerge(filelist, outfile):
     _, lstmax = lstrange(filelist[-1])
 
     # Make the combined global group.
-    print 'Merging the global groups.'
     attrdict, arrdict = combine_global(filelist)
     with h5py.File(outfile) as f:
         
@@ -278,19 +253,15 @@ def fLCmerge(filelist, outfile):
             
         for key, value in attrdict.iteritems():
             f['global'].attrs[key] = value
-    print 'Done.'
         
     # Make the combined header_table group.
-    print 'Merging the header_table groups.'
     headerdict = combine_header(filelist)
     with h5py.File(outfile) as f:
         
         for key, value in headerdict.iteritems():
             f.create_dataset('header_table/' + key, data = value)
-    print 'Done.'
             
     # Make the combined data group.
-    print 'Merging the lightcurves.'
     ascc = headerdict['ascc']
     nstars = len(ascc)
     for i in range(0, nstars, 50):
@@ -301,6 +272,5 @@ def fLCmerge(filelist, outfile):
             
             for key, value in stardict.iteritems():
                 f.create_dataset('data/' + key, data = value)
-    print 'Done'
 
     return

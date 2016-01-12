@@ -5,7 +5,7 @@ import numpy as np
 
 from package import IO
 from package.coordinates import grids
-from package.core import cdecor
+from package.core import freq, cdecor
 from package import misc
 
 import matplotlib.pyplot as plt
