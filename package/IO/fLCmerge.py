@@ -171,7 +171,7 @@ def combine_header(filelist):
             dec = np.append(dec, f['header_table/dec'].value)
             vmag = np.append(vmag, f['header_table/vmag'].value)
             bmag = np.append(bmag, f['header_table/bmag'].value)
-            spectype = np.append(dec, f['header_table/spectype'].value)
+            spectype = np.append(spectype, f['header_table/spectype'].value)
             blend = np.append(blend, f['header_table/blend'].value)
             blendvalue = np.append(blendvalue, f['header_table/blendvalue'].value)
             jdstart = np.append(jdstart, f['header_table/jdstart'].value)
@@ -264,9 +264,9 @@ def fLCmerge(filelist, outfile):
     # Make the combined data group.
     ascc = headerdict['ascc']
     nstars = len(ascc)
-    for i in range(0, nstars, 50):
+    for i in range(0, nstars, 5):
         
-        stardict = combine_data(filelist, ascc[i:i+50])
+        stardict = combine_data(filelist, ascc[i:i+5])
     
         with h5py.File(outfile) as f:
             

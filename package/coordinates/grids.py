@@ -5,9 +5,25 @@ import numpy as np
 import healpy
 
 class PolarGrid(object):
-    """ Return a polar coordinate grid."""
+    """ Create a polar coordinate grid.
+    
+    Attributes:
+        nx (int): The resolution of the polargrid along the ra-axis.
+        ny (int): The resolution of the polargrid along the dec-axis.
+        xedges (float): The binedges of the grid along the ra-axis.
+        yedges (float): The binedges of the grid along the dec-axis.
+        npix (int): The total number of pixels on the grid.
+    
+    """
     
     def __init__(self, nx, ny):
+        """ Initialize the coordinate grid.
+        
+        Args:
+            nx (int): The resolution of the polargrid along the ra-axis.
+            ny (int): The resolution of the polargrid along the dec-axis.
+            
+        """
         
         self.nx = nx
         self.ny = ny
@@ -32,6 +48,17 @@ class PolarGrid(object):
         return idx
     
     def radec2idx(self, ra, dec):
+        """ Convert ra, dec coordinates to indices on the grid.
+        
+        Args:
+            ra (float): An array of ra coordinates.
+            dec (float): An array of dec coordinates.
+            
+        Returns:
+            idx1 (int): First index of the cell, corresponds to ra.  
+            idx2 (int): Second index of the cell, corresponds to dec. 
+            
+        """
         
         idx1 = self._ra2idx(ra)
         idx2 = self._dec2idx(dec)
@@ -53,6 +80,17 @@ class PolarGrid(object):
         return dec[idx]
         
     def idx2radec(self, idx1, idx2):
+        """ Convert indices on the grid to gridcell coordinates.
+        
+        Args:
+            idx1 (int): An array of cell indices along the ra-axis.
+            idx2 (int): An array of cell indices along the dec-axis.
+            
+        Returns:
+            ra (float): The ra coordinates of the gridcells.
+            dec (float): The dec coordinates of the gridcells.
+            
+        """
         
         ra = self._idx2ra(idx1)
         dec = self._idx2dec(idx2)
@@ -60,6 +98,18 @@ class PolarGrid(object):
         return ra, dec
         
     def values2grid(self, idx1, idx2, values, fill_value=0):
+        """ Given grid indices and values return an array.
+        
+        Args:
+            idx1 (int): An array of indices along the ra-axis.
+            idx2 (int): An array of indices along the dec-axis.
+            values (float): An array of values corresponding to idx1, idx2. 
+            fill_value (float): Value to fill unspecified cells with.
+            
+        Returns:
+            array (float): An array corresponding to the grid.
+        
+        """
         
         array = np.full((self.nx+2, self.ny+2), fill_value=fill_value)
         array[idx1, idx2] = values
@@ -68,9 +118,23 @@ class PolarGrid(object):
 
 
 class HealpixGrid(object):
-    """Return a healpix coordinate grid."""
+    """ Create a Healpix coordinate grid.
+    
+    Attributes:
+        nside (int): Determines the resolution of the grid for further
+            information refer to the healpy documentation.
+        npix (int): The total number of pixels on the grid.
+    
+    """
     
     def __init__(self, nside):
+        """ Initialize the coordinate grid.
+        
+        Args:
+            nside (int): Determines the resolution of the grid for further
+            information refer to the healpy documentation.
+            
+        """
         
         self.nside = nside
         self.npix = healpy.nside2npix(self.nside)
@@ -78,12 +142,33 @@ class HealpixGrid(object):
         return
     
     def radec2idx(self, ra, dec):
+        """ Convert ra, dec coordinates to indices on the grid.
         
+        Args:
+            ra (float): An array of ra coordinates.
+            dec (float): An array of dec coordinates.
+            
+        Returns:
+            idx (int): The index of the gridcell to which each ra, dec pair
+                belongs.
+        
+        """
+
         idx = healpy.ang2pix(self.nside, (90. - dec)*np.pi/180., ra*np.pi/180.)
         
         return idx
             
     def idx2radec(self, idx):
+        """ Converts gridcell indices the the ra, dec of the cell.
+        
+        Args:
+            idx (int): Gridcell indices.
+            
+        Returns:
+            ra (float): The ra coordinates of each of the cells.
+            dec (float): The dec coordinates of each of the cells.
+            
+        """
     
         theta, phi = healpy.pix2ang(self.nside, idx)
         dec = 90. - theta*180./np.pi
@@ -92,6 +177,17 @@ class HealpixGrid(object):
         return ra, dec
         
     def values2grid(self, idx, values, fill_value=0):
+        """ Given grid indices and values return an array.
+        
+        Args:
+            idx (int): An array of gridcell indices.
+            values (float): An array of values corresponding to idx. 
+            fill_value (float): Value to fill unspecified cells with.
+            
+        Returns:
+            array (float): An array corresponding to the grid.
+        
+        """
         
         array = np.full(self.npix, fill_value=fill_value)
         array[idx] = values
@@ -100,15 +196,33 @@ class HealpixGrid(object):
 
     
 class CartesianGrid(object):
-    """Return a cartesian coordinate grid."""
+    """ Create a cartesian coordinate grid.
     
-    def __init__(self, nx, ny, margin=0, Lx=4008, Ly=2672):
+    Attributes:
+        nx (int): The resolution of the grid along the x-axis.
+        ny (int): The resolution of the grid along the y-axis.
+        xedges (float): The binedges of the grid along the x-axis.
+        yedges (float): The binedges of the grid along the y-axis.
+        npix (int): The total number of pixels on the grid.
+    
+    """
+    
+    def __init__(self, nx, ny, Lx=4008, Ly=2672):
+        """ Initialize the coordinate grid.
+        
+        Args:
+            nx (int): The resolution of the grid along the x-axis.
+            ny (int): The resolution of the grid along the y-axis.
+            Lx (float): The maximum x-coordinate default 4008.
+            Ly (float): The maximum y-coordinate default 2672.
+            
+        """
         
         self.nx = nx
         self.ny = ny
         
-        self.xedges = np.linspace(margin, Lx-margin, self.nx+1)
-        self.yedges = np.linspace(margin, Ly-margin, self.ny+1)
+        self.xedges = np.linspace(0, Lx, self.nx+1)
+        self.yedges = np.linspace(0, Ly, self.ny+1)
         
         self.npix = (nx + 2)*(ny + 2)
         
@@ -127,6 +241,17 @@ class CartesianGrid(object):
         return idx
         
     def xy2idx(self, x, y):
+        """ Convert x, y coordinates the the indices of gridcells.
+        
+        Args:
+            x (float): The x-coordinates.
+            y (float): The y-coordinates.
+            
+        Returns:
+            idx1 (int): The indices corresponding to the x-coordinates.
+            idx2 (int): The indices corresponding to the y-coordinates.
+            
+        """
         
         idx1 = self._x2idx(x)
         idx2 = self._y2idx(y)
@@ -148,6 +273,17 @@ class CartesianGrid(object):
         return y[idx]
     
     def idx2xy(self, idx1, idx2):
+        """ Convert the indices of the gridcells to x, y coordinates.
+        
+        Args:
+            idx1 (float): The indices corresponding to the x-coordinates.
+            idx2 (float): The indices corresponding to the y-coordinates.
+            
+        Returns:
+            x (float): The central x-coordinates of the gridcells.
+            y (float): The central y-coordinates of the gridcells.
+        
+        """
         
         x = self._idx2x(idx1)
         y = self._idx2y(idx2)
@@ -155,6 +291,18 @@ class CartesianGrid(object):
         return x, y    
     
     def values2grid(self, idx1, idx2, values, fill_value=0):
+        """ Given grid indices and values return an array.
+        
+        Args:
+            idx1 (int): An array of indices along the x-axis.
+            idx2 (int): An array of indices along the y-axis.
+            values (float): An array of values corresponding to idx1, idx2. 
+            fill_value (float): Value to fill unspecified cells with.
+            
+        Returns:
+            array (float): An array corresponding to the grid.
+        
+        """
         
         array = np.full((self.nx+2, self.ny+2), fill_value=fill_value)
         array[idx1, idx2] = values

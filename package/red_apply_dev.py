@@ -3,8 +3,12 @@
 
 import os
 
+import h5py
 import numpy as np
+
 import IO
+import misc
+from core import statistics
 
 class SysCorr():
     
@@ -46,7 +50,7 @@ class SysCorr():
         sys = IO.SysFile(self.sysfile)
         self.pgcam, self.trans, self.nobs_trans = sys.read_trans()
         self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix()
-        self.hg, self.clouds, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
+        self.hg, self.clouds, self.sigma, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
         
         # Create indices.
         self.skyidx = self.hg.radec2idx(self.ra, self.dec)
@@ -82,13 +86,14 @@ class SysCorr():
         
         correction = trans + intrapix + clouds
         
-        # Get new flags.
+        # Flag data where the correction may not be good.
         flags = np.where(np.isnan(correction), 1, 0)
         flags = flags + np.where((self.nobs_trans[camidx, decidx] < 25) | (self.nobs_ipx[ipxidx, decidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
+        flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
         
         return trans, intrapix, clouds, flags
 
-    def _apply_correction(self, ascc):
+    def binned_corrected_lightcurve(self, ascc):
         
         # Get the header information for this star.
         i, = np.where(self.ascc == ascc)
@@ -98,8 +103,8 @@ class SysCorr():
         skyidx = self.skyidx[i]
         
         # Read data.
-        fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'jdmid', 'flag']
-        flux, eflux, sky, x, y, lst, lstseq, jdmid, flag = self.f.read_data(fields, [ascc], [nobs])
+        fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
+        flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, [ascc], [nobs])
         lstseq = lstseq.astype('int')
         
         # Compute the corrected magnitudes.
@@ -108,36 +113,38 @@ class SysCorr():
         mag = mag - trans - intrapix - clouds
         
         # Remove flagged data.
-        here = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1) & (flags < 1)
+        mask = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1) & (flags < 1)
 
-        mag = mag[here]
-        trans = trans[here]
-        clouds = clouds[here]
-
-        lst = lst[here]
-        jdmid = jdmid[here]
-        x = x[here]
-        y = y[here]
-        sky = sky[here]
+        mag = mag[mask]
+        emag = emag[mask]
+        sky = sky[mask]
+        x = x[mask]
+        y = y[mask]
+        jdmid = jdmid[mask]
+        lst = lst[mask]
+        lstseq = lstseq[mask]
+        
+        trans = trans[mask]
+        clouds = clouds[mask]
         
         # Compute the final binned lightcurve.
         binidx = (lstseq // 50)
+        lstseq = np.unique(binidx)
+        nobs = statistics.idxstats(binidx, None, statistic = 'count')
         
         bmag = statistics.idxstats(binidx, mag, statistic = 'mean')
         emag = statistics.idxstats(binidx, mag, statistic = 'std')
+        bsky = statistics.idxstats(binidx, sky, statistic = 'mean')
+        esky = statistics.idxstats(binidx, sky, statistic = 'std')
+        x = statistics.idxstats(binidx, x, statistic = 'mean')
+        y = statistics.idxstats(binidx, y, statistic = 'mean')
+        jdmid = statistics.idxstats(binidx, jdmid, statistic = 'mean')
+        lst = statistics.idxstats(binidx, lst, statistic = 'mean')
+        
         btrans = statistics.idxstats(binidx, trans, statistic = 'mean')
         etrans = statistics.idxstats(binidx, trans, statistic = 'std')
         bclouds = statistics.idxstats(binidx, clouds, statistic = 'mean')
         eclouds = statistics.idxstats(binidx, clouds, statistic = 'std')
-        
-        lstseq = np.unique(binidx)
-        nobs = statistics.idxstats(binidx, None, statistic = 'count')
-        lst = statistics.idxstats(binidx, lst, statistic = 'mean')
-        jdmid = statistics.idxstats(binidx, jdmid, statistic = 'mean')
-        x = statistics.idxstats(binidx, x, statistic = 'mean')
-        y = statistics.idxstats(binidx, y, statistic = 'mean')
-        bsky = statistics.idxstats(binidx, sky, statistic = 'mean')
-        esky = statistics.idxstats(binidx, sky, statistic = 'std')
         
         # Create a record array.
         arlist = [lstseq, nobs, lst, jdmid, x, y, bsky, esky, bmag, emag, btrans, etrans, bclouds, eclouds]
@@ -147,12 +154,12 @@ class SysCorr():
 
         return record
 
-    def correct_all(self, outfile = None):
+    def write_corrected_lightcurves(self, outfile=None):
         
         # The output file.
         if outfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'tmp%i_'%self.aper
+            prefix = 'red%i_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             outfile = os.path.join(head, tail)
         
@@ -163,10 +170,33 @@ class SysCorr():
         else:
             print 'Writing results to:', outfile
         
-        # Apply the corrections.
-        for i in range(nstars):
-            data = apply_correction(self.ascc[i])
-            with h5py.File(outfile) as f:
-                f.create_dataset(self.ascc[i], data = data)
+        # Write the global.
+        data = self.f.read_global()
+        data = dict(data)
+        with h5py.File(outfile) as f:
+            grp = f.create_group('global')
+            grp.attrs['station'] = data['station']
+            grp.attrs['camera'] = data['camera']
+        
+        # Write the header_table.
+        fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
+        data = self.f.read_header(fields)
+        with h5py.File(outfile) as f:
+            grp = f.create_group('header_table')
+            grp.create_dataset('ascc', data = data[0])
+            grp.create_dataset('ra', data = data[1])
+            grp.create_dataset('dec', data = data[2])
+            grp.create_dataset('vmag', data = data[3])
+            grp.create_dataset('bmag', data = data[4])
+            grp.create_dataset('spectype', data = data[5])
+        
+        # Write the corrected lightcurves.
+        with h5py.File(outfile) as f:
+            grp = f.create_group('data')
+            
+            nstars = len(self.ascc)
+            for i in range(nstars):
+                data = self.binned_corrected_lightcurve(self.ascc[i])
+                grp.create_dataset(self.ascc[i], data = data)
             
         return outfile

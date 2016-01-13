@@ -105,6 +105,7 @@ class SysFile():
             idx = f['data/clouds/idx'].value
             lstseq = f['data/clouds/lstseq'].value
             clouds = f['data/clouds/clouds'].value
+            sigma = f['data/clouds/sigma'].value
             nobs = f['data/clouds/nobs'].value
             
             nx = f['data/clouds'].attrs['nx']
@@ -121,7 +122,17 @@ class SysFile():
         clouds = tmp
         
         tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
+        tmp[idx, lstseq] = sigma
+        sigma = tmp
+        
+        tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
         tmp[idx, lstseq] = nobs
         nobs = tmp
 
-        return hg, clouds, nobs, lstmin, lstmax
+        return hg, clouds, sigma, nobs, lstmin, lstmax
+            
+    
+            
+            
+           
+        

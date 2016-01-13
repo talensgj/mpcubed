@@ -31,9 +31,9 @@ def create_baseline(date, camera, mode, filepath, outpath):
         print 'Unknown value for mode.'
         print 'exiting...'
         exit()
-    
-    filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
+        
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
+    filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     
     IO.fLCmerge(filelist, outfile)
     
