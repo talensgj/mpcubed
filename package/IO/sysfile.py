@@ -49,24 +49,29 @@ class SysFile():
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            ascc = f['data/magnitudes/ascc'].value
-            vmag = f['data/magnitudes/vmag'].value
-            mag = f['data/magnitudes/mag'].value
-            nobs = f['data/magnitudes/nobs'].value
+            grp = f['data/magnitudes']
+            ascc = grp['ascc'].value
+            vmag = grp['vmag'].value
+            mag = grp['mag'].value
+            nobs = gr['nobs'].value
+            
+            try: sigma = grp['sigma'].value
+            except: sigma = None
         
-        return ascc, vmag, mag, nobs
+        return ascc, vmag, mag, sigma, nobs
         
     def read_trans(self):
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            idx1 = f['data/trans/idx1'].value
-            idx2 = f['data/trans/idx2'].value
-            trans = f['data/trans/trans'].value
-            nobs = f['data/trans/nobs'].value
+            grp = f['data/trans']
+            idx1 = grp['idx1'].value
+            idx2 = grp['idx2'].value
+            trans = grp['trans'].value
+            nobs = grp['nobs'].value
             
-            nx = f['data/trans'].attrs['nx']
-            ny = f['data/trans'].attrs['ny']
+            nx = grp.attrs['nx']
+            ny = grp.attrs['ny']
             
         pg = grids.PolarGrid(nx, ny)
         trans = pg.values2grid(idx1, idx2, trans, np.nan)
@@ -78,16 +83,17 @@ class SysFile():
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            idx1 = f['data/intrapix/idx1'].value
-            idx2 = f['data/intrapix/idx2'].value
-            sinx = f['data/intrapix/sinx'].value
-            cosx = f['data/intrapix/cosx'].value
-            siny = f['data/intrapix/siny'].value
-            cosy = f['data/intrapix/cosy'].value
-            nobs = f['data/intrapix/nobs'].value
+            grp = f['data/intrapix']
+            idx1 = grp['idx1'].value
+            idx2 = grp['idx2'].value
+            sinx = grp['sinx'].value
+            cosx = grp['cosx'].value
+            siny = grp['siny'].value
+            cosy = grp['cosy'].value
+            nobs = grp['nobs'].value
             
-            nx = f['data/intrapix'].attrs['nx']
-            ny = f['data/intrapix'].attrs['ny']
+            nx = grp.attrs['nx']
+            ny = grp.attrs['ny']
             
         pg = grids.PolarGrid(nx, ny)
         sinx = pg.values2grid(idx1, idx2, sinx, np.nan)
@@ -102,16 +108,19 @@ class SysFile():
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            idx = f['data/clouds/idx'].value
-            lstseq = f['data/clouds/lstseq'].value
-            clouds = f['data/clouds/clouds'].value
-            sigma = f['data/clouds/sigma'].value
-            nobs = f['data/clouds/nobs'].value
+            grp = f['data/clouds']
+            idx = grp['idx'].value
+            lstseq = grp['lstseq'].value
+            clouds = grp['clouds'].value
+            nobs = grp['nobs'].value
             
-            nx = f['data/clouds'].attrs['nx']
-            lstmin = f['data/clouds'].attrs['lstmin']
-            lstmax = f['data/clouds'].attrs['lstmax']
-            lstlen = f['data/clouds'].attrs['lstlen']
+            try: sigma = grp['sigma'].value
+            except: sigma = None
+            
+            nx = grp.attrs['nx']
+            lstmin = grp.attrs['lstmin']
+            lstmax = grp.attrs['lstmax']
+            lstlen = grp.attrs['lstlen']
     
         lstseq = lstseq - lstmin
     
@@ -122,17 +131,12 @@ class SysFile():
         clouds = tmp
         
         tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
-        tmp[idx, lstseq] = sigma
-        sigma = tmp
-        
-        tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
         tmp[idx, lstseq] = nobs
         nobs = tmp
+        
+        if sigma is not None:
+            tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
+            tmp[idx, lstseq] = sigma
+            sigma = tmp
 
         return hg, clouds, sigma, nobs, lstmin, lstmax
-            
-    
-            
-            
-           
-        

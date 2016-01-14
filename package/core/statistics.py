@@ -4,7 +4,22 @@
 import numpy as np
 
 def idxstats(indices, values, statistic='mean', keeplength=False):
-    """Compute some statistic on the values that have the same index."""
+    """ Compute a statistic for all values with the same index.
+    
+    Args:
+        indices (int): An array of indices.
+        values (float): An array of values.
+        statistic (string or function): The statistic to compute on values
+            that have the same index may be any of 'mean', 'std', 'count',
+            'sum', 'median' or a function. Default is 'mean'.
+        keeplength (bool): If True the return will have the same shape as
+            values, otherwise it will be the same length as the number of 
+            unique indices. Default is False.
+            
+    Returns:
+        result: The statistic computed on values with the same index.
+    
+    """
     
     # Check that the statistic is valid.
     known_stats = ['mean', 'std', 'count', 'sum', 'median']

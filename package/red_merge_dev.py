@@ -2,19 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os 
-import glob
 
 import h5py
 import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
-from progressbar import ProgressBar
-
-import misc
-import IO
-from coordinates import grids
-from core import cdecor
-from core import statistics
    
 def _merge_global(filelist):
     
@@ -38,12 +30,13 @@ def _merge_headers(filelist):
     # Read data.
     for i in range(nfiles):
         with h5py.File(filelist[i], 'r') as f:
-            ascc = np.append(ascc, f['header_table/ascc'].value)
-            ra = np.append(ra, f['header_table/ra'].value)
-            dec = np.append(dec, f['header_table/dec'].value)
-            vmag = np.append(vmag, f['header_table/vmag'].value)
-            bmag = np.append(bmag, f['header_table/bmag'].value)
-            spectype = np.append(spectype, f['header_table/spectype'].value)
+            grp = f['header_table']
+            ascc = np.append(ascc, grp['ascc'].value)
+            ra = np.append(ra, grp['ra'].value)
+            dec = np.append(dec, grp['dec'].value)
+            vmag = np.append(vmag, grp['vmag'].value)
+            bmag = np.append(bmag, grp['bmag'].value)
+            spectype = np.append(spectype, grp['spectype'].value)
 
     # Select unique entries.
     ascc, args = np.unique(ascc, return_index=True)
@@ -74,18 +67,18 @@ def _merge_data(filelist, ascc):
             except:
                 continue
             
-            # Add the data to the lightcurve.
-            if first:
-                lc = tmp
-                first = False
-            else:
-                lc = stack_arrays((lc, tmp), asrecarray=True)
+        # Add the data to the lightcurve.
+        if first:
+            lc = tmp
+            first = False
+        else:
+            lc = stack_arrays((lc, tmp), asrecarray=True)
                 
     return lc
 
 def make_quarterfile(filelist, outfile):
     
-    nfiles = len(filelist)
+    filelist = np.sort(filelist)
     
     # Write the global group.
     data = _merge_global(filelist)
@@ -98,8 +91,9 @@ def make_quarterfile(filelist, outfile):
     # Merge the headers.
     hdr = _merge_headers(filelist)
     with h5py.File(outfile) as f:
-        for key in hdr.keys():
-            f.create_dataset('header/' + key, data = hdr[key])
+        grp = f.create_group('header')
+        for key, value in hdr.iteritems():
+            grp.create_dataset(key, data = value)
         
     # Merge the lightcurves.
     ascc = hdr['ascc']
@@ -111,7 +105,8 @@ def make_quarterfile(filelist, outfile):
         
         # Write the data.
         with h5py.File(outfile) as f:
+            grp = f.create_group('data/' + ascc[i])
             for key in lc.dtype.names:
-                f.create_dataset('data/' + ascc[i] + '/' + key, data = lc[key])
+                grp.create_dataset(key, data = lc[key])
 
     return

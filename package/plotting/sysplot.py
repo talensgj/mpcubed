@@ -131,7 +131,7 @@ class SysPlot():
         
         # Read the data.
         f = IO.SysFile(self.sysfile)
-        ascc, vmag, mag, nobs = f.read_magnitudes()
+        ascc, vmag, mag, sigma, nobs = f.read_magnitudes()
         
         # Create the magnitudes plot.
         fig = plt.figure(figsize=(13,9))
@@ -317,7 +317,7 @@ class SysPlot():
         
         # Read the data.
         f = IO.SysFile(self.sysfile)
-        hg, clouds, nobs, lstmin, lstmax = f.read_clouds()
+        hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
         
         #for i in range(0, clouds.shape[1], 50):
             

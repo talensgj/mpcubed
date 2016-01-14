@@ -16,6 +16,8 @@ from coordinates import grids
 from core import cdecor
 from core import statistics
 
+from IO.dev import make_baseline
+
 def create_baseline(date, camera, mode, filepath, outpath):
     
     if (mode == 0):

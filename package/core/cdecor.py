@@ -7,7 +7,27 @@ from collections import namedtuple
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
 def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
-    """Perform a coarse decorrelation."""
+    """ Perform a coarse decorrelation.
+    
+    Args:
+        idx1 (int): Indices along which to calculate the first parameter.
+        idx2 (int): Indices along which to calculate the second parameter.
+        value (float): Values to fit.
+        error (float): Measurement errors corresponding to the values.
+        maxiter (int): The maximum number of iterations to perform. Defualt
+            is 100.
+        dtol (float): Maximum allowed change in the parameters, iteration
+            terminates if the cahnge falls below this value. Default is 1e-3.
+        verbose (bool): Output the current iteration. Default is True.
+        
+    Returns:
+        par1 (float): The parameters corresponding to idx1.
+        par2 (float): The parameters corresponding to idx2.
+        quality: A named tuple with fields niter, chisq, npoints and npars
+            describing the number of iterations, the chi-square value, the
+            number of datapoints and the number of parameters of the fit.
+    
+    """
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -47,7 +67,32 @@ def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     return par1, par2, Quality(niter, chisq, npoints, npars)
 
 def cdecor_intrapix(idx1, idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
-    """Perform a coarse decorrelation with intrapixel variations.""" 
+    """ Perform a coarse decorrelation with intrapixel variations.
+    
+    Args:
+        idx1 (int): Indices along which to calculate the first parameter.
+        idx2 (int): Indices along which to calculate the second parameter.
+        idx3 (int): Indices along which to calculate the intrapixel variations.
+        value (float): Values to fit.
+        error (float): Measurement errors corresponding to the values.
+        x (float): The x position corresponding to the values.
+        y (float): The y position corresponding to the values. 
+        maxiter (int): The maximum number of iterations to perform. Defualt
+            is 100.
+        dtol (float): Maximum allowed change in the parameters, iteration
+            terminates if the cahnge falls below this value. Default is 1e-3.
+        verbose (bool): Output the current iteration. Default is True.
+        
+    Returns:
+        par1 (float): The parameters corresponding to idx1.
+        par2 (float): The parameters corresponding to idx2.
+        par3 (float): The amplitudes of the intrapixel variations corresponding
+            to idx3.
+        quality: A named tuple with fields niter, chisq, npoints and npars
+            describing the number of iterations, the chi-square value, the
+            number of datapoints and the number of parameters of the fit.
+    
+    """
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
@@ -251,7 +296,32 @@ def _find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     return par2, err3
     
 def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
-    """Perform a coarse decorrelation with extra error terms."""
+    """ Perform a coarse decorrelation with extra error terms.
+    
+    Args:
+        idx1 (int): Indices along which to calculate the first parameter.
+        idx2 (int): Indices along which to calculate the second parameter.
+        error (float): Measurement errors corresponding to the values.
+        sigma1 (float): Initial value for the extra error corresponding to
+            idx1.
+        sigma2 (float): Initial value for the extra error corresponding to
+            idx2.
+        maxiter (int): The maximum number of iterations to perform. Defualt
+            is 100.
+        dtol (float): Maximum allowed change in the parameters, iteration
+            terminates if the cahnge falls below this value. Default is 1e-3.
+        verbose (bool): Output the current iteration. Default is True.
+        
+    Returns:
+        par1 (float): The parameters corresponding to idx1.
+        par2 (float): The parameters corresponding to idx2.
+        sigma1 (float): The extra error corresponding to idx1.
+        sigma2 (float): The extra error corresponding to idx2.
+        quality: A named tuple with fields niter, chisq, npoints and npars
+            describing the number of iterations, the chi-square value, the
+            number of datapoints and the number of parameters of the fit.
+    
+    """
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)

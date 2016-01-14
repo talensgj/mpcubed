@@ -264,9 +264,9 @@ def fLCmerge(filelist, outfile):
     # Make the combined data group.
     ascc = headerdict['ascc']
     nstars = len(ascc)
-    for i in range(0, nstars, 5):
+    for i in range(0, nstars, 500):
         
-        stardict = combine_data(filelist, ascc[i:i+5])
+        stardict = combine_data(filelist, ascc[i:i+500])
     
         with h5py.File(outfile) as f:
             
