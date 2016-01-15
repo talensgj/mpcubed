@@ -72,7 +72,7 @@ class fLCfile():
                 lc = f['data/'+ascc[i]].value
                 for j in range(nfields):
                     data[j][select[i]:select[i+1]] = lc[fields[j]]
-            
+        
         return data
            
     def read_star(self, ascc):

@@ -8,7 +8,7 @@ import numpy as np
 
 import IO
 import misc
-from core import statistics
+from statistics import statistics
 
 class CorrectLC():
     
@@ -155,18 +155,18 @@ class CorrectLC():
     def make_redfile(self, outfile=None):
         
         # The output file.
-        #if outfile is None:
-            #head, tail = os.path.split(self.LBfile)
-            #prefix = 'red%i_'%self.aper
-            #tail = prefix + tail.rsplit('_')[-1]
-            #outfile = os.path.join(head, tail)
+        if outfile is None:
+            head, tail = os.path.split(self.LBfile)
+            prefix = 'red%i_'%self.aper
+            tail = prefix + tail.rsplit('_')[-1]
+            outfile = os.path.join(head, tail)
         
-        #if os.path.isfile(outfile):
-            #print 'Output file already exists:', outfile
-            #print 'exiting...'
-            #exit()
-        #else:
-            #print 'Writing results to:', outfile
+        if os.path.isfile(outfile):
+            print 'Output file already exists:', outfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Writing results to:', outfile
         
         # Write the global.
         data = self.f.read_global()

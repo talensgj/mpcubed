@@ -11,8 +11,8 @@ from numpy.lib.recfunctions import stack_arrays
 import misc
 import IO
 from coordinates import grids
-from core import cdecor
-from core import statistics
+from systematics import cdecor
+from statistics import statistics
 
     
 class CoarseDecorrelation():

@@ -3,7 +3,7 @@
 
 import numpy as np
 
-def flux2mag(flux, eflux = None, m0 = 25):
+def flux2mag(flux, eflux=None, m0=25.):
     
     mag = m0 - 2.5*np.log10(flux)
     
@@ -13,7 +13,7 @@ def flux2mag(flux, eflux = None, m0 = 25):
     
     return mag
 
-def phase(time, period, time_ref = 0., fold = True):
+def phase(time, period, time_ref=0., fold=True):
     
     phase = (time - time_ref)/period
     

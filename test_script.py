@@ -38,24 +38,13 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     
     return outfile
 
-# Create baseline.
-filepath = '/data2/mascara/LaPalma'
-outpath = '/data2/talens/2015Q2/LPE'
-
-ensure_dir(outpath)
-
-LBfile = twoweek_baseline('201504', 'LPE', 0, filepath, outpath)
-
-#pool = mp.Pool(5)
-#dates = ['201504', '201505', '201505', '201506', '201506']
-#mode = [1, 0, 1, 0, 1]
-#results = [pool.apply_async(twoweek_baseline, args=(dates[i], 'LPE', mode[i], filepath, outpath)) for i in range(5)] 
-#output = [p.get() for p in results]
-#print output
+LBfile = '/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5'
     
 # Perform coarse decorrelation.
 CoarseDecorrelation(LBfile, 0)
 
 # Create reduced lightcurves.
-f = CorrectLC(LBfile, aperture)
+f = CorrectLC(LBfile, 0)
 redfile = f.make_redfile()
+
+print redfile
