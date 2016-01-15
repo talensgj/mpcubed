@@ -13,10 +13,8 @@ from progressbar import ProgressBar
 import misc
 import IO
 from coordinates import grids
-from core import cdecor
-from core import statistics
-
-from IO.dev import make_baseline
+from systematics import cdecor
+from statistics import statistics
 
 def create_baseline(date, camera, mode, filepath, outpath):
     
@@ -37,7 +35,7 @@ def create_baseline(date, camera, mode, filepath, outpath):
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
     filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     
-    IO.fLCmerge(filelist, outfile)
+    IO.make_baseline(filelist, outfile)
     
     return outfile
 

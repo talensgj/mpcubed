@@ -76,7 +76,7 @@ def _merge_data(filelist, ascc):
                 
     return lc
 
-def make_quarterfile(filelist, outfile):
+def make_quarter(filelist, outfile):
     
     filelist = np.sort(filelist)
     

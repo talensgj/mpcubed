@@ -10,7 +10,7 @@ import IO
 import misc
 from core import statistics
 
-class SysCorr():
+class CorrectLC():
     
     def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
         
@@ -43,7 +43,7 @@ class SysCorr():
         
         # Read the required header data.
         self.f = IO.fLCfile(self.LBfile)
-        self.ascc, self.ra, self.dec, self.vmag, self.nobs = self.f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
+        self.ascc, self.ra, self.dec, self.nobs = self.f.read_header(['ascc', 'ra', 'dec', 'nobs'])
         self.nobs = self.nobs.astype('int')
         
         # Read the correction terms.
@@ -89,7 +89,8 @@ class SysCorr():
         # Flag data where the correction may not be good.
         flags = np.where(np.isnan(correction), 1, 0)
         flags = flags + np.where((self.nobs_trans[camidx, decidx] < 25) | (self.nobs_ipx[ipxidx, decidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
-        flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
+        if self.sigma is not None:
+            flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
         
         return trans, intrapix, clouds, flags
 
@@ -97,11 +98,8 @@ class SysCorr():
         
         # Get the header information for this star.
         i, = np.where(self.ascc == ascc)
-        ra = self.ra[i]
-        dec = self.dec[i]
         nobs = self.nobs[i]
-        skyidx = self.skyidx[i]
-        
+
         # Read data.
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
         flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, [ascc], [nobs])
@@ -154,21 +152,21 @@ class SysCorr():
 
         return record
 
-    def write_corrected_lightcurves(self, outfile=None):
+    def make_redfile(self, outfile=None):
         
         # The output file.
-        if outfile is None:
-            head, tail = os.path.split(self.LBfile)
-            prefix = 'red%i_'%self.aper
-            tail = prefix + tail.rsplit('_')[-1]
-            outfile = os.path.join(head, tail)
+        #if outfile is None:
+            #head, tail = os.path.split(self.LBfile)
+            #prefix = 'red%i_'%self.aper
+            #tail = prefix + tail.rsplit('_')[-1]
+            #outfile = os.path.join(head, tail)
         
-        if os.path.isfile(outfile):
-            print 'Output file already exists:', outfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Writing results to:', outfile
+        #if os.path.isfile(outfile):
+            #print 'Output file already exists:', outfile
+            #print 'exiting...'
+            #exit()
+        #else:
+            #print 'Writing results to:', outfile
         
         # Write the global.
         data = self.f.read_global()
@@ -191,12 +189,14 @@ class SysCorr():
             grp.create_dataset('spectype', data = data[5])
         
         # Write the corrected lightcurves.
-        with h5py.File(outfile) as f:
-            grp = f.create_group('data')
+        nstars = len(self.ascc)
+        for i in range(nstars):
             
-            nstars = len(self.ascc)
-            for i in range(nstars):
-                data = self.binned_corrected_lightcurve(self.ascc[i])
-                grp.create_dataset(self.ascc[i], data = data)
+            # Get the binned corrected lightcurve.
+            lc = self.binned_corrected_lightcurve(self.ascc[i])
+            
+            # Write the lightcurve.
+            with h5py.File(outfile) as f:
+                f.create_dataset('data/' + self.ascc[i], data = data)
             
         return outfile

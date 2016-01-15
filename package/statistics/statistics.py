@@ -3,6 +3,14 @@
 
 import numpy as np
 
+
+def mad(data, K = 1.4826, axis = None):
+    
+    med = np.nanmedian(data, axis = axis, keepdims = True)
+    mad = np.nanmedian(np.abs(data - med), axis = axis)
+    
+    return K*mad
+
 def idxstats(indices, values, statistic='mean', keeplength=False):
     """ Compute a statistic for all values with the same index.
     

@@ -1,20 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
+import multiprocessing as mp
+
 from package import detrend
-from package import red_decor_dev
+
+def ensure_dir(path):
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
+    return
+
 
 filepath = '/data2/mascara/LaPalma'
-outpath = '/data2/talens/LongBaselines'
+outpath = '/data2/talens/2015Q2/LPE'
 
-detrend.create_baseline('201506', 'LPE', 0, filepath, outpath)
+ensure_dir(outpath)
 
-#obj = detrend.CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/ref_06A_iter1.hdf5', outer_maxiter=1)
-#obj.run()
+dates = ['201504', '201504']
+mode = [0, 1]
 
-#red_decor_dev.CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/test_06A_iter1.hdf5', outer_maxiter=1)
-
-#obj = detrend.CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/ref_06A.hdf5')
-#obj.run()
-
-#red_decor_dev.CoarseDecorrelation('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0, '/data2/talens/2015Q2/LPE/test_06A.hdf5')
+pool = mp.Pool(2)
+[pool.apply_async(detrend.create_baseline, args=(dates[i], 'LPE', mode[i], filepath, outpath)) for i in range(2)]

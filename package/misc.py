@@ -21,10 +21,3 @@ def phase(time, period, time_ref = 0., fold = True):
         phase = np.mod(phase, 1.)
         
     return phase
-    
-def mad(data, K = 1.4826, axis = None):
-    
-    med = np.nanmedian(data, axis = axis, keepdims = True)
-    mad = np.nanmedian(np.abs(data - med), axis = axis)
-    
-    return K*mad

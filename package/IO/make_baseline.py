@@ -8,7 +8,7 @@ import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
 from fLCfile import fLCfile
-from ..core import statistics
+from ..statistics import statistics
 
 def verify_filelist(filelist):
     
@@ -217,8 +217,6 @@ def make_baseline(filelist, outfile):
     filelist = np.sort(filelist)
     filelist = verify_filelist(filelist)
     
-    nfiles = len(filelist)
-    
     # Write the global group.
     lstmin, _ = _lstrange(filelist[0])
     _, lstmax = _lstrange(filelist[-1])
@@ -234,7 +232,7 @@ def make_baseline(filelist, outfile):
             
         for key, value in arrdict.iteritems():
             grp.create_dataset(key, data = value)
-            
+    
     # Merge the headers.
     hdr = _merge_headers(filelist)
     with h5py.File(outfile) as f:
