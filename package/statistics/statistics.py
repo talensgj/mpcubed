@@ -5,6 +5,18 @@ import numpy as np
 
 
 def mad(data, K = 1.4826, axis = None):
+    """ Compute the median absolute deviation of an array.
+    
+    Args:
+        array: An array of data.
+        K (float): A scale factot so that the mad of a gaussian distribution
+            is equal to it standard deviation.
+        axis (int): The axis along whic to compute the mad.
+        
+    Returns:
+        The mad, scaled by K.
+    
+    """
     
     med = np.nanmedian(data, axis = axis, keepdims = True)
     mad = np.nanmedian(np.abs(data - med), axis = axis)

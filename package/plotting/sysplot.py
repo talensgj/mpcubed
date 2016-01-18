@@ -19,8 +19,20 @@ import mascara
 from .. import IO
 
 class SysPlot():
+    """ Plot the data from a systematics file.
+    
+    Attributes:
+        sysfile (str): The systematics file to read the data from.
+    
+    """
     
     def __init__(self, sysfile):
+        """ Initialize the plotter of systematics files.
+        
+        Args:
+            sysfile (str): The systematics file to read the data from.
+    
+        """
         
         self.sysfile = sysfile
         
@@ -128,6 +140,7 @@ class SysPlot():
         return
     
     def plot_magnitudes(self):
+        """ Plot the fitted magnitudes against the catalogue V magnitude. """
         
         # Read the data.
         f = IO.SysFile(self.sysfile)
@@ -154,6 +167,7 @@ class SysPlot():
         return
     
     def plot_trans(self):
+        """ Plot the fitted transmission map as a function of x and y. """
         
         # Read the data.
         f = IO.SysFile(self.sysfile)
@@ -219,6 +233,7 @@ class SysPlot():
         return
         
     def plot_intrapix(self):
+        """ Plot the fitted amplitude maps as a function of x and y. """
         
         # Read the data.
         f = IO.SysFile(self.sysfile)
@@ -312,6 +327,7 @@ class SysPlot():
         return
         
     def plot_clouds(self):
+        """ Plot the fitted cloud map as a function of x, y and t."""
         
         import healpy
         

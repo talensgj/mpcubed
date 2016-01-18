@@ -1,0 +1,325 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>I/O &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Plotting" href="plotting.html" />
+    <link rel="prev" title="Systematics" href="systematics.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="plotting.html" title="Plotting"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="systematics.html" title="Systematics"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="i-o">
+<h1>I/O<a class="headerlink" href="#i-o" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="package.IO.fLCfile">
+<em class="property">class </em><tt class="descclassname">package.IO.</tt><tt class="descname">fLCfile</tt><big>(</big><em>fLCfile</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read data from fLC files.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd>fLCfile (str): The full path to the file.</dd>
+</dl>
+<dl class="method">
+<dt id="package.IO.fLCfile.read_data">
+<tt class="descname">read_data</tt><big>(</big><em>fields</em>, <em>ascc=None</em>, <em>nobs=None</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the specified fields from the lightcurves.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">fields (str): List of fieldnames.
+ascc (str): List of ascc numbers for which the fields must be</p>
+<blockquote>
+<div>returned. Default is None.</div></blockquote>
+<dl class="last docutils">
+<dt>nobs (int): Array containning the number of points in each</dt>
+<dd>ligthcurve to be returned must correspond to ascc.
+Default is None.</dd>
+</dl>
+</dd>
+<dt>Returns:</dt>
+<dd>data: A lsit of data corresponding to the fields.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.fLCfile.read_global">
+<tt class="descname">read_global</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_global" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the global group.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd>data: A list of attribute (key, value) pairs.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.fLCfile.read_header">
+<tt class="descname">read_header</tt><big>(</big><em>fields</em>, <em>ascc=None</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_header" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the specified fields from the header_table.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">fields (str): List of fieldnames.
+ascc (str): List of ascc numbers for which the fields must be</p>
+<blockquote class="last">
+<div>returned. Default is None.</div></blockquote>
+</dd>
+<dt>Returns:</dt>
+<dd>data: A list of data corresponding to the fields.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.fLCfile.read_star">
+<tt class="descname">read_star</tt><big>(</big><em>ascc</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_star" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the lightcurve of the specified star.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>ascc (str): The star to read.</dd>
+<dt>Returns:</dt>
+<dd>data: The full lightcurve of the star as a recarray.</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="package.IO.SysFile">
+<em class="property">class </em><tt class="descclassname">package.IO.</tt><tt class="descname">SysFile</tt><big>(</big><em>sysfile</em><big>)</big><a class="headerlink" href="#package.IO.SysFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read data from systematics files.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd>sysfile (str): The full path to the file.</dd>
+</dl>
+<dl class="method">
+<dt id="package.IO.SysFile.read_clouds">
+<tt class="descname">read_clouds</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_clouds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the fitted clouds.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd>hg: A halpix grid instance corresponding to the clouds.
+clouds: The cloud values computed on the grid at each instant.
+sigma: The extra error term. Set to None if absent.
+nobs: The number of datapoints used to compute the clouds.
+lstmin: The lowest lstseq for which clouds were computed.
+lstmax: The highest lstseq for which clouds were computed.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_header">
+<tt class="descname">read_header</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_header" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read all header attributes.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd>data: A list of attribute (key, value) pairs.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_intrapix">
+<tt class="descname">read_intrapix</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_intrapix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the fitted intrapixel variations.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd><dl class="first docutils">
+<dt>pg: A polar grid instance corresponding to the intrapixel</dt>
+<dd>variations.</dd>
+</dl>
+<p>sinx (float): The amplitudes of the sinx term on the grid. 
+cosx (float): The amplitudes of the cosx term on the grid. 
+siny (float): The amplitudes of the siny term on the grid. 
+cosy (float): The amplitudes of the cosy term on the grid. 
+nobs (float): The number of datapoints used to compute the</p>
+<blockquote class="last">
+<div>amplitudes.</div></blockquote>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_magnitudes">
+<tt class="descname">read_magnitudes</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_magnitudes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the fitted magnitudes.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd>ascc (str): The ascc numbers of the stars.
+vmag (float): The catalogue magnitude of the stars.
+mag (float): The fitted magnitude of the stars.
+sigma (float): The extra error term. Set to None if absent.
+nobs (int): The number of datapoints used to compute each magnitude.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_pointing">
+<tt class="descname">read_pointing</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_pointing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the pointing associated with the systematics.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd>alt0 (float): The pointing altitude in degrees.
+az0 (float): The pointing azimuth in degrees. 
+th0 (float): The pointing orientation in degrees.
+x0 (float): The pointing center in pixels.
+y0 (float): The pointing center in pixels.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_statistics">
+<tt class="descname">read_statistics</tt><big>(</big><em>mode</em><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_statistics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the quality statistics from the header.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><dl class="first last docutils">
+<dt>mode (str): Either &#8216;spatial&#8217; or &#8216;temporal&#8217; depending</dt>
+<dd>on which quality parameters should be read.</dd>
+</dl>
+</dd>
+<dt>Returns:</dt>
+<dd>niter (int): The number of iterations performed.
+chisq (float): The chi-squared value achieved.
+npoints (int): The number of datapoints in the fit.
+npars (int): The number of model parameters used.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.IO.SysFile.read_trans">
+<tt class="descname">read_trans</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_trans" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the fitted transmission.</p>
+<dl class="docutils">
+<dt>Returns:</dt>
+<dd><p class="first">pg: A polar grid instance corresponding to the transmision.
+trans (float): The transmission values on the grid.
+nobs (int): The number of datapoints used to compute each</p>
+<blockquote class="last">
+<div>transmission.</div></blockquote>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="package.IO.make_baseline">
+<tt class="descclassname">package.IO.</tt><tt class="descname">make_baseline</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#package.IO.make_baseline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Merge a list of fLC files.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>filelist (str): A list of fLC files.
+outfile (str): The name of the merged file.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="package.IO.make_quarter">
+<tt class="descclassname">package.IO.</tt><tt class="descname">make_quarter</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#package.IO.make_quarter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Merge a list of reduced data files.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>filelist (str): A list of reduced data files.
+outfile (str): The name of the merged file.</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="systematics.html"
+                        title="previous chapter">Systematics</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="plotting.html"
+                        title="next chapter">Plotting</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/IO.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="plotting.html" title="Plotting"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="systematics.html" title="Systematics"
+             >previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2016, Geert Jan Talens.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

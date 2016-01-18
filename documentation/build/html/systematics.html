@@ -1,0 +1,229 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Systematics &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="I/O" href="IO.html" />
+    <link rel="prev" title="Coordinates" href="coordinates.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="IO.html" title="I/O"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="coordinates.html" title="Coordinates"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="systematics">
+<h1>Systematics<a class="headerlink" href="#systematics" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="coarse-decorrelation">
+<h2>Coarse Decorrelation<a class="headerlink" href="#coarse-decorrelation" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="package.systematics.cdecor.cdecor">
+<tt class="descclassname">package.systematics.cdecor.</tt><tt class="descname">cdecor</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>value</em>, <em>error</em>, <em>maxiter=100</em>, <em>dtol=0.001</em>, <em>verbose=True</em><big>)</big><a class="headerlink" href="#package.systematics.cdecor.cdecor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a coarse decorrelation.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">idx1 (int): Indices along which to calculate the first parameter.
+idx2 (int): Indices along which to calculate the second parameter.
+value (float): Values to fit.
+error (float): Measurement errors corresponding to the values.
+maxiter (int): The maximum number of iterations to perform. Defualt</p>
+<blockquote>
+<div>is 100.</div></blockquote>
+<dl class="docutils">
+<dt>dtol (float): Maximum allowed change in the parameters, iteration</dt>
+<dd>terminates if the cahnge falls below this value. Default is 1e-3.</dd>
+</dl>
+<p class="last">verbose (bool): Output the current iteration. Default is True.</p>
+</dd>
+<dt>Returns:</dt>
+<dd><p class="first">par1 (float): The parameters corresponding to idx1.
+par2 (float): The parameters corresponding to idx2.
+quality: A named tuple with fields niter, chisq, npoints and npars</p>
+<blockquote class="last">
+<div>describing the number of iterations, the chi-square value, the
+number of datapoints and the number of parameters of the fit.</div></blockquote>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="package.systematics.cdecor.cdecor_intrapix">
+<tt class="descclassname">package.systematics.cdecor.</tt><tt class="descname">cdecor_intrapix</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>idx3</em>, <em>value</em>, <em>error</em>, <em>x</em>, <em>y</em>, <em>maxiter=100</em>, <em>dtol=0.001</em>, <em>verbose=True</em><big>)</big><a class="headerlink" href="#package.systematics.cdecor.cdecor_intrapix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a coarse decorrelation with intrapixel variations.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">idx1 (int): Indices along which to calculate the first parameter.
+idx2 (int): Indices along which to calculate the second parameter.
+idx3 (int): Indices along which to calculate the intrapixel variations.
+value (float): Values to fit.
+error (float): Measurement errors corresponding to the values.
+x (float): The x position corresponding to the values.
+y (float): The y position corresponding to the values. 
+maxiter (int): The maximum number of iterations to perform. Defualt</p>
+<blockquote>
+<div>is 100.</div></blockquote>
+<dl class="docutils">
+<dt>dtol (float): Maximum allowed change in the parameters, iteration</dt>
+<dd>terminates if the cahnge falls below this value. Default is 1e-3.</dd>
+</dl>
+<p class="last">verbose (bool): Output the current iteration. Default is True.</p>
+</dd>
+<dt>Returns:</dt>
+<dd><p class="first">par1 (float): The parameters corresponding to idx1.
+par2 (float): The parameters corresponding to idx2.
+par3 (float): The amplitudes of the intrapixel variations corresponding</p>
+<blockquote>
+<div>to idx3.</div></blockquote>
+<dl class="last docutils">
+<dt>quality: A named tuple with fields niter, chisq, npoints and npars</dt>
+<dd>describing the number of iterations, the chi-square value, the
+number of datapoints and the number of parameters of the fit.</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="package.systematics.cdecor.cdecor_sigmas">
+<tt class="descclassname">package.systematics.cdecor.</tt><tt class="descname">cdecor_sigmas</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>value</em>, <em>error</em>, <em>sigma1</em>, <em>sigma2</em>, <em>maxiter=100</em>, <em>dtol=0.001</em>, <em>verbose=True</em><big>)</big><a class="headerlink" href="#package.systematics.cdecor.cdecor_sigmas" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a coarse decorrelation with extra error terms.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">idx1 (int): Indices along which to calculate the first parameter.
+idx2 (int): Indices along which to calculate the second parameter.
+error (float): Measurement errors corresponding to the values.
+sigma1 (float): Initial value for the extra error corresponding to</p>
+<blockquote>
+<div>idx1.</div></blockquote>
+<dl class="docutils">
+<dt>sigma2 (float): Initial value for the extra error corresponding to</dt>
+<dd>idx2.</dd>
+<dt>maxiter (int): The maximum number of iterations to perform. Defualt</dt>
+<dd>is 100.</dd>
+<dt>dtol (float): Maximum allowed change in the parameters, iteration</dt>
+<dd>terminates if the cahnge falls below this value. Default is 1e-3.</dd>
+</dl>
+<p class="last">verbose (bool): Output the current iteration. Default is True.</p>
+</dd>
+<dt>Returns:</dt>
+<dd><p class="first">par1 (float): The parameters corresponding to idx1.
+par2 (float): The parameters corresponding to idx2.
+sigma1 (float): The extra error corresponding to idx1.
+sigma2 (float): The extra error corresponding to idx2.
+quality: A named tuple with fields niter, chisq, npoints and npars</p>
+<blockquote class="last">
+<div>describing the number of iterations, the chi-square value, the
+number of datapoints and the number of parameters of the fit.</div></blockquote>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Systematics</a><ul>
+<li><a class="reference internal" href="#coarse-decorrelation">Coarse Decorrelation</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="coordinates.html"
+                        title="previous chapter">Coordinates</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="IO.html"
+                        title="next chapter">I/O</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/systematics.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="IO.html" title="I/O"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="coordinates.html" title="Coordinates"
+             >previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2016, Geert Jan Talens.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

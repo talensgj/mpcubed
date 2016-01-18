@@ -8,7 +8,7 @@ Quality = namedtuple('Quality', 'niter chisq npoints npars')
 
 def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     """ Perform a coarse decorrelation.
-    
+
     Args:
         idx1 (int): Indices along which to calculate the first parameter.
         idx2 (int): Indices along which to calculate the second parameter.
@@ -19,14 +19,14 @@ def cdecor(idx1, idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
         dtol (float): Maximum allowed change in the parameters, iteration
             terminates if the cahnge falls below this value. Default is 1e-3.
         verbose (bool): Output the current iteration. Default is True.
-        
+
     Returns:
         par1 (float): The parameters corresponding to idx1.
         par2 (float): The parameters corresponding to idx2.
         quality: A named tuple with fields niter, chisq, npoints and npars
             describing the number of iterations, the chi-square value, the
             number of datapoints and the number of parameters of the fit.
-    
+
     """
     
     # Determine the number of datapoints and parameters to fit.

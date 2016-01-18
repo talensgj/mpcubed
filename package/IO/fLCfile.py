@@ -5,16 +5,32 @@ import h5py
 import numpy as np
 
 class fLCfile():
+    """ Read data from fLC files.
+    
+    Attributes:
+        fLCfile (str): The full path to the file.
+    
+    """
     
     def __init__(self, fLCfile):
-        """ Read data from a standard fLC file."""
+        """ Initialize a reader of fLC files.
+        
+        Args:
+            fLCfile (str): The full path to the file.
+        
+        """
         
         self.fLCfile = fLCfile
     
         return
         
     def read_global(self):
-        """ Read the global group."""
+        """ Read the global group.
+        
+        Returns:
+            data: A list of attribute (key, value) pairs.
+        
+        """
         
         with h5py.File(self.fLCfile, 'r') as f:
             data = f['global'].attrs.items()
@@ -22,7 +38,17 @@ class fLCfile():
         return data
         
     def read_header(self, fields, ascc=None):
-        """ Read the specified fields from the header_table."""
+        """ Read the specified fields from the header_table.
+        
+        Args:
+            fields (str): List of fieldnames.
+            ascc (str): List of ascc numbers for which the fields must be
+                returned. Default is None.
+        
+        Returns:
+            data: A list of data corresponding to the fields.
+        
+        """
         
         if ascc is None:
             
@@ -49,7 +75,20 @@ class fLCfile():
         return data
     
     def read_data(self, fields, ascc=None, nobs=None):
-        """ Read the specified fields from the lightcurves."""
+        """ Read the specified fields from the lightcurves.
+            
+            Args:
+                fields (str): List of fieldnames.
+                ascc (str): List of ascc numbers for which the fields must be
+                    returned. Default is None.
+                nobs (int): Array containning the number of points in each
+                    ligthcurve to be returned must correspond to ascc.
+                    Default is None.
+                    
+            Returns:
+                data: A lsit of data corresponding to the fields.
+                
+        """
         
         if ascc is None:
             # If no stars are specified read stars and nobs from the header.
@@ -76,7 +115,15 @@ class fLCfile():
         return data
            
     def read_star(self, ascc):
-        """ Read the lightcurve of the specified star."""
+        """ Read the lightcurve of the specified star.
+        
+        Args:
+            ascc (str): The star to read.
+        
+        Returns:
+            data: The full lightcurve of the star as a recarray.
+        
+        """
         
         with h5py.File(self.fLCfile, 'r') as f:
             data = f['data/' + ascc].value

@@ -77,6 +77,13 @@ def _merge_data(filelist, ascc):
     return lc
 
 def make_quarter(filelist, outfile):
+    """ Merge a list of reduced data files.
+    
+    Args:
+        filelist (str): A list of reduced data files.
+        outfile (str): The name of the merged file.
+        
+    """
     
     filelist = np.sort(filelist)
     

@@ -212,7 +212,13 @@ def _merge_data(filelist, ascc):
     return lc
 
 def make_baseline(filelist, outfile):
-    """ Merge a list of fLC files."""
+    """ Merge a list of fLC files.
+    
+    Args:
+        filelist (str): A list of fLC files.
+        outfile (str): The name of the merged file.
+        
+    """
 
     filelist = np.sort(filelist)
     filelist = verify_filelist(filelist)

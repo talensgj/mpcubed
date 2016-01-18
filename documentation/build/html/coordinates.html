@@ -1,0 +1,300 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Coordinates &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Systematics" href="systematics.html" />
+    <link rel="prev" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="systematics.html" title="Systematics"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="coordinates">
+<h1>Coordinates<a class="headerlink" href="#coordinates" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-package.coordinates.grids">
+<span id="grids"></span><h2>Grids<a class="headerlink" href="#module-package.coordinates.grids" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="package.coordinates.grids.CartesianGrid">
+<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">CartesianGrid</tt><big>(</big><em>nx</em>, <em>ny</em>, <em>Lx=4008</em>, <em>Ly=2672</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a cartesian coordinate grid.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd>nx (int): The resolution of the grid along the x-axis.
+ny (int): The resolution of the grid along the y-axis.
+xedges (float): The binedges of the grid along the x-axis.
+yedges (float): The binedges of the grid along the y-axis.
+npix (int): The total number of pixels on the grid.</dd>
+</dl>
+<dl class="method">
+<dt id="package.coordinates.grids.CartesianGrid.idx2xy">
+<tt class="descname">idx2xy</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.idx2xy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the indices of the gridcells to x, y coordinates.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx1 (float): The indices corresponding to the x-coordinates.
+idx2 (float): The indices corresponding to the y-coordinates.</dd>
+<dt>Returns:</dt>
+<dd>x (float): The central x-coordinates of the gridcells.
+y (float): The central y-coordinates of the gridcells.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.CartesianGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given grid indices and values return an array.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx1 (int): An array of indices along the x-axis.
+idx2 (int): An array of indices along the y-axis.
+values (float): An array of values corresponding to idx1, idx2. 
+fill_value (float): Value to fill unspecified cells with.</dd>
+<dt>Returns:</dt>
+<dd>array (float): An array corresponding to the grid.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.CartesianGrid.xy2idx">
+<tt class="descname">xy2idx</tt><big>(</big><em>x</em>, <em>y</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.xy2idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert x, y coordinates the the indices of gridcells.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>x (float): The x-coordinates.
+y (float): The y-coordinates.</dd>
+<dt>Returns:</dt>
+<dd>idx1 (int): The indices corresponding to the x-coordinates.
+idx2 (int): The indices corresponding to the y-coordinates.</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="package.coordinates.grids.HealpixGrid">
+<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">HealpixGrid</tt><big>(</big><em>nside</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a Healpix coordinate grid.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd><dl class="first docutils">
+<dt>nside (int): Determines the resolution of the grid for further</dt>
+<dd>information refer to the healpy documentation.</dd>
+</dl>
+<p class="last">npix (int): The total number of pixels on the grid.</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="package.coordinates.grids.HealpixGrid.idx2radec">
+<tt class="descname">idx2radec</tt><big>(</big><em>idx</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts gridcell indices the the ra, dec of the cell.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx (int): Gridcell indices.</dd>
+<dt>Returns:</dt>
+<dd>ra (float): The ra coordinates of each of the cells.
+dec (float): The dec coordinates of each of the cells.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.HealpixGrid.radec2idx">
+<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert ra, dec coordinates to indices on the grid.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>ra (float): An array of ra coordinates.
+dec (float): An array of dec coordinates.</dd>
+<dt>Returns:</dt>
+<dd><dl class="first last docutils">
+<dt>idx (int): The index of the gridcell to which each ra, dec pair</dt>
+<dd>belongs.</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.HealpixGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given grid indices and values return an array.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx (int): An array of gridcell indices.
+values (float): An array of values corresponding to idx. 
+fill_value (float): Value to fill unspecified cells with.</dd>
+<dt>Returns:</dt>
+<dd>array (float): An array corresponding to the grid.</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="package.coordinates.grids.PolarGrid">
+<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">PolarGrid</tt><big>(</big><em>nx</em>, <em>ny</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a polar coordinate grid.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd>nx (int): The resolution of the polargrid along the ra-axis.
+ny (int): The resolution of the polargrid along the dec-axis.
+xedges (float): The binedges of the grid along the ra-axis.
+yedges (float): The binedges of the grid along the dec-axis.
+npix (int): The total number of pixels on the grid.</dd>
+</dl>
+<dl class="method">
+<dt id="package.coordinates.grids.PolarGrid.idx2radec">
+<tt class="descname">idx2radec</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert indices on the grid to gridcell coordinates.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx1 (int): An array of cell indices along the ra-axis.
+idx2 (int): An array of cell indices along the dec-axis.</dd>
+<dt>Returns:</dt>
+<dd>ra (float): The ra coordinates of the gridcells.
+dec (float): The dec coordinates of the gridcells.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.PolarGrid.radec2idx">
+<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert ra, dec coordinates to indices on the grid.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>ra (float): An array of ra coordinates.
+dec (float): An array of dec coordinates.</dd>
+<dt>Returns:</dt>
+<dd>idx1 (int): First index of the cell, corresponds to ra.  
+idx2 (int): Second index of the cell, corresponds to dec.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="package.coordinates.grids.PolarGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given grid indices and values return an array.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx1 (int): An array of indices along the ra-axis.
+idx2 (int): An array of indices along the dec-axis.
+values (float): An array of values corresponding to idx1, idx2. 
+fill_value (float): Value to fill unspecified cells with.</dd>
+<dt>Returns:</dt>
+<dd>array (float): An array corresponding to the grid.</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Coordinates</a><ul>
+<li><a class="reference internal" href="#module-package.coordinates.grids">Grids</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to MASCARA raw lightcurve reduction and transit detection&#8217;s documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="systematics.html"
+                        title="next chapter">Systematics</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/coordinates.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="systematics.html" title="Systematics"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2016, Geert Jan Talens.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

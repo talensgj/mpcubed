@@ -19,14 +19,27 @@ rcParams['axes.titlesize'] = 'xx-large'
 from .. import IO
 
 class fLCplot():
+    """ Plot data from an fLC file.
+    
+    Attributes:
+        fLCfile (str): The fLC file to read the data from.
+    
+    """
     
     def __init__(self, fLCfile):
+        """ Initialize a plotter of fLC files.
+        
+        Args:
+            fLCfile (str): The fLC file to read the data from.
+            
+        """
         
         self.fLCfile = fLCfile
         
         return
         
     def plot_coverage(self):
+        """ Plot the sky coverage of the data in the file.""" 
         
         f = IO.fLCfile(self.fLCfile)
         ra, dec, nobs = f.read_header(['ra', 'dec', 'nobs'])
@@ -54,6 +67,12 @@ class fLCplot():
         return
 
     def plot_star(self, ascc):
+        """ Plot an overview of the lightcurve for a particular star.
+        
+        Args:
+            ascc (str): The star to plot.
+        
+        """
         
         f = IO.fLCfile(self.fLCfile)
         lc = f.read_star(ascc)
@@ -97,6 +116,17 @@ class fLCplot():
         return
 
     def plot_as_array(self, ascc, field):
+        """ Plot the data of a particular star as an array.
+        
+        This function is intended for merged fLC files and
+        will plot each night as a row in a figure where the rows
+        are the lstday and the columns are the lstidx.
+        
+        Args:
+            ascc (str): The star to plot data from.
+            field (str): The lightcurve field to plot.
+        
+        """
         
         f = IO.fLCfile(self.fLCfile)
         lc = f.read_star(ascc)
