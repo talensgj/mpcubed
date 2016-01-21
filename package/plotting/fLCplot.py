@@ -18,7 +18,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 
 from .. import IO
 
-class fLCplot():
+class fLCplot(object):
     """ Plot data from an fLC file.
     
     Attributes:

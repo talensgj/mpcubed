@@ -6,7 +6,7 @@ import numpy as np
 
 from ..coordinates import grids
 
-class SysFile():
+class SysFile(object):
     """ Read data from systematics files.
     
     Attributes:

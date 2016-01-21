@@ -4,7 +4,7 @@
 import h5py
 import numpy as np
 
-class fLCfile():
+class fLCfile(object):
     """ Read data from fLC files.
     
     Attributes:

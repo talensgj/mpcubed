@@ -15,7 +15,7 @@ from systematics import cdecor
 from statistics import statistics
 
     
-class CoarseDecorrelation():
+class CoarseDecorrelation(object):
     
     def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
         """ Perform a coarse decorrelation on all data in a given file."""

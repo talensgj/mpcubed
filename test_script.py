@@ -4,47 +4,48 @@
 import os
 import multiprocessing as mp
 
-from package import IO
+from time import time
+
 from package.red_decor import CoarseDecorrelation
 from package.red_apply import CorrectLC
 
-def ensure_dir(path):
+def reduction(LBfile):
     
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
+    # Perform coarse decorrelation.
+    CoarseDecorrelation(LBfile, 0)
+    
+    # Create reduced lightcurves.
+    f = CorrectLC(LBfile, 0)
+    redfile = f.make_redfile()
+
     return
 
-def twoweek_baseline(date, camera, mode, filepath, outpath):
-    
-    if (mode == 0):
-        part = 'A'
-        dates = [date + '%.2i'%i + camera for i in range(1, 16)]
-    elif (mode == 1):
-        part = 'B'
-        dates = [date + '%.2i'%i + camera for i in range(16, 32)]
-    elif (mode == 2):
-        part = ''
-        dates = [date + '%.2i'%i + camera for i in range(1, 32)]
-    else:
-        print 'Unknown value for mode.'
-        print 'exiting...'
-        exit()
-        
-    outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
-    filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
-    
-    IO.make_baseline(filelist, outfile)
-    
-    return outfile
+ref = ['/data2/talens/inj_signals/reference/fLC_201504ALPE.hdf5',
+           '/data2/talens/inj_signals/reference/fLC_201504BLPE.hdf5',
+           '/data2/talens/inj_signals/reference/fLC_201505ALPE.hdf5',
+           '/data2/talens/inj_signals/reference/fLC_201505BLPE.hdf5',
+           '/data2/talens/inj_signals/reference/fLC_201506ALPE.hdf5',
+           '/data2/talens/inj_signals/reference/fLC_201506BLPE.hdf5']
+           
+start = time()
+pool = mp.Pool(processes = 6)
+for i in range(6):
+    pool.apply_async(reduction, args = (ref[i],))
+pool.close()
+pool.join()
+print time() - start
 
-LBfile = '/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5'
-    
-# Perform coarse decorrelation.
-CoarseDecorrelation(LBfile, 0)
+inj = ['/data2/talens/inj_signals/signals/fLC_201504ALPE.hdf5',
+           '/data2/talens/inj_signals/signals/fLC_201504BLPE.hdf5',
+           '/data2/talens/inj_signals/signals/fLC_201505ALPE.hdf5',
+           '/data2/talens/inj_signals/signals/fLC_201505BLPE.hdf5',
+           '/data2/talens/inj_signals/signals/fLC_201506ALPE.hdf5',
+           '/data2/talens/inj_signals/signals/fLC_201506BLPE.hdf5']
 
-# Create reduced lightcurves.
-f = CorrectLC(LBfile, 0)
-redfile = f.make_redfile()
-
-print redfile
+start = time()
+procs = [mp.Process(target=reduction, args = (inj[i],)) for i in range(6)]
+for p in procs:
+    p.start()
+for p in procs:
+    p.join()
+print time() - start

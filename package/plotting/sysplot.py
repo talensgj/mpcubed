@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -18,7 +20,7 @@ rcParams['axes.titlesize'] = 'xx-large'
 import mascara
 from .. import IO
 
-class SysPlot():
+class SysPlot(object):
     """ Plot the data from a systematics file.
     
     Attributes:
@@ -139,7 +141,7 @@ class SysPlot():
         
         return
     
-    def plot_magnitudes(self):
+    def plot_magnitudes(self, display=True, savefig=False):
         """ Plot the fitted magnitudes against the catalogue V magnitude. """
         
         # Read the data.
@@ -161,12 +163,18 @@ class SysPlot():
         plt.ylabel('M [mag]')
         
         plt.tight_layout()
-        plt.show()
+        if savefig:
+            head, tail = os.path.split(self.sysfile)
+            suffix = '_mag.png'
+            tail = tail.rsplit('.')[0] + suffix
+            plt.savefig(os.path.join(head, tail))
+        if display:
+            plt.show()
         plt.close()
         
         return
     
-    def plot_trans(self):
+    def plot_trans(self, display=True, savefig=False):
         """ Plot the fitted transmission map as a function of x and y. """
         
         # Read the data.
@@ -206,7 +214,13 @@ class SysPlot():
         cb = plt.colorbar(im, cax = cax)
         
         plt.tight_layout()
-        plt.show()
+        if savefig:
+            head, tail = os.path.split(self.sysfile)
+            suffix = '_trans.png'
+            tail = tail.rsplit('.')[0] + suffix
+            plt.savefig(os.path.join(head, tail))
+        if display:
+            plt.show()
         plt.close()
         
         # Create the nobs plot.
@@ -232,7 +246,7 @@ class SysPlot():
         
         return
         
-    def plot_intrapix(self):
+    def plot_intrapix(self, display=True, savefig=False):
         """ Plot the fitted amplitude maps as a function of x and y. """
         
         # Read the data.
@@ -300,7 +314,13 @@ class SysPlot():
         cb.set_label('Amplitude')
         
         plt.tight_layout()
-        plt.show()
+        if savefig:
+            head, tail = os.path.split(self.sysfile)
+            suffix = '_ipx.png'
+            tail = tail.rsplit('.')[0] + suffix
+            plt.savefig(os.path.join(head, tail))
+        if display:
+            plt.show()
         plt.close()
         
         # Create the nobs plot.
