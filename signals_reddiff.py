@@ -35,19 +35,24 @@ for i in range(len(ascc)):
 
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
         grp = f['data/' + ascc[i]]
-        jdmid_ref = grp['jdmid'].value
-        mag0_ref = grp['mag0'].value
+        jdmid_inj = grp['jdmid'].value
+        mag0_inj = grp['mag0'].value
 
     # Result.
     phase = np.mod((jdmid_ref - Tp[i])/P[i], 1)
     phase = np.mod(phase + .5, 1) - .5
-    result = jdmid_inj - jdmid_ref
+    result = mag0_ref - mag0_inj
     
     # Model.
-    time = np.linspace(0, P[i], 500)
+    time = np.linspace(0, P[i], 1000)
     model = transit.softened_box_model(time, P[i], Tp[i], delta[i], eta[i])
+    model = model*2.5/np.log(10.)
     mphase = np.mod((time - Tp[i])/P[i], 1)
     mphase = np.mod(mphase + .5, 1) - .5
+    
+    sort = np.argsort(mphase)
+    mphase = mphase[sort]
+    model = model[sort]
     
     # Plot the result.
     plt.figure(figsize = (18, 5))
@@ -59,7 +64,8 @@ for i in range(len(ascc)):
     plt.xlim(-.5, .5)
     plt.ylim(-.1, .1)
     plt.xlabel('Phase')
-    plt.ylabel(r'$\delta m$')
+    plt.ylabel(r'$\Delta m$')
     
     plt.tight_layout()
-    plt.show()
+    plt.savefig('/data2/talens/inj_signals/signals/red_diff/ASCC{}.png'.format(ascc[i]))
+    plt.close()
