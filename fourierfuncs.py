@@ -40,6 +40,15 @@ def lst_trend(idx, x, y, freq, nf, weights, maxiter=10):
         
     return pars1, pars2, fit1 + fit2
 
+def fourier_fit2(x, y, freq, nf, weights):
+    
+    fmat = fourier_mat(x, freq, nf)
+    
+    pars = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
+    fit = np.dot(fmat, pars)
+    
+    return pars, fit
+
 if __name__ == '__main__':
     
     import matplotlib.pyplot as plt

@@ -391,7 +391,7 @@ def BLS(time, flux, flux_err, **options):
     # Calculate the number of bins in the sampling grid.
     nbins = np.ceil((Qmin*ES)/q)
     #nbins = np.minimum(nbins, len(time))
-    print len(time)
+
     time = time - time[0]
     
     #dchisq = np.zeros((nfreq,np.shape(flux)[1]))
@@ -415,8 +415,6 @@ def BLS(time, flux, flux_err, **options):
         s_cum = cumsum_to_grid(phase_fold, bins, flux_fold*weights_fold)
         q_cum = cumsum_to_grid(phase_fold, bins, flux_fold**2*weights_fold)
         
-        print nbins[i], NumSteps, ES
-        
         r_cum = np.append(r_cum, r_cum[1:NumSteps*ES+1] + r_cum[-1], axis=0)
         s_cum = np.append(s_cum, s_cum[1:NumSteps*ES+1] + s_cum[-1], axis=0)
         q_cum = np.append(q_cum, q_cum[1:NumSteps*ES+1] + q_cum[-1], axis=0)
@@ -428,8 +426,6 @@ def BLS(time, flux, flux_err, **options):
         i2 = i1+(i2+1)*ES
        
         # Compute arrays of r and s values.
-        print r_cum.shape, s_cum.shape, q_cum.shape
-        print i2-i1
         r = r_cum[i2] - r_cum[i1 - 1]
         s = s_cum[i2] - s_cum[i1 - 1]
         q = q_cum[i2] - q_cum[i1 - 1]

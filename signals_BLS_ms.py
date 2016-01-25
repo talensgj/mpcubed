@@ -34,8 +34,11 @@ MAG0 = np.array([])
 EMAG0 = np.array([])
 LSTSEQ = np.array([])
 STARIDX = np.array([], dtype='int')
-flag = np.zeros(500)
-for i in range(50):
+
+nstars = 500
+
+flag = np.zeros(nstars)
+for i in range(nstars):
 
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
         grp = f['data/' + ascc[i]]
@@ -74,27 +77,28 @@ lstseq, args, idx = np.unique(LSTSEQ, return_index=True, return_inverse=True)
 jdmid = JDMID[args]
 ntimes = len(lstseq)
 
-mag0 = np.full((50, ntimes), fill_value = np.nan)
+mag0 = np.full((nstars, ntimes), fill_value = np.nan)
 mag0[STARIDX, idx] = MAG0
 
-emag0 = np.full((50, ntimes), fill_value = np.nan)
+emag0 = np.full((nstars, ntimes), fill_value = np.nan)
 emag0[STARIDX, idx] = EMAG0
 
 freq, dchisq, depth, hchisq = BLS_ms(jdmid, mag0.T, emag0.T)
 
-print dchisq.shape
 args = np.argmax(dchisq, axis=0)
-print len(args)
 Prec = 1/freq[args]
+
+print P
+print Prec
 
 here = flag==0
 
 plt.subplot(111, aspect='equal')
-plt.scatter(P[:50], Prec, c=flag)
-plt.plot(P[here], P[here], c='g')
-plt.plot(P[here], P[here], c='r')
+plt.plot(P[here], Prec[here], ls='.', c='g')
+plt.plot(P[here], Prec[here], ls='.', c='r')
+plt.plot(P, P, c='k')
 plt.plot(P, .5*P, c='k')
 plt.plot(P, 2*P, c='k')
 plt.xlim(0, 15)
 plt.ylim(0, 30)
-plt.show()
+plt.savefig('/home/talens/BLS_ms.png')

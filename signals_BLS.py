@@ -18,8 +18,35 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
-from fourierfuncs import fourier_fit
-from BLS_ms import BLS
+from fourierfuncs import fourier_fit, lst_trend, fourier_fit2
+from boxlstsq import boxlstsq
+
+def filter1(lst, mag0, emag0):
+    
+    pars, fit = fourier_fit(lst, mag0, 1/6., 5, 1/(emag0**2))
+
+    mag0 = mag0 - fit
+    
+    return mag0
+        
+def filter2(dayidx, lst, mag0, emag0):
+    
+    pars1, pars2, fit = lst_trend(dayidx, lst, mag0, 1/6., 5, 1/(emag0**2))
+
+    mag0 = mag0 - fit
+    
+    return mag0
+
+def filter3(jdmid, lst, mag0, emag0):
+        
+    fit2 = np.zeros(len(mag0))
+    for i in range(10):
+        pars1, fit1 = fourier_fit(lst, mag0 - fit2, 1/6., 5, 1/(emag0**2))
+        pars2, fit2 = fourier_fit2(jdmid, mag0 - fit1, 1/(2*np.ptp(jdmid)), 10, 1/(emag0**2))
+        
+    mag0 = mag0 - fit1 - fit2
+
+    return mag0
 
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
@@ -29,10 +56,11 @@ with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f
     Tp = f['Tp'].value
     eta = f['mu'].value
  
-Prec = np.zeros(len(P))
-flag = np.zeros(len(P))
+nstars = 500
+Prec = np.zeros(nstars)
+flag = np.zeros(nstars)
 
-for i in [214]:
+for i in range(nstars):
     
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
         grp = f['data/' + ascc[i]]
@@ -44,67 +72,76 @@ for i in [214]:
 
     emag0 = emag0/np.sqrt(nobs)
 
-    BL = np.ptp(jdmid)
-    if (P[i] > BL/9.):
-        flag[i] = 1
-        print 'Warning transit may not be detectable.'
-
     select = (nobs == 50) & (emag0 < .05)
     jdmid = jdmid[select]
     mag0 = mag0[select]
     emag0 = emag0[select]
     lst = lst[select]
     
+    BL = np.ptp(jdmid)
+    if (P[i] > BL/9.):
+        flag[i] = 1
+        print 'Warning transit may not be detectable.'
+    
+    tmp = np.floor(jdmid).astype('int')
+    dayidx = tmp - np.amin(tmp)
+    
     # Remove lst variations.
-    pars, fit = fourier_fit(lst, mag0, 1/6., 5, 1/(emag0**2))
-    mag0 = mag0 - fit
+    mag0 = filter3(jdmid, lst, mag0, emag0)
     
-    ## Model.
-    #time = np.linspace(0, P[i], 1000)
-    #model = transit.softened_box_model(time, P[i], Tp[i], delta[i], eta[i])
-    #model = model*2.5/np.log(10.)
-    #mphase = np.mod((time - Tp[i])/P[i], 1)
-    #mphase = np.mod(mphase + .5, 1) - .5
-    
-    #sort = np.argsort(mphase)
-    #mphase = mphase[sort]
-    #model = model[sort]
-    
-    #phase = np.mod((jdmid - Tp[i])/P[i], 1)
-    #phase = np.mod(phase + .5, 1) - .5
-    
-    ## Plot the result.
-    #plt.figure(figsize = (18, 5))
-    
-    #plt.subplot(111)
-    #plt.title(r'ASCC {}, $V = {:.1f}$, $\delta = {:.3f}$, $P = {:.3f}$'.format(ascc[i], vmag[i], delta[i], P[i]))
-    #plt.plot(phase, -mag0, '.')
-    #plt.plot(mphase, model)
-    #plt.xlim(-.5, .5)
-    #plt.ylim(-.1, .1)
-    #plt.xlabel('Phase')
-    #plt.ylabel(r'$\Delta m$')
-    
-    #plt.tight_layout()
-    #plt.show()
-    ##plt.savefig('/data2/talens/inj_signals/signals/fourier5/ASCC{}.png'.format(ascc[i]))
-    #plt.close()
-
     # Compute the BLS
     print 'ITERATION', i
-    freq, dchisq, depth, hchisq = BLS(jdmid, mag0, emag0)
+    freq, dchisq, depth, hchisq = boxlstsq(jdmid, mag0, emag0)
     
     arg = np.nanargmax(dchisq)
-    Prec[i] = freq[arg]
+    Prec[i] = 1/freq[arg]
 
-here = flag==0
+    # Plot the result.
+    phase1 = np.mod(jdmid*freq[arg], 1)
+    phase2 = np.mod(jdmid/P[i], 1)
+    
+    plt.figure(figsize = (16,8))
+    
+    plt.subplot(311)
+    plt.title(r'ASCC {}, $V = {:.1f}$, $\delta = {:.3f}$, $P = {:.3f}$'.format(ascc[i], vmag[i], delta[i], P[i]))
+    plt.plot(freq, dchisq, c='k')
+    plt.axvline(1/P[i], c='g')
+    plt.axvline(1/Prec[i], c='r')
+    plt.xlabel(r'Frequency [day$^{-1}$]')
+    plt.ylabel(r'$\Delta\chi^2$')
+    
+    plt.subplot(312)
+    plt.plot(phase1, -mag0, '.')
+    plt.ylim(-.1, .1)
+    plt.xlabel('Phase')
+    plt.ylabel(r'$\Delta m$')
+    
+    plt.subplot(313)
+    plt.plot(phase2, -mag0, '.')
+    plt.ylim(-.1, .1)
+    plt.xlabel('Phase')
+    plt.ylabel(r'$\Delta m$')
+    
+    plt.tight_layout()
+    plt.savefig('/data2/talens/inj_signals/signals/filter3/ASCC{}.png'.format(ascc[i]))
+    #plt.show()
+    plt.close()
 
-plt.subplot(111, aspect='equal')
-plt.scatter(P, Prec, c=flag)
-plt.plot(P[here], P[here], c='g')
-plt.plot(P[here], P[here], c='r')
-plt.plot(P, .5*P, c='k')
-plt.plot(P, 2*P, c='k')
+# Plot periods.
+P = P[:nstars]
+here = (flag == 0)
+x = np.array([1,15])
+
+plt.subplot(111)
+plt.scatter(P[here], Prec[here], c='g')
+plt.scatter(P[~here], Prec[~here], c='r')
+plt.plot(x, x, c='k')
+plt.plot(x, .5*x, c='k')
+plt.plot(x, 2*x, c='k')
 plt.xlim(0, 15)
 plt.ylim(0, 30)
+plt.xlabel('P [days]')
+plt.ylabel(r'P$_{\rm{rec}}$ [days]')
+plt.tight_layout()
+plt.savefig('/data2/talens/inj_signals/signals/filter3.png')
 plt.show()
