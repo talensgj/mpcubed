@@ -194,9 +194,9 @@ class SysPlot(object):
         x, y = self._hadec2xy(ha, dec)
         
         # Create the transmission plot.
-        fig = plt.figure(figsize=(13,9))
+        fig = plt.figure(figsize=(14,9))
 
-        plt.suptitle('Transmission', size='xx-large')
+        plt.suptitle('Transmission 2015-06 East', size='xx-large')
 
         gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
@@ -212,6 +212,8 @@ class SysPlot(object):
         
         cax = plt.subplot(gs[1,1])
         cb = plt.colorbar(im, cax = cax)
+        cb.ax.invert_yaxis()
+        cb.set_label(r'$\Delta m$')
         
         plt.tight_layout()
         if savefig:
@@ -366,8 +368,8 @@ class SysPlot(object):
             #plt.show()
             #plt.close()
             
-        xedges = np.linspace(0, 4008, 3*167)
-        yedges = np.linspace(0, 2672, 2*167)
+        xedges = np.linspace(0, 4008, 3*75)
+        yedges = np.linspace(0, 2672, 2*75)
             
         xcenter = (xedges[:-1] + xedges[1:])/2.
         ycenter = (yedges[:-1] + yedges[1:])/2.
@@ -375,9 +377,10 @@ class SysPlot(object):
         xcenter, ycenter = np.meshgrid(xcenter, ycenter)
         ha, dec = self._xy2hadec(xcenter, ycenter)
         
-        for i in range(0, clouds.shape[1], 50):
+        for i in range(0, clouds.shape[1]):
             
             if np.all(np.isnan(clouds[:,i])): continue
+            print i + lstmin
             
             lst = ((i + lstmin) % 13500)*24./13500
             ra = np.mod(lst*15. - ha, 360.)
@@ -386,13 +389,14 @@ class SysPlot(object):
             array = clouds[idx, i]
             array = np.ma.masked_invalid(array)
             
-            fig = plt.figure(figsize=(13,9))
+            fig = plt.figure(figsize=(14,9))
 
-            plt.suptitle('Clouds.', size='xx-large')
+            plt.suptitle('Clouds 2015-06 East', size='xx-large')
 
             gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
             
             plt.subplot(gs[1,0], aspect='equal')
+            plt.annotate('seq = {}'.format(i + lstmin), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='large', backgroundcolor='w')
             
             im = plt.pcolormesh(xedges, yedges, array, cmap=viridis, vmin=-.5, vmax=.5)
             self._add_hadecgrid()
@@ -401,9 +405,12 @@ class SysPlot(object):
             
             cax = plt.subplot(gs[1,1])
             cb = plt.colorbar(im, cax = cax)
+            cb.ax.invert_yaxis()
+            cb.set_label(r'$\Delta m$')
             
             plt.tight_layout()
-            plt.show()
+            plt.savefig('/data2/talens/clouds/img_{}.png'.format(i+lstmin))
+            #plt.show()
             plt.close()
             
         return

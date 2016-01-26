@@ -47,6 +47,17 @@ def filter3(jdmid, lst, mag0, emag0):
     mag0 = mag0 - fit1 - fit2
 
     return mag0
+    
+def filter4(jdmid, lst, mag0, emag0):
+        
+    fit2 = np.zeros(len(mag0))
+    for i in range(10):
+        pars1, fit1 = fourier_fit(lst, mag0 - fit2, 1/6., 5, 1/(emag0**2))
+        pars2, fit2 = fourier_fit2(jdmid, mag0 - fit1, 1/(2*np.ptp(jdmid)), 20, 1/(emag0**2))
+        
+    mag0 = mag0 - fit1 - fit2
+
+    return mag0
 
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
@@ -144,4 +155,3 @@ plt.xlabel('P [days]')
 plt.ylabel(r'P$_{\rm{rec}}$ [days]')
 plt.tight_layout()
 plt.savefig('/data2/talens/inj_signals/signals/filter3.png')
-plt.show()
