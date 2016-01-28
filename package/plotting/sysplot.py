@@ -7,6 +7,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import cm
 from matplotlib import rcParams
 from viridis import viridis
 
@@ -196,7 +197,7 @@ class SysPlot(object):
         # Create the transmission plot.
         fig = plt.figure(figsize=(14,9))
 
-        plt.suptitle('Transmission 2015-06 East', size='xx-large')
+        plt.suptitle('Transmission 2015-06-A East', size='xx-large')
 
         gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
@@ -204,8 +205,11 @@ class SysPlot(object):
         
         vmin = np.nanpercentile(trans, 1)
         vmax = np.nanpercentile(trans, 99)
+        delta = vmax - vmin
+        vmin = vmin - .01*delta
+        vmax = vmax + .01*delta
         
-        im = plt.pcolormesh(x, y, trans.T, cmap=viridis, vmin=vmin, vmax=vmax)
+        im = plt.pcolormesh(x, y, trans.T, cmap=cm.Greys, vmin=vmin, vmax=vmax)
         self._add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
@@ -213,16 +217,41 @@ class SysPlot(object):
         cax = plt.subplot(gs[1,1])
         cb = plt.colorbar(im, cax = cax)
         cb.ax.invert_yaxis()
-        cb.set_label(r'$\Delta m$')
+        cb.set_label('Magnitude')
         
         plt.tight_layout()
-        if savefig:
-            head, tail = os.path.split(self.sysfile)
-            suffix = '_trans.png'
-            tail = tail.rsplit('.')[0] + suffix
-            plt.savefig(os.path.join(head, tail))
-        if display:
-            plt.show()
+        #if savefig:
+            #head, tail = os.path.split(self.sysfile)
+            #suffix = '_trans.png'
+            #tail = tail.rsplit('.')[0] + suffix
+            #plt.savefig(os.path.join(head, tail))
+        #if display:
+            #plt.show()
+        plt.savefig('/home/talens/201506ALPE_transmap.png')
+        plt.close()
+        
+        # Create plot showing only gridlines.
+        fig = plt.figure(figsize=(13,9))
+
+        plt.suptitle('East, Equatorial Coordinates', size='xx-large')
+
+        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+        
+        plt.subplot(gs[1,0], aspect='equal')
+        
+        x, y = self._hadec2xy(np.linspace(0,360,100), np.repeat(22.6, 100))
+        plt.plot(x, y, c='r')
+        
+        #im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
+        self._add_hadecgrid()
+        plt.xlim(0, 4008)
+        plt.ylim(0, 2672)
+        
+        #cax = plt.subplot(gs[1,1])
+        #cb = plt.colorbar(im, cax = cax)
+        
+        plt.tight_layout()
+        plt.show()
         plt.close()
         
         # Create the nobs plot.
@@ -368,8 +397,8 @@ class SysPlot(object):
             #plt.show()
             #plt.close()
             
-        xedges = np.linspace(0, 4008, 3*75)
-        yedges = np.linspace(0, 2672, 2*75)
+        xedges = np.linspace(0, 4008, 3*167)
+        yedges = np.linspace(0, 2672, 2*167)
             
         xcenter = (xedges[:-1] + xedges[1:])/2.
         ycenter = (yedges[:-1] + yedges[1:])/2.
@@ -377,7 +406,7 @@ class SysPlot(object):
         xcenter, ycenter = np.meshgrid(xcenter, ycenter)
         ha, dec = self._xy2hadec(xcenter, ycenter)
         
-        for i in range(0, clouds.shape[1]):
+        for i in range(12036700-lstmin, 12039236-lstmin+1):
             
             if np.all(np.isnan(clouds[:,i])): continue
             print i + lstmin
@@ -391,14 +420,14 @@ class SysPlot(object):
             
             fig = plt.figure(figsize=(14,9))
 
-            plt.suptitle('Clouds 2015-06 East', size='xx-large')
+            plt.suptitle('Clouds 2015-06-08 East', size='xx-large')
 
             gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
             
             plt.subplot(gs[1,0], aspect='equal')
             plt.annotate('seq = {}'.format(i + lstmin), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='large', backgroundcolor='w')
             
-            im = plt.pcolormesh(xedges, yedges, array, cmap=viridis, vmin=-.5, vmax=.5)
+            im = plt.pcolormesh(xedges, yedges, array, cmap=cm.Greys, vmin=-.25, vmax=.25)
             self._add_hadecgrid()
             plt.xlim(0, 4008)
             plt.ylim(0, 2672)
@@ -406,10 +435,10 @@ class SysPlot(object):
             cax = plt.subplot(gs[1,1])
             cb = plt.colorbar(im, cax = cax)
             cb.ax.invert_yaxis()
-            cb.set_label(r'$\Delta m$')
+            cb.set_label('Magnitude')
             
             plt.tight_layout()
-            plt.savefig('/data2/talens/clouds/img_{}.png'.format(i+lstmin))
+            plt.savefig('/data2/talens/clouds/img_{}.png'.format(i+lstmin), dpi=160)
             #plt.show()
             plt.close()
             

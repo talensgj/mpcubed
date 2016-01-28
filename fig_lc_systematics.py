@@ -21,10 +21,10 @@ rcParams['image.interpolation'] = 'nearest'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-f = plotting.SysPlot('/data2/talens/inj_signals/reference/sys0_201506ALPE.hdf5')
+#f = plotting.SysPlot('/data2/talens/inj_signals/reference/sys0_201506ALPE.hdf5')
 #f.plot_trans()
-f.plot_clouds()
-exit()
+#f.plot_clouds()
+
 f = IO.fLCfile('/data2/talens/inj_signals/reference/fLC_201506ALPE.hdf5')
 lc = f.read_star('807144')
 

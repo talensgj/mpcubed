@@ -89,8 +89,8 @@ class CorrectLC():
         # Flag data where the correction may not be good.
         flags = np.where(np.isnan(correction), 1, 0)
         flags = flags + np.where((self.nobs_trans[camidx, decidx] < 25) | (self.nobs_ipx[ipxidx, decidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
-        #if self.sigma is not None:
-            #flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
+        if self.sigma is not None:
+            flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
         
         return trans, intrapix, clouds, flags
 

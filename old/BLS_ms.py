@@ -331,7 +331,7 @@ def BLS(time, flux, flux_err, **options):
     R *= Rsun # [m]
     
     # Defaults for remaining keyword arguments.
-    fmin = 2./S # Two transits in timespan.
+    fmin = 3./S # Two transits in timespan.
     fmax = 1./(2.*np.pi)*np.sqrt(G*M/(3.*R)**3.) # Smallest orbit determined by the Hill radius.
     OS = 3 # Frequency oversampling.
     ES = 3 # Transit epoch sampling.

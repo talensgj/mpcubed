@@ -18,7 +18,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
-from fourierfuncs import fourier_fit, lst_trend, fourier_fit2
+from fourierfuncs import fourier_fit, lst_trend, fourier_fit2, fourier_mat
 from boxlstsq import boxlstsq
 
 def filter1(lst, mag0, emag0):
@@ -59,6 +59,20 @@ def filter4(jdmid, lst, mag0, emag0):
 
     return mag0
 
+def filter5(jdmid, lst, mag0, emag0):
+    
+    n = np.floor(2*np.ptp(jdmid)/3.).astype('int')
+    
+    mat1 = fourier_mat(lst, 1/24., 5)
+    mat2 = fourier_mat(jdmid, 1/(2*np.ptp(jdmid)), n)
+    fmat = np.hstack([np.ones((len(mag0),1)), mat1, mat2])
+    weights = 1/emag0**2
+    
+    pars = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), mag0*np.sqrt(weights))[0]
+    fit = np.dot(fmat, pars)
+    
+    return mag0 - fit
+
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
     vmag = f['vmag'].value
@@ -89,6 +103,10 @@ for i in range(nstars):
     emag0 = emag0[select]
     lst = lst[select]
     
+    if len(jdmid) < 50:
+        Prec[i] = np.nan
+        continue
+    
     BL = np.ptp(jdmid)
     if (P[i] > BL/9.):
         flag[i] = 1
@@ -98,7 +116,7 @@ for i in range(nstars):
     dayidx = tmp - np.amin(tmp)
     
     # Remove lst variations.
-    mag0 = filter3(jdmid, lst, mag0, emag0)
+    mag0 = filter5(jdmid, lst, mag0, emag0)
     
     # Compute the BLS
     print 'ITERATION', i
@@ -134,7 +152,7 @@ for i in range(nstars):
     plt.ylabel(r'$\Delta m$')
     
     plt.tight_layout()
-    plt.savefig('/data2/talens/inj_signals/signals/filter3/ASCC{}.png'.format(ascc[i]))
+    plt.savefig('/data2/talens/inj_signals/signals/filter5/ASCC{}.png'.format(ascc[i]))
     #plt.show()
     plt.close()
 
@@ -154,4 +172,4 @@ plt.ylim(0, 30)
 plt.xlabel('P [days]')
 plt.ylabel(r'P$_{\rm{rec}}$ [days]')
 plt.tight_layout()
-plt.savefig('/data2/talens/inj_signals/signals/filter3.png')
+plt.savefig('/data2/talens/inj_signals/signals/filter5.png')

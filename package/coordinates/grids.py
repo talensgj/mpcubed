@@ -68,7 +68,7 @@ class PolarGrid(object):
     def _idx2ra(self, idx):
         
         ra = np.full(self.nx+2, fill_value=np.nan)
-        ra[1:-1] = (self.xedges[:-1] + self.yedges[1:])/2.
+        ra[1:-1] = (self.xedges[:-1] + self.xedges[1:])/2.
         
         return ra[idx]
         
