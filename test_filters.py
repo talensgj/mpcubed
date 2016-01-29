@@ -18,27 +18,53 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
+from package.models import transit
 import fourierfuncs
 
-def filter1(lst, mag0, emag0):
+def harmonics_filter(jdmid, lst, mag0, emag0, Pjd, njd, Plst=24., nlst=5):
     
-    pars, fit = fourierfuncs.fourier_fit(lst, mag0, 1./24, 5, 1/emag0**2)
-
-    return pars, fit
-    
-def filter2(jdmid, lst, mag0, emag0):
-    
-    n = np.floor(2*np.ptp(jdmid)/3.).astype('int')
-    
-    mat1 = fourierfuncs.fourier_mat(lst, 1/24., 5)
-    mat2 = fourierfuncs.fourier_mat(jdmid, 1/(2*np.ptp(jdmid)), n)
-    fmat = np.hstack([np.ones((len(mag0),1)), mat1, mat2])
     weights = 1/emag0**2
+    
+    fmat = np.ones((len(mag0),1))
+    
+    if (njd > 0):
+        mat_jd = fourierfuncs.fourier_mat(jdmid, 1/Pjd, njd)
+        fmat = np.hstack([fmat, mat_jd])
+        
+    if (nlst > 0):
+        mat_lst = fourierfuncs.fourier_mat(lst, 1/Plst, nlst)
+        fmat = np.hstack([fmat, mat_lst])
     
     pars = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), mag0*np.sqrt(weights))[0]
     fit = np.dot(fmat, pars)
     
-    return pars, fit
+    chisq = np.sum(weights*(mag0 - fit)**2)/(len(mag0) - len(pars))
+    
+    return chisq, pars, fit
+
+def avg_filter(jdmid, lstseq, mag0, emag0, Pjd, njd):
+    
+    weights = 1/emag0**2
+    idx = lstseq%270
+    
+    fmat = np.ones((len(mag0),1))
+    if (njd > 0):
+        mat_jd = fourierfuncs.fourier_mat(jdmid, 1/Pjd, njd)
+        fmat = np.hstack([fmat, mat_jd])
+    
+    fit2 = np.zeros(len(mag0))
+    for i in range(10):
+        
+        pars1 = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), (mag0 - fit2)*np.sqrt(weights))[0]
+        fit1 = np.dot(fmat, pars1)
+        
+        pars2 = np.bincount(idx, weights*(mag0 - fit1))/np.bincount(idx, weights)
+        fit2 = pars2[idx]
+        
+    fit = fit1 + fit2
+    chisq = np.sum(weights*(mag0 - fit)**2)/(len(mag0) - len(pars1) - len(np.unique(idx)))
+        
+    return chisq, fit
 
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
@@ -48,7 +74,10 @@ with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f
     Tp = f['Tp'].value
     eta = f['mu'].value
 
-nstars = 500
+nstars = len(ascc)
+PARS = np.array([])
+CHISQ = np.array([])
+
 for i in range(nstars):
     
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
@@ -72,38 +101,51 @@ for i in range(nstars):
     if len(jdmid) < 50:
         print 'Few points.'
         continue
+        
+    #chisq, pars, fit = harmonics_filter(jdmid, lst, mag0, emag0, Pjd=2*np.ptp(jdmid), njd=5)
+    #PARS = np.append(PARS, pars)
+    #CHISQ = np.append(CHISQ, chisq)
     
-    pars, fit = filter1(lst, mag0, emag0)
-    chisq = (mag0 - fit)**2/emag0**2
-    chisq = np.sum(chisq)/(len(mag0) - len(pars))
+    chisq, fit = avg_filter(jdmid, lstseq, mag0, emag0, Pjd=2*np.ptp(jdmid), njd=5)
+    CHISQ = np.append(CHISQ, chisq)
+    
+    phase = np.mod((jdmid - Tp[i])/P[i], 1)
+    phase = np.mod(phase + .5, 1) - .5
+    
+    time = np.linspace(0, P[i], 1000)
+    model = transit.softened_box_model(time, P[i], Tp[i], delta[i], eta[i])
+    model = model*2.5/np.log(10.)
+    mphase = np.mod((time - Tp[i])/P[i], 1)
+    mphase = np.mod(mphase + .5, 1) - .5
+    
+    sort = np.argsort(mphase)
+    mphase = mphase[sort]
+    model = model[sort]
     
     fig = plt.figure(figsize=(16,9))
     
-    gs = gridspec.GridSpec(2, 4)
+    gs = gridspec.GridSpec(2, 1)
     
-    ax1 = plt.subplot(gs[0,0])
-    plt.errorbar(lst, mag0, yerr=emag0, fmt='.')
-    plt.plot(lst, fit, '.')
+    ax1 = plt.subplot(gs[0])
+    ax1.invert_yaxis()
+    plt.title(r'ASCC {}, $V = {:.1f}$, $\delta = {:.3f}$, $P = {:.3f}$'.format(ascc[i], vmag[i], delta[i], P[i]))
+    plt.errorbar(phase, mag0, yerr=emag0, fmt='.')
+    plt.plot(phase, fit, '.')
     
-    ax2 = plt.subplot(gs[0,1], sharex=ax1)
-    plt.plot(lst, mag0 - fit, '.')
-    plt.annotate(r'$\chi^2_\nu = {:.2f}$'.format(chisq), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='x-large', backgroundcolor='w')
-
-    pars, fit = filter2(jdmid, lst, mag0, emag0)
-    chisq = (mag0 - fit)**2/emag0**2
-    chisq = np.sum(chisq)/(len(mag0) - len(pars))
-    
-    plt.subplot(gs[0,2], sharex=ax1, sharey=ax1)
-    plt.errorbar(lst, mag0, yerr=emag0, fmt='.')
-    plt.plot(lst, fit, '.')
-    
-    plt.subplot(gs[0,3], sharex=ax1, sharey=ax2)
-    plt.plot(lst, mag0 - fit, '.')
-    plt.annotate(r'$\chi^2_\nu = {:.2f}$'.format(chisq), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='x-large', backgroundcolor='w')
-    
-    plt.subplot(gs[1, :], sharey=ax1)
-    plt.errorbar(jdmid, mag0, yerr=emag0, fmt='.')
-    plt.plot(jdmid, fit, '.')
+    ax2 = plt.subplot(gs[1], sharex=ax1)
+    ax2.invert_yaxis()
+    #plt.annotate(r'$\chi^2_\nu={:.2f}$'.format(chisq), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='x-large', backgroundcolor='w')
+    plt.errorbar(phase, mag0 - fit, yerr=emag0, fmt='.')
+    plt.plot(mphase, -model)
+    plt.xlim(-.5, .5)
+    plt.ylim(.1, -.1)
+    plt.xlabel('Phase')
     
     plt.tight_layout()
-    plt.show()
+    #plt.show()
+    plt.savefig('/data2/talens/inj_signals/signals/AF_njd5_2BL/ASCC{}.png'.format(ascc[i]))
+    plt.close()
+    
+with h5py.File('AF_njd5_2BL.hdf5') as f:
+    f.create_dataset('chisq', data=CHISQ)
+    #f.create_dataset('pars', data=PARS)

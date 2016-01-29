@@ -18,60 +18,53 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
-from fourierfuncs import fourier_fit, lst_trend, fourier_fit2, fourier_mat
+import fourierfuncs 
 from boxlstsq import boxlstsq
 
-def filter1(lst, mag0, emag0):
+def harmonics_filter(jdmid, lst, mag0, emag0, Pjd, njd, Plst=24., nlst=5):
     
-    pars, fit = fourier_fit(lst, mag0, 1/6., 5, 1/(emag0**2))
-
-    mag0 = mag0 - fit
-    
-    return mag0
-        
-def filter2(dayidx, lst, mag0, emag0):
-    
-    pars1, pars2, fit = lst_trend(dayidx, lst, mag0, 1/6., 5, 1/(emag0**2))
-
-    mag0 = mag0 - fit
-    
-    return mag0
-
-def filter3(jdmid, lst, mag0, emag0):
-        
-    fit2 = np.zeros(len(mag0))
-    for i in range(10):
-        pars1, fit1 = fourier_fit(lst, mag0 - fit2, 1/6., 5, 1/(emag0**2))
-        pars2, fit2 = fourier_fit2(jdmid, mag0 - fit1, 1/(2*np.ptp(jdmid)), 10, 1/(emag0**2))
-        
-    mag0 = mag0 - fit1 - fit2
-
-    return mag0
-    
-def filter4(jdmid, lst, mag0, emag0):
-        
-    fit2 = np.zeros(len(mag0))
-    for i in range(10):
-        pars1, fit1 = fourier_fit(lst, mag0 - fit2, 1/6., 5, 1/(emag0**2))
-        pars2, fit2 = fourier_fit2(jdmid, mag0 - fit1, 1/(2*np.ptp(jdmid)), 20, 1/(emag0**2))
-        
-    mag0 = mag0 - fit1 - fit2
-
-    return mag0
-
-def filter5(jdmid, lst, mag0, emag0):
-    
-    n = np.floor(2*np.ptp(jdmid)/3.).astype('int')
-    
-    mat1 = fourier_mat(lst, 1/24., 5)
-    mat2 = fourier_mat(jdmid, 1/(2*np.ptp(jdmid)), n)
-    fmat = np.hstack([np.ones((len(mag0),1)), mat1, mat2])
     weights = 1/emag0**2
+    
+    fmat = np.ones((len(mag0),1))
+    
+    if (njd > 0):
+        mat_jd = fourierfuncs.fourier_mat(jdmid, 1/Pjd, njd)
+        fmat = np.hstack([fmat, mat_jd])
+        
+    if (nlst > 0):
+        mat_lst = fourierfuncs.fourier_mat(lst, 1/Plst, nlst)
+        fmat = np.hstack([fmat, mat_lst])
     
     pars = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), mag0*np.sqrt(weights))[0]
     fit = np.dot(fmat, pars)
     
-    return mag0 - fit
+    chisq = np.sum(weights*(mag0 - fit)**2)/(len(mag0) - len(pars))
+    
+    return chisq, pars, fit
+    
+def avg_filter(jdmid, lstseq, mag0, emag0, Pjd, njd):
+    
+    weights = 1/emag0**2
+    idx = lstseq%270
+    
+    fmat = np.ones((len(mag0),1))
+    if (njd > 0):
+        mat_jd = fourierfuncs.fourier_mat(jdmid, 1/Pjd, njd)
+        fmat = np.hstack([fmat, mat_jd])
+    
+    fit2 = np.zeros(len(mag0))
+    for i in range(10):
+        
+        pars1 = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), (mag0 - fit2)*np.sqrt(weights))[0]
+        fit1 = np.dot(fmat, pars1)
+        
+        pars2 = np.bincount(idx, weights*(mag0 - fit1))/np.bincount(idx, weights)
+        fit2 = pars2[idx]
+        
+    fit = fit1 + fit2
+    chisq = np.sum(weights*(mag0 - fit)**2)/(len(mag0) - len(pars1) - len(np.unique(idx)))
+        
+    return chisq, fit
 
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
@@ -81,9 +74,12 @@ with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f
     Tp = f['Tp'].value
     eta = f['mu'].value
  
-nstars = 500
+nstars = 10
 Prec = np.zeros(nstars)
 flag = np.zeros(nstars)
+Dchisq = np.zeros(nstars)
+Hchisq = np.zeros(nstars)
+Depth = np.zeros(nstars)
 
 for i in range(nstars):
     
@@ -94,7 +90,8 @@ for i in range(nstars):
         emag0 = grp['emag0'].value
         nobs = grp['nobs'].value
         lst = grp['lst'].value
-
+        lstseq = grp['lstseq'].value
+    
     emag0 = emag0/np.sqrt(nobs)
 
     select = (nobs == 50) & (emag0 < .05)
@@ -102,9 +99,10 @@ for i in range(nstars):
     mag0 = mag0[select]
     emag0 = emag0[select]
     lst = lst[select]
+    lstseq = lstseq[select]
     
     if len(jdmid) < 50:
-        Prec[i] = np.nan
+        flag[i] = 1
         continue
     
     BL = np.ptp(jdmid)
@@ -112,64 +110,22 @@ for i in range(nstars):
         flag[i] = 1
         print 'Warning transit may not be detectable.'
     
-    tmp = np.floor(jdmid).astype('int')
-    dayidx = tmp - np.amin(tmp)
-    
     # Remove lst variations.
-    mag0 = filter5(jdmid, lst, mag0, emag0)
+    chisq, fit = avg_filter(jdmid, lstseq, mag0, emag0, Pjd=2*BL, njd=5)
     
     # Compute the BLS
     print 'ITERATION', i
-    freq, dchisq, depth, hchisq = boxlstsq(jdmid, mag0, emag0)
+    freq, dchisq, depth, hchisq = boxlstsq(jdmid, mag0 - fit, emag0)
     
     arg = np.nanargmax(dchisq)
     Prec[i] = 1/freq[arg]
+    Dchisq[i] = dchisq[arg]
+    Hchisq[i] = hchisq[arg]
+    Depth[i] = depth[arg]
 
-    # Plot the result.
-    phase1 = np.mod(jdmid*freq[arg], 1)
-    phase2 = np.mod(jdmid/P[i], 1)
-    
-    plt.figure(figsize = (16,8))
-    
-    plt.subplot(311)
-    plt.title(r'ASCC {}, $V = {:.1f}$, $\delta = {:.3f}$, $P = {:.3f}$'.format(ascc[i], vmag[i], delta[i], P[i]))
-    plt.plot(freq, dchisq, c='k')
-    plt.axvline(1/P[i], c='g')
-    plt.axvline(1/Prec[i], c='r')
-    plt.xlabel(r'Frequency [day$^{-1}$]')
-    plt.ylabel(r'$\Delta\chi^2$')
-    
-    plt.subplot(312)
-    plt.plot(phase1, -mag0, '.')
-    plt.ylim(-.1, .1)
-    plt.xlabel('Phase')
-    plt.ylabel(r'$\Delta m$')
-    
-    plt.subplot(313)
-    plt.plot(phase2, -mag0, '.')
-    plt.ylim(-.1, .1)
-    plt.xlabel('Phase')
-    plt.ylabel(r'$\Delta m$')
-    
-    plt.tight_layout()
-    plt.savefig('/data2/talens/inj_signals/signals/filter5/ASCC{}.png'.format(ascc[i]))
-    #plt.show()
-    plt.close()
-
-# Plot periods.
-P = P[:nstars]
-here = (flag == 0)
-x = np.array([1,15])
-
-plt.subplot(111)
-plt.scatter(P[here], Prec[here], c='g')
-plt.scatter(P[~here], Prec[~here], c='r')
-plt.plot(x, x, c='k')
-plt.plot(x, .5*x, c='k')
-plt.plot(x, 2*x, c='k')
-plt.xlim(0, 15)
-plt.ylim(0, 30)
-plt.xlabel('P [days]')
-plt.ylabel(r'P$_{\rm{rec}}$ [days]')
-plt.tight_layout()
-plt.savefig('/data2/talens/inj_signals/signals/filter5.png')
+with h5py.File('AFperiods_njd5_2BL.hdf5') as f:
+    f.create_dataset('Prec', data=Prec)
+    f.create_dataset('flag', data=flag)
+    f.create_dataset('dchisq', data=Dchisq)
+    f.create_dataset('hchisq', data=Hchisq)
+    f.create_dataset('depth', data=Depth)

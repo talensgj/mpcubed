@@ -54,11 +54,3 @@ twoweek_baseline('201505', 'LPE', 0, filepath, outpath)
 #pool.close()
 #pool.join()
     
-#procs = [mp.Process(target=twoweek_baseline, args = (date[i], 'LPC', mode[i], filepath, outpath)) for i in range(6)]
-
-#for p in procs:
-    #p.start()
-    
-#for p in procs:
-    #p.join()
-    
