@@ -171,10 +171,29 @@ class CorrectLC():
         # Write the global.
         data = self.f.read_global()
         data = dict(data)
+        with h5py.File(self.LBfile, 'r') as f:
+            grp = f['global']
+            filelist = grp['filelist'].value
+            aversion = grp['aversion'].value
+            rversion = grp['rversion'].value
+            cversion = grp['cversion'].value
+        
         with h5py.File(outfile) as f:
             grp = f.create_group('global')
             grp.attrs['station'] = data['station']
             grp.attrs['camera'] = data['camera']
+            grp.attrs['exptime'] = 6.4 # Hardcoded ...
+            grp.attrs['naper'] = data['naper']
+            grp.attrs['aper0'] = data['aper0']
+            grp.attrs['aper1'] = data['aper1']
+            grp.attrs['skyrad0'] = data['skyrad0']
+            grp.attrs['skyrad1'] = data['skyrad1']
+            
+            grp.create_dataset('filelist', data=filelist)
+            grp.create_dataset('aversion', data=aversion)
+            grp.create_dataset('rversion', data=rversion)
+            grp.create_dataset('cversion', data=cversion)
+            grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
         
         # Write the header_table.
         fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
@@ -190,13 +209,27 @@ class CorrectLC():
         
         # Write the corrected lightcurves.
         nstars = len(self.ascc)
+        nobs = np.zeros(nstars)
+        lstseqmin = np.zeros(nstars)
+        lstseqmax = np.zeros(nstars)
         for i in range(nstars):
             
             # Get the binned corrected lightcurve.
             lc = self.binned_corrected_lightcurve(self.ascc[i])
             
+            if len(lc['mag0']) > 0:
+                nobs[i] = len(lc['mag0'])
+                lstseqmin[i] = np.amin(lc['lstseq'])
+                lstseqmax[i] = np.amax(lc['lstseq'])
+            
             # Write the lightcurve.
             with h5py.File(outfile) as f:
                 f.create_dataset('data/' + self.ascc[i], data = lc)
+            
+        with h5py.File(outfile) as f:
+            grp = f['header_table']
+            grp.create_dataset('nobs', data = nobs)
+            grp.create_dataset('lstseqmin', data = lstseqmin)
+            grp.create_dataset('lstseqmax', data = lstseqmax)
             
         return outfile

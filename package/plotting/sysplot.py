@@ -443,3 +443,48 @@ class SysPlot(object):
             plt.close()
             
         return
+           
+    #def plot_clouds2(self):
+    
+        #import healpy
+        
+        ## Read the data.
+        #f = IO.SysFile(self.sysfile)
+        #hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
+        
+        #for i in range(lstmin//50, lstmax//50):
+            
+            #i1 = np.minimum((i - 1)*50 - lstmin, lstmin)
+            #i2 = np.minimum(i*50 - lstmin, lstmin)
+            
+            #i3 = np.minimum(i*50 - lstmin, lstmin)
+            #i4 = np.minimum((i + 1)*50 - lstmin, lstmax)
+            
+            #i5 = np.minimum((i + 1)*50 - lstmin, lstmax)
+            #i6 = np.minimum((i + 2)*50 - lstmin, lstmax)
+            
+            #fig = plt.figure(figsize=(14, 9))
+            
+            #plt.suptitle('Clouds')
+            
+            #gs = gridspec.GridSpec(4, 2, width_ratios=[15,.5], height_ratios=[1,10,10,10])
+            
+            #plt.subplot(gs[1,0])
+            #im = plt.imshow(clouds[:,i1:i2].T, aspect='auto', vmin=-.5, vmax=.5)
+            
+            #plt.subplot(gs[2,0])
+            #im = plt.imshow(clouds[:,i3:i4].T, aspect='auto', vmin=-.5, vmax=.5)
+            
+            #plt.subplot(gs[3,0])
+            #im = plt.imshow(clouds[:,i5:i6].T, aspect='auto', vmin=-.5, vmax=.5)
+            
+            #cax = plt.subplot(gs[1:,1])
+            #cb = plt.colorbar(im, cax = cax)
+            #cb.ax.invert_yaxis()
+            #cb.set_label('Magnitude')
+            
+            #plt.tight_layout()
+            #plt.show()
+            #plt.close()
+            
+        #return

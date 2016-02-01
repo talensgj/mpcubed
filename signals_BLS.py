@@ -74,7 +74,7 @@ with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f
     Tp = f['Tp'].value
     eta = f['mu'].value
  
-nstars = 10
+nstars = len(ascc)
 Prec = np.zeros(nstars)
 flag = np.zeros(nstars)
 Dchisq = np.zeros(nstars)

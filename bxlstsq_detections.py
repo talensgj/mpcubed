@@ -23,6 +23,8 @@ with h5py.File(path + 'HFperiods_njd5_2BL_nlst5_24h.hdf5', 'r') as f:
 flag = flag + np.where(np.abs(P_rec/P - 1) > .1, 2, 0)
 flag = flag + np.where(np.abs(P_rec/1. - 1) < .1, 4, 0)
 
+print sum(flag == 0)
+
 fig = plt.figure()
 
 gs = gridspec.GridSpec(2, 2, width_ratios=[10,1])
