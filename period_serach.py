@@ -6,6 +6,8 @@ import os
 import h5py
 import numpy as np
 
+import time
+
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
@@ -19,8 +21,8 @@ rcParams['axes.titlesize'] = 'xx-large'
 from package import IO
 from package.coordinates import grids
 
-from boxlstsq_ms import boxlstsq
-import fourierfuncs
+from boxlstsq import boxlstsq
+from boxlstsq_ms import boxlstsq_ms
 
 def period_search():
 
@@ -75,15 +77,45 @@ def period_search():
     
     jdmid = jdmid[args]
     
-    tmp = np.full((nstars, npoints), fill_value=np.nan)
+    tmp = np.full((nstars, npoints), fill_value=0)
     tmp[staridx,idx] = mag0
     mag0 = tmp
     
-    tmp = np.full((nstars, npoints), fill_value=np.nan)
-    tmp[staridx,idx] = emag0
-    emag0 = tmp
+    tmp = np.full((nstars, npoints), fill_value=0)
+    tmp[staridx,idx] = 1/emag0**2
+    weights = tmp
     
-    boxlstsq(jdmid, mag0.T, emag0.T)
+    jdmid = np.append(jdmid, jdmid)
+    mag0 = np.append(mag0, mag0, axis=1)
+    weights = np.append(weights, weights, axis=1)
+    
+    plt.imshow(mag0, aspect='auto')
+    plt.xlabel('Time')
+    cb = plt.colorbar()
+    cb.set_label('Magnitude')
+    plt.show()
+    
+    #start = time.time()
+    #freq, dchisq, depth, hchisq = boxlstsq_ms(jdmid, mag0.T, weights.T)
+    #print time.time() - start
+    
+    start = time.time()
+    for i in range(len(ascc)):
+        freq_0, dchisq_0, depth_0, hchisq_0 = boxlstsq(jdmid, mag0[i], weights[i])
+        
+        #crit = np.allclose(dchisq[:,i], dchisq_0) & np.allclose(depth[:,i], depth_0)
+        #crit = crit & np.allclose(hchisq[:,i], hchisq_0)
+        
+        #if not crit:
+            #print 'Difference found', i
+        
+        #plt.plot(freq, dchisq[:,i])
+        #plt.plot(freq_0, dchisq_0)
+        #plt.xlabel(r'Frequency [day$^{-1}$]')
+        #plt.ylabel(r'$\Delta\chi^2$')
+        #plt.show()
+        #plt.close()
+    print time.time() - start
     
     return
     

@@ -39,17 +39,17 @@ def cumsum_to_grid(time, bin_edges, weights):
     
     return n
 
-def boxlstsq(time, flux, flux_err, **options):
+def boxlstsq(time, flux, weights, **options):
     
     time = np.asarray(time)
     flux = np.asarray(flux)
-    flux_err = np.asarray(flux_err)
+    weights = np.asarray(weights)
     
     if (len(time) != len(flux)):
         raise ValueError('time and flux must have the same first dimension.')
     
-    if (np.shape(flux) != np.shape(flux_err)):
-        raise ValueError('flux and flux_err must be the same shape.')
+    if (np.shape(flux) != np.shape(weights)):
+        raise ValueError('flux and weights must be the same shape.')
     
     # Get the options.
     M = options.pop('M', 1.)
@@ -62,6 +62,7 @@ def boxlstsq(time, flux, flux_err, **options):
     fmin = options.pop('fmin', None)
     fmax = options.pop('fmax', None)
     OS = options.pop('OS', 3)
+    verbose = options.pop('verbose', False)
     
     M *= Msun # [kg]
     R *= Rsun # [m]
@@ -99,10 +100,11 @@ def boxlstsq(time, flux, flux_err, **options):
         freq = (A/3.*(xvec - 1.) + fmin**(1./3.))**3.
         nfreq = len(freq)
     
-    print 'Using M=%.2f Msun and R=%.2f Rsun for the stellar parameters.'%(M/Msun, R/Rsun)
-    print 'Sampling frequencies between fmin=%.2e, fmax=%.2e per day with OS=%i'%(fmin*SecInDay, fmax*SecInDay, OS)
-    print 'Sampling transit epochs at %.2f time(s) the smallest sampled transit.'%(1./ES)
-    print 'Sampling transits between %.2f and %.2f time(s) the expected duration in %i steps.'%(1./Qmin, Qmax, NumSteps)
+    if verbose:
+        print 'Using M=%.2f Msun and R=%.2f Rsun for the stellar parameters.'%(M/Msun, R/Rsun)
+        print 'Sampling frequencies between fmin=%.2e, fmax=%.2e per day with OS=%i'%(fmin*SecInDay, fmax*SecInDay, OS)
+        print 'Sampling transit epochs at %.2f time(s) the smallest sampled transit.'%(1./ES)
+        print 'Sampling transits between %.2f and %.2f time(s) the expected duration in %i steps.'%(1./Qmin, Qmax, NumSteps)
     
     # Calculate the expected transit durations.
     # Calculate the number of bins in the sampling grid.
@@ -112,7 +114,6 @@ def boxlstsq(time, flux, flux_err, **options):
     
     # Prepare the data for the loop.
     time = time - time[0]
-    weights = 1./flux_err**2.
     t = np.sum(weights, axis=0)
     flux = flux - np.sum(weights*flux, axis=0)/t # Subtract average
     chisq0 = np.sum(weights*flux**2., axis=0) # Best fit constant model.

@@ -39,7 +39,7 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     return outfile
 
 filepath = '/data2/mascara/LaPalma'
-outpath = '/data2/talens/2015Q2/LPS'
+outpath = '/data2/talens/2015Q2/LPC'
 
 ensure_dir(outpath)
 
@@ -48,7 +48,7 @@ mode = [0, 1, 0, 1, 0, 1]
 
 pool = mp.Pool(processes = 6)
 for i in range(6):
-    pool.apply_async(twoweek_baseline, args = (date[i], 'LPS', mode[i], filepath, outpath))
+    pool.apply_async(twoweek_baseline, args = (date[i], 'LPC', mode[i], filepath, outpath))
 pool.close()
 pool.join()
     

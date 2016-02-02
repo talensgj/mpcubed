@@ -39,17 +39,17 @@ def cumsum_to_grid(time, bin_edges, weights):
     
     return n
 
-def boxlstsq(time, flux, flux_err, **options):
+def boxlstsq_ms(time, flux, weights, **options):
     
     time = np.asarray(time)
     flux = np.asarray(flux)
-    flux_err = np.asarray(flux_err)
+    weights = np.asarray(weights)
     
     if (len(time) != len(flux)):
         raise ValueError('time and flux must have the same first dimension.')
     
-    if (np.shape(flux) != np.shape(flux_err)):
-        raise ValueError('flux and flux_err must be the same shape.')
+    if (np.shape(flux) != np.shape(weights)):
+        raise ValueError('flux and weights must be the same shape.')
     
     # Get the options.
     M = options.pop('M', 1.)
@@ -112,7 +112,6 @@ def boxlstsq(time, flux, flux_err, **options):
     
     # Prepare the data for the loop.
     time = time - time[0]
-    weights = 1./flux_err**2.
     t = np.nansum(weights, axis=0)
     flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
     chisq0 = np.nansum(weights*flux**2., axis=0) # Best fit constant model.
@@ -163,21 +162,16 @@ def boxlstsq(time, flux, flux_err, **options):
         dchisq_tmp = s*depth_tmp
         hchisq_tmp = chisq0 - s**2/(t - r) - q
         
-        #args = np.where(~np.isfinite(dchisq_tmp))
-        #dchisq_tmp[args] = 0
-        #depth_tmp[args] = 0
-        #hchisq_tmp[args] = chisq0
-        
-        for i in range(flux.shape[1]):
-            plt.plot(dchisq[:,i], '.')
-            plt.show()
-            plt.close()
+        args1, args2 = np.where(~np.isfinite(dchisq_tmp))
+        dchisq_tmp[args1, args2] = 0
+        depth_tmp[args1, args2] = 0
+        hchisq_tmp[args1, args2] = chisq0[args2]
             
-        args = np.nanargmax(dchisq_tmp, axis=1)
+        args1 = np.nanargmax(dchisq_tmp, axis=0)
+        args2 = np.arange(flux.shape[1])
         
-        exit()
-        depth[i] = depth_tmp.ravel()[args]
-        dchisq[i] = dchisq_tmp.ravel()[args]
-        hchisq[i] = hchisq_tmp.ravel()[args]
+        depth[i] = depth_tmp[args1, args2]
+        dchisq[i] = dchisq_tmp[args1, args2]
+        hchisq[i] = hchisq_tmp[args1, args2]
     
     return freq*SecInDay, dchisq, depth, hchisq
