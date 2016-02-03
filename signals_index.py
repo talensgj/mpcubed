@@ -45,7 +45,7 @@ def create_sample(ascc, ra, dec, vmag, nobs, jdstart):
 
     return ascc, ra ,dec, vmag, nobs, jdstart, delta, P, Tp, mu
 
-filelist = glob.glob('/data2/talens/inj_signals/signals/fLC_*.hdf5')
+filelist = glob.glob('/data2/talens/inj_signals/reference/fLC_*.hdf5')
 
 ascc = np.array([])
 ra = np.array([])

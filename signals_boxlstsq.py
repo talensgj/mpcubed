@@ -17,19 +17,18 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
+import filters
 from boxlstsq import boxlstsq
 
+# Read the list of stars with an injected signal.
 with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f:
     ascc = f['ascc'].value
-    vmag = f['vmag'].value
-    delta = f['delta'].value
     P = f['P'].value
-    Tp = f['Tp'].value
-    eta = f['mu'].value
 
-PARS = np.zeros((len(ascc), 13))
-CHISQ = np.zeros(len(ascc))
+# Process each star.
 for i in range(len(ascc)):
+    
+    flag = 0
     
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
         grp = f['data/' + ascc[i]]
@@ -51,16 +50,33 @@ for i in range(len(ascc)):
     
     weights = 1/emag0**2
     
-    if len(jdmid) < 50:
+    nobs = len(jdmid)
+    base = np.ptp(jdmid)
+    
+    # Flag the star.
+    if (base/9 < P[i]):
+        flag += 1
+    
+    if (nobs < 50):
+        flag += 2
         continue
     
     # Remove lst variations.
-    chisq, pars, fit = harmonics_filter(jdmid, lst, mag0, weights, 2*np.ptp(jdmid), 5)
+    chisq, pars, fit = filters.harmonic(jdmid, lst, mag0, weights, 2*base, 5)
+    mag0 = mag0 - fit
     
-    PARS[i] = pars
-    CHISQ[i] = chisq
+    # Compute the boxlstsq.
+    freq, dchisq, depth, hchisq, chisq0 = boxlstsq(jdmid, mag0, weights)
     
-with h5py.File('HF_params.hdf5') as f:
-    grp = f.create_group('nlst5min4')
-    grp.create_dataset('chisq', data=CHISQ)
-    grp.create_dataset('pars', data=PARS)
+    with h5py.File('signals_boxlstsq.hdf5') as f:
+        grp = f.create_group(ascc)
+        grp.create_dataset('freq', data=freq)
+        grp.create_dataset('dchisq', data=dchisq)
+        grp.create_dataset('hchisq', data=hchisq)
+        grp.create_dataset('depth', data=depth)
+        grp.attrs['nobs'] = nobs
+        grp.attrs['base'] = base
+        grp.attrs['flag'] = flag
+        grp.attrs['chisq'] = chisq
+        grp.attrs['pars'] = pars
+        grp.attrs['chisq0'] = chisq0
