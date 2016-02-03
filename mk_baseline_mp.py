@@ -5,8 +5,6 @@ import os
 import multiprocessing as mp
 
 from package import IO
-from package.red_decor import CoarseDecorrelation
-from package.red_apply import CorrectLC
 
 def ensure_dir(path):
     
@@ -38,24 +36,17 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     
     return outfile
 
-# Create baseline.
 filepath = '/data2/mascara/LaPalma'
-outpath = '/data2/talens/2015Q2/LPE'
+outpath = '/data2/talens/2015Q2/LPC'
 
 ensure_dir(outpath)
 
-LBfile = twoweek_baseline('201504', 'LPE', 0, filepath, outpath)
+date = ['201504', '201504', '201505', '201505', '201506', '201506']
+mode = [0, 1, 0, 1, 0, 1]
 
-#pool = mp.Pool(5)
-#dates = ['201504', '201505', '201505', '201506', '201506']
-#mode = [1, 0, 1, 0, 1]
-#results = [pool.apply_async(twoweek_baseline, args=(dates[i], 'LPE', mode[i], filepath, outpath)) for i in range(5)] 
-#output = [p.get() for p in results]
-#print output
+pool = mp.Pool(processes = 6)
+for i in range(6):
+    pool.apply_async(twoweek_baseline, args = (date[i], 'LPC', mode[i], filepath, outpath))
+pool.close()
+pool.join()
     
-# Perform coarse decorrelation.
-CoarseDecorrelation(LBfile, 0)
-
-# Create reduced lightcurves.
-f = CorrectLC(LBfile, aperture)
-redfile = f.make_redfile()

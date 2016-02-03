@@ -197,7 +197,7 @@ class SysPlot(object):
         # Create the transmission plot.
         fig = plt.figure(figsize=(14,9))
 
-        plt.suptitle('Transmission 2015-06-A East', size='xx-large')
+        plt.suptitle('Transmission', size='xx-large')
 
         gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
@@ -220,38 +220,13 @@ class SysPlot(object):
         cb.set_label('Magnitude')
         
         plt.tight_layout()
-        #if savefig:
-            #head, tail = os.path.split(self.sysfile)
-            #suffix = '_trans.png'
-            #tail = tail.rsplit('.')[0] + suffix
-            #plt.savefig(os.path.join(head, tail))
-        #if display:
-            #plt.show()
-        plt.savefig('/home/talens/201506ALPE_transmap.png')
-        plt.close()
-        
-        # Create plot showing only gridlines.
-        fig = plt.figure(figsize=(13,9))
-
-        plt.suptitle('East, Equatorial Coordinates', size='xx-large')
-
-        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
-        
-        plt.subplot(gs[1,0], aspect='equal')
-        
-        x, y = self._hadec2xy(np.linspace(0,360,100), np.repeat(22.6, 100))
-        plt.plot(x, y, c='r')
-        
-        #im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
-        self._add_hadecgrid()
-        plt.xlim(0, 4008)
-        plt.ylim(0, 2672)
-        
-        #cax = plt.subplot(gs[1,1])
-        #cb = plt.colorbar(im, cax = cax)
-        
-        plt.tight_layout()
-        plt.show()
+        if savefig:
+            head, tail = os.path.split(self.sysfile)
+            suffix = '_trans.png'
+            tail = tail.rsplit('.')[0] + suffix
+            plt.savefig(os.path.join(head, tail))
+        if display:
+            plt.show()
         plt.close()
         
         # Create the nobs plot.
