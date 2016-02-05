@@ -27,7 +27,7 @@ with h5py.File('/data2/talens/inj_signals/signals/signals_index.hdf5', 'r') as f
 
 # Process each star.
 for i in range(len(ascc)):
-    
+    print i
     flag = 0
     
     with h5py.File('/data2/talens/inj_signals/signals/red0_2015Q2LPE.hdf5', 'r') as f:
@@ -50,16 +50,15 @@ for i in range(len(ascc)):
     
     weights = 1/emag0**2
     
-    nobs = len(jdmid)
-    base = np.ptp(jdmid)
-    
     # Flag the star.
-    if (base/9 < P[i]):
-        flag += 1
-    
+    nobs = len(jdmid)
     if (nobs < 50):
         flag += 2
         continue
+        
+    base = np.ptp(jdmid)
+    if (base/9 < P[i]):
+        flag += 1
     
     # Remove lst variations.
     chisq, pars, fit = filters.harmonic(jdmid, lst, mag0, weights, 2*base, 5)
@@ -68,8 +67,8 @@ for i in range(len(ascc)):
     # Compute the boxlstsq.
     freq, dchisq, depth, hchisq, chisq0 = boxlstsq(jdmid, mag0, weights)
     
-    with h5py.File('signals_boxlstsq.hdf5') as f:
-        grp = f.create_group(ascc)
+    with h5py.File('signals_boxlstsq_minusm.hdf5') as f:
+        grp = f.create_group(ascc[i])
         grp.create_dataset('freq', data=freq)
         grp.create_dataset('dchisq', data=dchisq)
         grp.create_dataset('hchisq', data=hchisq)

@@ -45,13 +45,14 @@ class CorrectLC():
         self.f = IO.fLCfile(self.LBfile)
         self.ascc, self.ra, self.dec, self.nobs = self.f.read_header(['ascc', 'ra', 'dec', 'nobs'])
         self.nobs = self.nobs.astype('int')
-        
+        print self.ascc[:10], len(self.ascc)
         # Read the correction terms.
         sys = IO.SysFile(self.sysfile)
+        ascc, vmag, self.mag, sigma, nobs = sys.read_magnitudes()
         self.pgcam, self.trans, self.nobs_trans = sys.read_trans()
         self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix()
         self.hg, self.clouds, self.sigma, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
-        
+        print ascc[:10], len(ascc)
         # Create indices.
         self.skyidx = self.hg.radec2idx(self.ra, self.dec)
         
@@ -80,7 +81,7 @@ class CorrectLC():
         ipxidx, decidx = self.pgipx.radec2idx(ha, dec)
         
         # Get the correction terms.
-        trans = self.trans[camidx, decidx]
+        trans = self.trans[camidx, decidx] + self.mag[i]
         intrapix = self.a[ipxidx, decidx]*np.sin(2*np.pi*x) + self.b[ipxidx, decidx]*np.cos(2*np.pi*x) + self.c[ipxidx, decidx]*np.sin(2*np.pi*y) + self.d[ipxidx, decidx]*np.cos(2*np.pi*y)
         clouds = self.clouds[skyidx, lstseq]
         

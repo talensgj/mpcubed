@@ -3,7 +3,9 @@
 
 import numpy as np
 
-def harmonic(jdmid, lst, Pjd, njd, Plst=24., nlst=5):
+import fourierfuncs
+
+def harmonic(jdmid, lst, mag0, weights, Pjd, njd, Plst=24., nlst=5):
     """ Filter long term and lst variations from a lightcurve using sinusoids."""
     
     # Fit with a constant.

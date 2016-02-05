@@ -7,7 +7,7 @@ from mascara.reduction import dbquery
 
 import matplotlib.pyplot as plt
 
-tablename = 'LPEastrometry'
+tablename = 'LPWastrometry'
 
 myq = dbquery.MascDB()
 myq.connect()
@@ -20,6 +20,22 @@ myq.disconnect()
 
 data = np.array(data)
 data = data.T
+
+print data[0,:10]
+
+lstidx = (data[0]%13500).astype('int')
+lstday = (data[0]//13500).astype('int')
+
+#lstday = lstday - np.amin(lstday)
+
+ndays = np.amax(lstday) + 1
+print ndays
+tmp = np.full((ndays, 13500), fill_value = np.nan)
+tmp[lstday, lstidx] = data[1]
+tmp = tmp[:,25::50]
+
+plt.imshow(tmp, aspect='auto', interpolation='None')
+plt.show()
 
 plt.subplot(511)
 plt.plot(data[1], '.')
@@ -78,7 +94,7 @@ myq = dbquery.MascDB()
 myq.connect()
 
 cur = myq.dbconnect.cursor()
-cur.execute("SELECT lstseq, xcoef0, xcoef1, xcoef2, xcoef3 FROM {}".format(tablename))
+cur.execute("SELECT lstseq, xcoef0, xcoef1, xcoef2, xcoef3, xcoef4, xcoef5, xcoef6, xcoef7, xcoef8, xcoef9, xcoef10, xcoef11, xcoef12, xcoef13, xcoef14, xcoef15, xcoef16, xcoef17, xcoef18, xcoef19, xcoef20 FROM {}".format(tablename))
 data = cur.fetchall()
 
 myq.disconnect()

@@ -42,6 +42,6 @@ inj = ['/data2/talens/inj_signals/signals/fLC_201504ALPE.hdf5',
 
 pool = mp.Pool(processes = 6)
 for i in range(6):
-    pool.apply_async(systematics, args = (inj[i],))
+    pool.apply_async(correct, args = (inj[i],))
 pool.close()
 pool.join()
