@@ -15,14 +15,15 @@ Msun = 1.9891e30 # [kg]
 Rsun = 696342e3 # [m] 
 
 index = '/data2/talens/inj_signals/signals/signals_index.hdf5'
-boxlstsq = '/data2/talens/inj_signals/signals/signals_boxlstsq.hdf5'
+boxlstsq = '/data2/talens/inj_signals/signals/signals_boxlstsq_minusm.hdf5'
 
 with h5py.File(index, 'r') as f:
     ascc = f['ascc'].value
     P = f['P'].value
     
 data = np.zeros((len(ascc), 4))
-ngood = 0
+n1 = 0
+n2 = 0
 with h5py.File(boxlstsq, 'r') as f:
     
     for i in range(len(ascc)):
@@ -56,7 +57,6 @@ with h5py.File(boxlstsq, 'r') as f:
         data[i,0] = quality
         
         if (quality > 3.5):
-            print 'Bad fit.'
             flag += 1
             
         # Anti-transit ratio.
@@ -65,8 +65,7 @@ with h5py.File(boxlstsq, 'r') as f:
         ratio = np.max(dchisq[args1])/np.max(dchisq[args2])
         data[i,1] = ratio
         
-        if (ratio < 1.5): # Check signs of depth.
-            print 'Warning poor anti-transit ratio.'    
+        if (ratio < 1.5):
             flag += 2
         
         # Data gaps.
@@ -79,20 +78,28 @@ with h5py.File(boxlstsq, 'r') as f:
         data[i,2] = gapsizes
         
         if (gapsizes > 2.5):
-            print 'Large data gap.', 1/best_freq
             flag += 4
+        
+        #
+        if (np.abs(P[i]*best_freq - 1) < .05):
+            n1 += 1
             
-        if (np.abs(P[i]*best_freq - 1) < .05) & (flag == 0):
-            ngood += 1
+            if (flag == 0):
+                n2 +=1
     
         data[i,3] = flag
     
         # Plot the point.
-        plt.scatter(P[i], 1/best_freq, c=flag, vmin=0, vmax=7)
+        plt.scatter(P[i], 1/best_freq, c=flag, vmin=0, vmax=1)
+
+print n1, n2
 
 plt.xlabel(r'$P$ [days]')
 plt.ylabel(r'$P_{rec}$ [days]')
 plt.show()
+    
+#with h5py.File(boxlstsq) as f:
+    #f.create_dataset('flag', data=data[:,3])
     
 plt.hist(data[:,0], bins=np.linspace(0,20,41))
 plt.axvline(3.5, c='k')

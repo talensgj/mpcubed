@@ -150,7 +150,7 @@ def boxlstsq(time, flux, weights, **options):
         i1, i2 = np.indices((nbins[i], NumSteps))
         i1 = i1 + 1
         i2 = i1 + ES*(i2 + 1)
-       
+
         # Compute arrays of r and s values.
         r = r_cum[i2] - r_cum[i1 - 1]
         s = s_cum[i2] - s_cum[i1 - 1]

@@ -33,15 +33,15 @@ def reduction(LBfile):
 
     return
 
-inj = ['/data2/talens/inj_signals/signals/fLC_201504ALPE.hdf5',
-       '/data2/talens/inj_signals/signals/fLC_201504BLPE.hdf5',
-       '/data2/talens/inj_signals/signals/fLC_201505ALPE.hdf5',
-       '/data2/talens/inj_signals/signals/fLC_201505BLPE.hdf5',
-       '/data2/talens/inj_signals/signals/fLC_201506ALPE.hdf5',
-       '/data2/talens/inj_signals/signals/fLC_201506BLPE.hdf5']
+data = ['/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5',
+        '/data2/talens/2015Q2/LPE/fLC_201504BLPE.hdf5',
+        '/data2/talens/2015Q2/LPE/fLC_201505ALPE.hdf5',
+        '/data2/talens/2015Q2/LPE/fLC_201505BLPE.hdf5',
+        '/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5',
+        '/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5']
 
 pool = mp.Pool(processes = 6)
 for i in range(6):
-    pool.apply_async(correct, args = (inj[i],))
+    pool.apply_async(correct, args = (data[i],))
 pool.close()
 pool.join()
