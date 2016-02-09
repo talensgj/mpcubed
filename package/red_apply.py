@@ -81,7 +81,7 @@ class CorrectLC():
         ipxidx, decidx = self.pgipx.radec2idx(ha, dec)
         
         # Get the correction terms.
-        trans = self.trans[camidx, decidx]# + self.mag[i]
+        trans = self.trans[camidx, decidx] + self.mag[i]
         intrapix = self.a[ipxidx, decidx]*np.sin(2*np.pi*x) + self.b[ipxidx, decidx]*np.cos(2*np.pi*x) + self.c[ipxidx, decidx]*np.sin(2*np.pi*y) + self.d[ipxidx, decidx]*np.cos(2*np.pi*y)
         clouds = self.clouds[skyidx, lstseq]
         

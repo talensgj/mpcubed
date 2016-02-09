@@ -52,9 +52,8 @@ def hybrid(jdmid, lstseq, mag0, emag0, Pjd, njd):
         
     return chisq, fit
 
-def sysrem(mag0, emag0):
-    
-    weights = 1/emag0**2
+def sysrem(mag0, weights):
+
     par2 = np.ones((mag0.shape[0], 1))
     for i in range(5):
         
