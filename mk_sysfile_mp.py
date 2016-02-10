@@ -33,12 +33,12 @@ def reduction(LBfile):
 
     return
 
-data = ['/data2/talens/2015Q2/LPC/fLC_201504ALPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201504BLPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201505ALPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201505BLPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201506ALPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201506BLPC.hdf5']
+data = ['/data2/talens/2015Q2/LPN/fLC_201504ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201504BLPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201505ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201505BLPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201506ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201506BLPN.hdf5']
 
 pool = mp.Pool(processes = 6)
 for i in range(6):
