@@ -3,6 +3,7 @@
 
 import h5py
 import numpy as np
+import time
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -20,6 +21,8 @@ from package.models import transit
 from package.coordinates import grids
 
 import filters
+from boxlstsq import boxlstsq
+from boxlstsq_ms import boxlstsq_ms
 
 # Set random seed.
 np.random.seed(19910909)
@@ -112,7 +115,7 @@ def trend_filter(jdmid, lst, mag0, emag0):
     
     return mag0
     
-def main():
+def test_on_skybin():
     
     filename = '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5'
     
@@ -176,6 +179,36 @@ def main():
         plt.tight_layout()
         plt.show()
         plt.close()
+        
+    return
+    
+def main():
+    
+    filename = '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5'
+    
+    with h5py.File(filename, 'r') as f:
+        grp = f['header']
+        ascc = grp['ascc'].value
+    
+    ascc = np.random.choice(ascc, 500, replace=False)
+    
+    ascc, jdmid, lst, mag0, emag0, mask = data_as_array(filename, ascc)
+    weights = np.where(mask, 0, 1/emag0**2)
+        
+    plt.figure(figsize=(16,9))
+    plt.imshow(mag0, aspect='auto', interpolation='None', vmin=-.1, vmax=.1, cmap=cm.Greys)
+    cb = plt.colorbar()
+    cb.ax.invert_yaxis()
+    cb.set_label('Magnitude')
+    plt.xlabel('Time')
+    plt.tight_layout()
+    plt.show()
+    
+    start = time.time()
+    #boxlstsq_ms(jdmid, mag0.T, weights.T)
+    for i in range(500):
+        boxlstsq(jdmid, mag0[i], weights[i])
+    print time.time() - start
         
     return 0
 

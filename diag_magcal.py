@@ -56,16 +56,20 @@ def quarter_variation():
     
 def colorcolor():
     
-    with h5py.File('/data2/talens/2015Q2/LPE/sys0_201506ALPE.hdf5', 'r') as f:
+    with h5py.File('/data2/talens/2015Q2/LPE/sys0_201506BLPE.hdf5', 'r') as f:
         grp = f['data/magnitudes']
         vmag = grp['vmag'].value
         m = grp['mag'].value
     
-    with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 'r') as f:
+    with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5', 'r') as f:
         grp = f['header_table']
         bmag = grp['bmag'].value
         
-    plt.plot(vmag, vmag - bmag, '.')
+    print np.where(np.isnan(m))
+        
+    plt.plot(bmag - vmag, m - vmag, '.', alpha=.2)
+    plt.xlabel('B - V')
+    plt.ylabel('M - V')
     plt.show()
     
     return

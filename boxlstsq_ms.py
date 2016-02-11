@@ -174,4 +174,4 @@ def boxlstsq_ms(time, flux, weights, **options):
         dchisq[i] = dchisq_tmp[args1, args2]
         hchisq[i] = hchisq_tmp[args1, args2]
     
-    return freq*SecInDay, dchisq, depth, hchisq
+    return freq*SecInDay, dchisq, depth, hchisq, chisq0
