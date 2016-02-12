@@ -25,13 +25,13 @@ rcParams['axes.titlesize'] = 'xx-large'
 #f.plot_trans()
 #f.plot_clouds()
 
-f = IO.fLCfile('/data2/talens/inj_signals/reference/fLC_201506ALPE.hdf5')
+f = IO.fLCfile('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5')
 lc = f.read_star('807144')
 
-g = CorrectLC('/data2/talens/inj_signals/reference/fLC_201506ALPE.hdf5', 0)
+g = CorrectLC('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 0)
 trans, ipx, clouds, flags = g.get_correction('807144')
 
-h = IO.SysFile('/data2/talens/inj_signals/reference/sys0_201506ALPE.hdf5')
+h = IO.SysFile('/data2/talens/2015Q2/LPE/sys0_201506ALPE.hdf5')
 ascc, vmag, mag, sigma, nobs = h.read_magnitudes()
 arg, = np.where(ascc == '807144')
 vmag = vmag[arg]
@@ -52,7 +52,7 @@ ax1 = plt.subplot(gs[1,0])
 ax1.invert_yaxis()
 plt.title('ASCC 807144, $V = {:.1f}$'.format(vmag[0]))
 plt.plot(mag0, '.')
-plt.plot(mag + trans + ipx, '.')
+plt.plot(trans + ipx, '.')
 for i in dayidx:
     plt.axvline(i + .5, c='k')
 for i in intidx:
@@ -62,7 +62,7 @@ plt.ylabel(r'Magnitude')
 ax2 = plt.subplot(gs[2,0], sharex=ax1)
 ax2.invert_yaxis()
 plt.plot(mag0 - trans - ipx, '.')
-plt.plot(mag + clouds, '.')
+plt.plot(clouds, '.')
 for i in dayidx:
     plt.axvline(i + .5, c='k')
 for i in intidx:

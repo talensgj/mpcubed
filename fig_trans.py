@@ -49,7 +49,7 @@ lstidx = lstidx.astype('int')
 mag0, emag0 = misc.flux2mag(flux0, eflux0)
 
 # Get the systematic corrections.
-sys = IO.SysFile('/data2/talens/2015Q2/LPE/sys0_201506ALPE.hdf5')
+sys = IO.SysFile('/data2/talens/2015Q2/LPE/sys0_201506ALPE_nosigmas.hdf5')
 
 # Magnitudes.
 ascc_mag, vmag, mag, sigma, _ = sys.read_magnitudes()

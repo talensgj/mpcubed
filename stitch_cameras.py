@@ -240,9 +240,9 @@ def data_per_star(ascc):
         
         weights = 1/emag0_**2
         
-        chisq, pars, fit_ = filters.harmonic(lst_, mag0_, weights, 24., 8)
+        #chisq, pars, fit_ = filters.harmonic(lst_, mag0_, weights, 24., 8)
         #chisq, pars, fit = filters.harmonic(jdmid, mag0, weights, 180., 20) 
-        #chisq, pars, fit = filters.masc_harmonic(jdmid, lst, mag0, weights, 180., 5, nlst=8)
+        chisq, pars, fit_ = filters.masc_harmonic(jdmid_, lst_, mag0_, weights, 180., 20)
         
         lstseq = np.append(lstseq, lstseq_)
         camidx = np.append(camidx, [i]*len(lstseq_))
@@ -323,8 +323,8 @@ def on_N_cameras():
         
 def main():
     
-    data_per_star('714995')
-    
+    data_per_star('807144')
+    exit()
     ascc, ra, dec, ncams = on_N_cameras()
     
     plt.subplot(111, projection='mollweide')
