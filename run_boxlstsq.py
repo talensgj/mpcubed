@@ -122,7 +122,9 @@ def main():
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
     
-    for i in np.unique(skyidx):
+    for i in range(372, hg.npix):
+        
+        if i not in np.unique(skyidx): continue
         
         select = (skyidx == i)
         
@@ -148,9 +150,13 @@ def main():
             emag = np.append(emag, emag_, axis=1)
             mask = np.append(mask, mask_, axis=1)
         
+        if len(jdmid) == 0: continue
+        
         # Run the box least-squares search.
         weights = np.where(mask, 0, 1/emag**2)
         freq, dchisq, depth, hchisq, chisq0 = boxlstsq_ms(jdmid, mag.T, weights.T)
+        
+        if freq is None: continue
         
         # Save the results to file.
         blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(i)

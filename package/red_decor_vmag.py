@@ -34,7 +34,7 @@ class CoarseDecorrelation(object):
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_'%self.aper
+            prefix = 'sys%i_vmag_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         

@@ -209,7 +209,7 @@ class SysPlot(object):
         vmin = vmin - .01*delta
         vmax = vmax + .01*delta
         
-        im = plt.pcolormesh(x, y, trans.T, cmap=cm.Greys, vmin=vmin, vmax=vmax)
+        im = plt.pcolormesh(x, y, trans.T, cmap=viridis, vmin=vmin, vmax=vmax)
         self._add_hadecgrid()
         plt.xlim(0, 4008)
         plt.ylim(0, 2672)
@@ -229,26 +229,26 @@ class SysPlot(object):
             plt.show()
         plt.close()
         
-        # Create the nobs plot.
-        fig = plt.figure(figsize=(13,9))
+        ## Create the nobs plot.
+        #fig = plt.figure(figsize=(13,9))
 
-        plt.suptitle('Transmission', size='xx-large')
+        #plt.suptitle('Transmission', size='xx-large')
 
-        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+        #gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
-        plt.subplot(gs[1,0], aspect='equal')
+        #plt.subplot(gs[1,0], aspect='equal')
         
-        im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
-        self._add_hadecgrid()
-        plt.xlim(0, 4008)
-        plt.ylim(0, 2672)
+        #im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
+        #self._add_hadecgrid()
+        #plt.xlim(0, 4008)
+        #plt.ylim(0, 2672)
         
-        cax = plt.subplot(gs[1,1])
-        cb = plt.colorbar(im, cax = cax)
+        #cax = plt.subplot(gs[1,1])
+        #cb = plt.colorbar(im, cax = cax)
         
-        plt.tight_layout()
-        plt.show()
-        plt.close()
+        #plt.tight_layout()
+        #plt.show()
+        #plt.close()
         
         return
         
@@ -329,26 +329,26 @@ class SysPlot(object):
             plt.show()
         plt.close()
         
-        # Create the nobs plot.
-        fig = plt.figure(figsize=(13,9))
+        ## Create the nobs plot.
+        #fig = plt.figure(figsize=(13,9))
 
-        plt.suptitle('Intrapixel variations.', size='xx-large')
+        #plt.suptitle('Intrapixel variations.', size='xx-large')
 
-        gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+        #gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
         
-        plt.subplot(gs[1,0], aspect='equal')
+        #plt.subplot(gs[1,0], aspect='equal')
         
-        im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
-        self._add_hadecgrid()
-        plt.xlim(0, 4008)
-        plt.ylim(0, 2672)
+        #im = plt.pcolormesh(x, y, nobs.T, cmap=viridis)
+        #self._add_hadecgrid()
+        #plt.xlim(0, 4008)
+        #plt.ylim(0, 2672)
         
-        cax = plt.subplot(gs[1,1])
-        cb = plt.colorbar(im, cax = cax)
+        #cax = plt.subplot(gs[1,1])
+        #cb = plt.colorbar(im, cax = cax)
         
-        plt.tight_layout()
-        plt.show()
-        plt.close()
+        #plt.tight_layout()
+        #plt.show()
+        #plt.close()
         
         return
         

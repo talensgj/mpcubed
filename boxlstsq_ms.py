@@ -90,7 +90,8 @@ def boxlstsq_ms(time, flux, weights, **options):
             print 'Warning: maximum frequency is inside the Hill radius.'
                 
         if (fmax < fmin):
-            raise AttributeError('fmax must be larger than fmin.')
+            print 'Error: fmax must be larger than fmin.'
+            return None, None, None, None, None
         
         # Compute sample frequencies in range fmin, fmax
         A = ((2.*np.pi)**(2./3.)*R)/(np.pi*(G*M)**(1./3.)*S*OS)
