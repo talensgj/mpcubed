@@ -6,7 +6,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-boxlstsq = '/data2/talens/2015Q2/boxlstsq/bls0_2015Q2_patch266.hdf5'
+boxlstsq = '/data2/talens/2015Q2/bls0_2015Q2_patch266.hdf5'
 with h5py.File(boxlstsq, 'r') as f:
     
     grp = f['header']
@@ -53,12 +53,7 @@ gapsizes = np.amax(gapsizes, axis=0)/q
 args, = np.where(gapsizes > 2.5)
 flag[args] = flag[args] + 4 
 
-args, = np.where(flag == 0)
-for i in args:
-    
-    plt.title('ASCC {}'.format(ascc[i]))
-    plt.plot(freq, dchisq[:,i])
-    plt.axvline(best_freq[i], c='k')
-    plt.show()
-    plt.close()
-
+with h5py.File(boxlstsq) as f:
+    grp = f['header']
+    grp.create_dataset('period', data=1./best_freq)
+    grp.create_dataset('flag', data=flag)

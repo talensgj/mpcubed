@@ -33,7 +33,7 @@ data = ['/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5',
         '/data2/talens/2015Q2/LPW/fLC_201505ALPW.hdf5',
         '/data2/talens/2015Q2/LPW/fLC_201505BLPW.hdf5']
 
-pool = mp.Pool(processes = 6)
+pool = mp.Pool(processes = 4)
 for i in range(12):
     pool.apply_async(systematics, args = (data[i],))
 pool.close()
