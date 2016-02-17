@@ -28,50 +28,99 @@ def lightcurve(ascc):
     
     ax = plt.subplot(211)
     
-    data = ['/data2/talens/2015Q2/LPE/red0_201506ALPE.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_201506BLPE.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_201506ALPC.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_201506BLPC.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_201506ALPW.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_201506BLPW.hdf5']
+    data = ['/data2/talens/2015Q2/LPE/tmp/red0_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5']
     
     for filename in data:
     
         with h5py.File(filename, 'r') as f:
             try:
-                lc = f['data/' + ascc].value
+                grp = f['data/' + ascc]
             except:
                 continue
+            else:
+                jdmid = grp['jdmid'].value
+                mag = grp['mag0'].value
             
-        plt.plot(lc['jdmid'], lc['mag0'], '.')
+        plt.plot(jdmid, mag, '.')
     
     ax = plt.subplot(212, sharex=ax, sharey=ax)
     
-    data = ['/data2/talens/2015Q2/LPE/red0_vmag_201506ALPE.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_vmag_201506BLPE.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_vmag_201506ALPC.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_vmag_201506BLPC.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_vmag_201506ALPW.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_vmag_201506BLPW.hdf5']
+    data = ['/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5']
     
     for filename in data:
     
         with h5py.File(filename, 'r') as f:
             try:
-                lc = f['data/' + ascc].value
+                grp = f['data/' + ascc]
             except:
                 continue
+            else:
+                jdmid = grp['jdmid'].value
+                mag = grp['mag0'].value
 
-        plt.plot(lc['jdmid'], lc['mag0'], '.')
+        plt.plot(jdmid, mag, '.')
 
-    plt.ylim(.2, -.2)
+    plt.ylim(1.5, -1.5)
     plt.show()
     
     return
 
+def lc_diff(file1, file2, file3, ascc):
+    
+    with h5py.File(file1, 'r') as f:
+        grp = f['data/' + ascc]
+        jdmid1 = grp['jdmid'].value
+        mag1 = grp['mag0'].value
+        
+    with h5py.File(file2, 'r') as f:
+        grp = f['data/' + ascc]
+        jdmid2 = grp['jdmid'].value
+        mag2 = grp['mag0'].value
+        
+    with h5py.File(file3, 'r') as f:
+        grp = f['data/' + ascc]
+        jdmid3 = grp['jdmid'].value
+        mag3 = grp['mag0'].value
+    
+    ax = plt.subplot(311)
+    plt.title('ASCC {}'.format(ascc))
+    plt.plot(jdmid1, mag1 - np.nanmedian(mag1), '.')
+    
+    plt.subplot(312, sharex=ax, sharey=ax)
+    plt.plot(jdmid2, mag2 - np.nanmedian(mag2), '.')
+    
+    plt.subplot(313, sharex=ax, sharey=ax)
+    plt.plot(jdmid3, mag3 - np.nanmedian(mag3), '.')
+    
+    plt.show()
+    
+    return
+    
+
 def main():
     
-    lightcurve('1480383')
+    file1 = '/data2/talens/2015Q2/LPE/tmp/red0_2015Q2LPE.hdf5'
+    file2 = '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5'
+    file3 = '/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5'
+    
+    
+    #lc_diff(file1, file2, file3, '803743')
+    #lc_diff(file1, file2, file3, '803977')
+    #lc_diff(file1, file2, file3, '804411')
+    #lc_diff(file1, file2, file3, '805622')
+    #lc_diff(file1, file2, file3, '805861')
+    #lc_diff(file1, file2, file3, '806455')
+    
+    lc_diff(file1, file2, file3, '894573')
+    lc_diff(file1, file2, file3, '891488')
+    lc_diff(file1, file2, file3, '714995')
+    lc_diff(file1, file2, file3, '344250')
+    
+    #lightcurve('714995')
     
     return
 

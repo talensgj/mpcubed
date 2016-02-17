@@ -158,8 +158,7 @@ def data_as_arrays():
     
     data = ['/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
             '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5']
+            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5']
     
     with h5py.File(data[0], 'r') as f:
         grp = f['header']
@@ -199,11 +198,9 @@ def data_as_arrays():
     
 def data_per_star(ascc):
     
-    data = ['/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5']      
+    data = ['/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5']      
 
     lstseq = np.array([])
     camidx = np.array([])
@@ -211,7 +208,7 @@ def data_per_star(ascc):
     emag0 = np.array([])
     fit = np.array([])
 
-    for i in range(5):
+    for i in range(3):
         
         with h5py.File(data[i], 'r') as f:
             
@@ -284,7 +281,7 @@ def data_per_star(ascc):
     plt.ylabel('Magnitude')
         
     plt.tight_layout()
-    plt.savefig('ASCC{}.png'.format(ascc))
+    plt.savefig('ASCC{}_vmag.png'.format(ascc))
     #plt.show()
     plt.close()
     
@@ -294,9 +291,7 @@ def on_N_cameras():
     
     data = ['/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
             '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5']    
+            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5']    
 
     ascc = np.array([])
     ra = np.array([])
@@ -323,8 +318,6 @@ def on_N_cameras():
         
 def main():
     
-    data_per_star('807144')
-    exit()
     ascc, ra, dec, ncams = on_N_cameras()
     
     plt.subplot(111, projection='mollweide')
@@ -339,8 +332,6 @@ def main():
     
     for i in range(len(ascc)):
         data_per_star(ascc[i])
-        
-    #data_as_arrays()
     
     return
         

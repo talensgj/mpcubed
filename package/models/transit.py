@@ -20,11 +20,12 @@ def box_model(t, P, Tp, delta, eta):
     
     phase = np.mod((t - Tp)/P, 1.)
     phase = np.mod(phase + .5, 1.) - .5
-    model = np.where(np.abs(phase) < .5*eta/P, -delta, 0)
+    mask = np.abs(phase) < .5*eta/P
+    model = np.where(mask, -delta, 0)
     
-    return model
+    return model, mask
 
-def softened_box_model(t, P, Tp, delta, eta, c=10.):
+def softened_box_model(t, P, Tp, delta, eta, c):
     """ Model the transit as a softened square dip in the lightcurve.
     
     Args:
@@ -34,7 +35,7 @@ def softened_box_model(t, P, Tp, delta, eta, c=10.):
         delta (float): The fractional depth of the transit.
         eta (float): The transit duration.
         c (float): Parameter that detrmines the softening. Larger values
-            result in more box-like transits. Default is 10.
+            result in more box-like transits.
         
     Returns:
         model: The model value for each time t.

@@ -82,13 +82,13 @@ def read_skybin(filename):
         
 def main():
     
-    ascc, jdmid, lst, mag0, weights = read_skybin('/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5')
+    ascc, jdmid, lst, mag0, weights = read_skybin('/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5')
     
     base = np.ptp(jdmid)
     for i in range(mag0.shape[0]):
         #if ascc[i] != '807144': continue
         
-        chisq, pars, fit = filters.harmonic(jdmid, lst, mag0[i], weights[i], 2*base, 20, nlst=5) 
+        chisq, pars, fit = filters.masc_harmonic(jdmid, lst, mag0[i], weights[i], 180., 20) 
         
         plt.figure(figsize=(16,9))
         
@@ -106,7 +106,7 @@ def main():
         plt.plot(mag0[i] - fit, '.')
         plt.ylim(.1, -.1)
     
-        plt.savefig('ASCC{}_minusm_harmonic.png'.format(ascc[i]))
+        plt.savefig('ASCC{}_vmag.png'.format(ascc[i]))
         #plt.show()
         plt.close()
     

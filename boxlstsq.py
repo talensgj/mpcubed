@@ -123,6 +123,8 @@ def boxlstsq(time, flux, weights, **options):
     dchisq = np.zeros((nfreq,))
     depth = np.zeros((nfreq,))
     hchisq = np.zeros((nfreq,))
+    epoch = np.zeros((nfreq,))
+    duration = np.zeros((nfreq,))
     
     # Loop over frequency domain.
     for i in xrange(nfreq):
@@ -170,5 +172,7 @@ def boxlstsq(time, flux, weights, **options):
         depth[i] = depth_tmp.ravel()[args]
         dchisq[i] = dchisq_tmp.ravel()[args]
         hchisq[i] = hchisq_tmp.ravel()[args]
+        epoch[i] = (i1.ravel()[args])/(nbins[i]*freq[i])
+        duration[i] = (i2.ravel()[args]-i1.ravel()[args])/(nbins[i]*freq[i])
     
-    return freq*SecInDay, dchisq, depth, hchisq, chisq0
+    return freq*SecInDay, dchisq, depth, hchisq, chisq0, epoch/SecInDay, duration/SecInDay

@@ -85,19 +85,23 @@ def main():
         
                 phase = np.mod(jdmid/period[i], 1.)
         
-                #npbin, edges = np.histogram(phase, bins=np.linspace(0,1,251))
-                #x1, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=mag)
-                #x2, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=mag**2)
+                #q = (1.8/24)*period[i]**(-2./3)
+                #nbins = np.ceil(9/q)
+                #edges = np.linspace(0, 1, nbins+1)
+        
+                #npbin, edges = np.histogram(phase, bins=edges)
+                #x1, edges = np.histogram(phase, bins=edges, weights=mag)
+                #x2, edges = np.histogram(phase, bins=edges, weights=mag**2)
                 #mag = x1/npbin
                 #emag = np.sqrt(x2/npbin - (x1/npbin)**2)/np.sqrt(npbin)
                 #phase = (edges[1:] + edges[:-1])/2
         
-                npbin, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=1/emag**2)
-                x1, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=mag/emag**2)
-                x2, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=mag**2)
-                mag = x1/npbin
-                emag = np.sqrt(1/npbin)
-                phase = (edges[1:] + edges[:-1])/2
+                #x0, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=1/emag**2)
+                #x1, edges = np.histogram(phase, bins=np.linspace(0,1,251), weights=mag/emag**2)
+                
+                #mag = x1/x0
+                #emag = np.sqrt(1./x0)
+                #phase = (edges[1:] + edges[:-1])/2
         
                 plt.errorbar(phase, mag, yerr=emag, fmt='.')
                 
