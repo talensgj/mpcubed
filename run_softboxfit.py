@@ -132,7 +132,7 @@ def main():
         
         fig = plt.figure(figsize=(16,9))
         
-        plt.subplot(311)
+        plt.subplot(411)
         plt.title(r'ASCC {}, $P={:.2f}$ days, $N_t={:.1f}$'.format(ascc[i], pin[0], nt))
         plt.errorbar(phase, mag, yerr=emag, fmt='.', c='k')
         plt.plot(mphase, model, c='r', lw=2)
@@ -162,13 +162,28 @@ def main():
         mphase = mphase[sort]
         model = model[sort]
         
-        plt.subplot(312)
+        plt.subplot(412)
         plt.errorbar(phase, mag, yerr=emag, fmt='.', c='k')
         plt.plot(mphase, model, c='r', lw=2)
         plt.xlim(-.5, .5)
         plt.ylim(.1, -.1)
         
-        plt.subplot(313)
+        nbins = 9/(popt[3]/popt[0])
+        edges = np.linspace(-.5, .5, nbins+1)
+        x0, edges = np.histogram(phase, bins=edges, weights=1/emag**2)
+        x1, edges = np.histogram(phase, bins=edges, weights=mag/emag**2)
+        
+        bmag = x1/x0
+        bemag = np.sqrt(1./x0)
+        bphase = (edges[1:] + edges[:-1])/2
+        
+        plt.subplot(413)
+        plt.errorbar(bphase, bmag, yerr=bemag, fmt='.', c='k')
+        plt.plot(mphase, model, c='r', lw=2)
+        plt.xlim(-.5, .5)
+        plt.ylim(.1, -.1)
+        
+        plt.subplot(414)
         plt.plot(freq, dchisq[:,i], c='k')
         plt.axvline(1/period[i], c='r', ls='--')
         plt.xlabel(r'Frequency [day$^{-1}$]')

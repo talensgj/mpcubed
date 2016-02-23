@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from package.coordinates import grids
 
 import filters
-from boxlstsq_ms import boxlstsq_ms
+from boxlstsq_ms_dev import boxlstsq_ms
 
 
 def header(data):
@@ -122,7 +122,7 @@ def main():
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
     
-    for i in range(372, hg.npix):
+    for i in [266]:
         
         if i not in np.unique(skyidx): continue
         
@@ -154,8 +154,8 @@ def main():
         
         # Run the box least-squares search.
         weights = np.where(mask, 0, 1/emag**2)
-        freq, dchisq, depth, hchisq, chisq0 = boxlstsq_ms(jdmid, mag.T, weights.T)
-        
+        freq, dchisq, hchisq, chisq0, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
+        exit()
         if freq is None: continue
         
         # Save the results to file.
