@@ -20,18 +20,18 @@ def correct(LBfile):
 
     return
 
-data = ['/data2/talens/2015Q2/LPE/fLC_201504ALPE.hdf5',
-        '/data2/talens/2015Q2/LPE/fLC_201504BLPE.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201504ALPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201504BLPC.hdf5',
-        '/data2/talens/2015Q2/LPW/fLC_201504ALPW.hdf5',
-        '/data2/talens/2015Q2/LPW/fLC_201504BLPW.hdf5',
-        '/data2/talens/2015Q2/LPE/fLC_201505ALPE.hdf5',
-        '/data2/talens/2015Q2/LPE/fLC_201505BLPE.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201505ALPC.hdf5',
-        '/data2/talens/2015Q2/LPC/fLC_201505BLPC.hdf5',
-        '/data2/talens/2015Q2/LPW/fLC_201505ALPW.hdf5',
-        '/data2/talens/2015Q2/LPW/fLC_201505BLPW.hdf5']
+data = ['/data2/talens/2015Q2/LPN/fLC_201504ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201504BLPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201505ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201505BLPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201506ALPN.hdf5',
+        '/data2/talens/2015Q2/LPN/fLC_201506BLPN.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201504ALPS.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201504BLPS.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201505ALPS.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201505BLPS.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201506ALPS.hdf5',
+        '/data2/talens/2015Q2/LPS/fLC_201506BLPS.hdf5']
 
 pool = mp.Pool(processes = 6)
 for i in range(12):

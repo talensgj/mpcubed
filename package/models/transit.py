@@ -23,7 +23,7 @@ def box_model(t, P, Tp, delta, eta):
     mask = np.abs(phase) < .5*eta/P
     model = np.where(mask, -delta, 0)
     
-    return model, mask
+    return model
 
 def softened_box_model(t, P, Tp, delta, eta, c):
     """ Model the transit as a softened square dip in the lightcurve.

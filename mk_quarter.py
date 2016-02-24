@@ -6,6 +6,6 @@ import glob
 
 from package import IO
 
-filelist = glob.glob('/data2/talens/2015Q2/LPW/red0_vmag_*.hdf5')
+filelist = glob.glob('/data2/talens/2015Q2/LPS/red0_vmag_*.hdf5')
 print filelist
-IO.make_quarter(filelist, '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5')
+IO.make_quarter(filelist, '/data2/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5')

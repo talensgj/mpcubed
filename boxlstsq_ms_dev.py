@@ -51,8 +51,7 @@ def freqs(fmin, fmax, S, OS, M, R):
     freq = freq*SecInDay
     
     return freq
-
-@profile    
+    
 def cumsum_to_grid(time, bin_edges, weights):
 
     nt = len(time)
@@ -77,14 +76,13 @@ def cumsum_to_grid(time, bin_edges, weights):
     for i in np.arange(0, len(time), block):
         sa = time[i:i+block]
         sw = weights[i:i+block]
-        np.cumsum(sw, axis=0, out=sw)
-        cw = np.vstack(([zero,], sw))
+        tmp = np.cumsum(sw, axis=0)
+        cw = np.vstack(([zero,], tmp))
         bin_index = np.r_[sa.searchsorted(bin_edges[:-1], 'left'), sa.searchsorted(bin_edges[-1], 'right')]
         n += cw[bin_index]
     
     return n
 
-@profile
 def boxlstsq_ms(time, flux, weights, **options):
     """ Compute the box least-square periodogram for multiple stars."""
     
@@ -119,7 +117,7 @@ def boxlstsq_ms(time, flux, weights, **options):
     else:
 
         # Defaults for fmin and fmax.
-        fmin_def = 9./S # Three transits in temporal baseline of ground based survey.
+        fmin_def = 12./S # Three transits in temporal baseline of ground based survey.
         fmax_def = freq_max(M, R) # Smallest orbit determined by the Roche limit.
         
         if fmin is None:
@@ -172,13 +170,9 @@ def boxlstsq_ms(time, flux, weights, **options):
         phase = np.mod(time*freq[i], 1.)
         sort = np.argsort(phase)
         
-        #phase_fold = np.take(phase, sort, axis=0)
-        #flux_fold = np.take(flux, sort, axis=0)
-        #weights_fold = np.take(weights, sort, axis=0)
-
-        phase_fold = phase[sort]
-        flux_fold = flux[sort]
-        weights_fold = weights[sort]
+        phase_fold = np.take(phase, sort, axis=0)
+        flux_fold = np.take(flux, sort, axis=0)
+        weights_fold = np.take(weights, sort, axis=0)
 
         # Sum the data on a regular grid.
         bins = np.linspace(0., 1., nbins[i] + 1)
@@ -208,28 +202,28 @@ def boxlstsq_ms(time, flux, weights, **options):
         s = s_cum[i2] - s_cum[i1]
         q = q_cum[i2] - q_cum[i1]
         
-        # Find the quality of the best fit.
+        # Find the best fit.
         dchisq_tmp = s**2*t/(r*(t - r))
-        hchisq_tmp = chisq0 - s**2/(t - r) - q
+        dchisq_tmp[n < 1] = 0
         
-        depth_tmp = s*t/(r*(t - r))
         epoch_tmp = (bins[i1] + bins[i2])/(2*freq[i])
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
-        
-        # Set the improvement to zero when there are no in-transit data-points.
-        args1, args2 = np.where(n < 1)
-        dchisq_tmp[args1, args2] = 0
         
         # Select the best solution.
         args1 = np.nanargmax(dchisq_tmp, axis=0)
         args2 = np.arange(flux.shape[1])
         
-        dchisq[i] = dchisq_tmp[args1, args2]
-        hchisq[i] = hchisq_tmp[args1, args2]
+        n = n[args1, args2]
+        r = r[args1, args2]
+        s = s[args1, args2]
+        q = q[args1, args2]
         
-        depth[i] = depth_tmp[args1, args2]
+        dchisq[i] = dchisq_tmp[args1, args2]
+        hchisq[i] = chisq0 - s**2/(t - r) - q
+        
+        depth[i] = s*t/(r*(t - r))
         epoch[i] = epoch_tmp[args1]
         duration[i] = duration_tmp[args1]
-        nt[i] = n[args1, args2]
+        nt[i] = n
         
-    return freq, dchisq, hchisq, chisq0, depth, epoch, duration, nt
+    return freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt

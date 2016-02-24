@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from package.coordinates import grids
 
 import filters
-from boxlstsq_ms_dev import boxlstsq_ms
+from boxlstsq_ms_dev import boxlstsq_ms, phase_duration
 
 
 def header(data):
@@ -95,6 +95,32 @@ def data_as_array(filename, ascc):
     
     return jdmid, lst, mag, emag, mask
 
+def data_mc(data, ascc):
+    
+    jdmid = np.array([])
+    lst = np.array([])
+    mag = np.array([[]]*len(ascc))
+    emag = np.array([[]]*len(ascc))
+    mask = np.array([[]]*len(ascc), dtype='bool')
+    
+    for filename in data:
+        
+        # Read the data.
+        jdmid_, lst_, mag_, emag_, mask_ = data_as_array(filename, ascc)
+        
+        if len(jdmid_) == 0: continue
+        
+        # Correct for trends.
+        mag_ = trend_filter(jdmid_, lst_, mag_, emag_)
+        
+        jdmid = np.append(jdmid, jdmid_)
+        lst = np.append(lst, lst_)
+        mag = np.append(mag, mag_, axis=1)
+        emag = np.append(emag, emag_, axis=1)
+        mask = np.append(mask, mask_, axis=1)
+        
+    return jdmid, lst, mag, emag, mask
+
 def trend_filter(jdmid, lst, mag, emag):
     
     nstars = mag.shape[0]
@@ -109,11 +135,11 @@ def trend_filter(jdmid, lst, mag, emag):
 
 def main():
     
-    data = ['/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5']
+    data = ['/data2/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
     
     # Read the combined header.
     ascc, ra, dec = header(data)
@@ -124,56 +150,87 @@ def main():
     
     for i in [266]:
         
+        # Could loop over np.unique(skyidx), bu that is harder to restart.
         if i not in np.unique(skyidx): continue
         
+        # Read the skybin for all cameras.
         select = (skyidx == i)
+        jdmid, lst, mag, emag, mask = data_mc(data, ascc[select])
         
-        jdmid = np.array([])
-        lst = np.array([])
-        mag = np.array([[]]*len(ascc[select]))
-        emag = np.array([[]]*len(ascc[select]))
-        mask = np.array([[]]*len(ascc[select]))
-        
-        for filename in data:
-            
-            # Read the data.
-            jdmid_, lst_, mag_, emag_, mask_ = data_as_array(filename, ascc[select])
-            
-            if len(jdmid_) == 0: continue
-            
-            # Correct for trends.
-            mag_ = trend_filter(jdmid_, lst_, mag_, emag_)
-            
-            jdmid = np.append(jdmid, jdmid_)
-            lst = np.append(lst, lst_)
-            mag = np.append(mag, mag_, axis=1)
-            emag = np.append(emag, emag_, axis=1)
-            mask = np.append(mask, mask_, axis=1)
-        
+        # Make sure there was data.
         if len(jdmid) == 0: continue
+        
+        # Do not run if the baseline falls short of 60 days.
+        if np.ptp(jdmid) < 60.: continue
         
         # Run the box least-squares search.
         weights = np.where(mask, 0, 1/emag**2)
-        freq, dchisq, hchisq, chisq0, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
-        exit()
-        if freq is None: continue
+        freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
+        
+        # Find the peak in the periodogram.
+        args1 = np.argmax(dchisq, axis=0)
+        args2 = np.arange(mag.shape[0])
+        
+        best_freq = freq[args1]
+        best_chisq = chisq0 - dchisq[args1, args2]
+        best_depth = depth[args1, args2]
+        best_epoch = epoch[args1, args2]
+        best_duration = duration[args1, args2]
+        best_nt = nt[args1, args2]
+        
+        # Create flags.
+        flag = np.zeros(mag.shape[0], dtype='int')
+        
+        # Check the best fit chi-square.
+        nobs = np.sum(~mask, axis=1)
+        quality = best_chisq/nobs
+        args, = np.where(quality > 4)
+        flag[args] = flag[args] + 1
+            
+        # Check the anti-transit ratio.
+        tmp = dchisq*np.sign(depth)
+        ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
+        args, = np.where(ratio < 1.5)
+        flag[args] = flag[args] + 2
+        
+        # Check the phase coverage.
+        q = phase_duration(best_freq, 1., 1.)
+        phase = np.outer(jdmid, best_freq)
+        phase = np.mod(phase, 1)
+        phase = np.sort(phase, axis=0)
+        gapsizes = np.diff(phase, axis=0)
+        gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
+        gapsizes = np.amax(gapsizes, axis=0)/q
+        args, = np.where(gapsizes > 2.5)
+        flag[args] = flag[args] + 4 
+        
+        # Check the number of observed transits.
+        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
+        args, = np.where(ntransit < 3.)
+        flag[args] = flag[args] + 8
         
         # Save the results to file.
-        blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(i)
+        #blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(i)
+        blsfile = '/home/talens/MASCARA/bls_test.hdf5'
         with h5py.File(blsfile) as f:
             grp = f.create_group('header')
             grp.create_dataset('ascc', data=ascc[select])
             grp.create_dataset('chisq0', data=chisq0)
+            grp.create_dataset('period', data=1/best_freq)
+            grp.create_dataset('depth', data=best_depth)
+            grp.create_dataset('epoch', data=best_epoch)
+            grp.create_dataset('duration', data=best_duration)
+            grp.create_dataset('nt', data=best_nt)
+            grp.create_dataset('flag', data=flag)
             
             grp = f.create_group('data')
             grp.create_dataset('freq', data=freq)
             grp.create_dataset('dchisq', data=dchisq)
             grp.create_dataset('hchisq', data=hchisq)
             grp.create_dataset('depth', data=depth)
-            
-            grp = f.create_group('baseline')
-            grp.create_dataset('jdmid', data=jdmid)
-            grp.create_dataset('mask', data=mask)
+            grp.create_dataset('epoch', data=epoch)
+            grp.create_dataset('duration', data=duration)
+            grp.create_dataset('nt', data=nt)
 
     return
 
