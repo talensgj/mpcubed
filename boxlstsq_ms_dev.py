@@ -137,10 +137,10 @@ def boxlstsq_ms(time, flux, weights, **options):
         # Compute optimal sampling frequencies in range fmin, fmax.
         freq = freqs(fmin, fmax, S, OS, M, R)
     
-    print 'Using M=%.2f Msun and R=%.2f Rsun for the stellar parameters.'%(M, R)
-    print 'Sampling frequencies between fmin=%.2e, fmax=%.2e per day with OS=%i'%(fmin, fmax, OS)
-    print 'Sampling transit epochs at %.2f time(s) the smallest sampled transit.'%(1./ES)
-    print 'Sampling transits between %.2f and %.2f time(s) the expected duration in %i steps.'%(1./Qmin, Qmax, NumSteps)
+    #print 'Using M=%.2f Msun and R=%.2f Rsun for the stellar parameters.'%(M, R)
+    #print 'Sampling frequencies between fmin=%.2e, fmax=%.2e per day with OS=%i'%(fmin, fmax, OS)
+    #print 'Sampling transit epochs at %.2f time(s) the smallest sampled transit.'%(1./ES)
+    #print 'Sampling transits between %.2f and %.2f time(s) the expected duration in %i steps.'%(1./Qmin, Qmax, NumSteps)
     
     # Use the transit duration to determine the sampling grid.
     q = phase_duration(freq, M, R)

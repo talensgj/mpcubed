@@ -24,7 +24,7 @@ from run_boxlstsq import data_mc
 
 def main():
     
-    blsfile = '/home/talens/MASCARA/bls_test.hdf5'
+    blsfile = '/home/talens/MASCARA/bls_266.hdf5'
     with h5py.File(blsfile, 'r') as f:
         
         grp = f['header']
@@ -44,11 +44,11 @@ def main():
         epoch = grp['epoch'].value
         nt = grp['nt'].value
     
-    data = ['/data2/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
+    data = ['/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5',
+            '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5']
     
     jdmid, lst, mag, emag, mask = data_mc(data, ascc)
     
@@ -56,7 +56,7 @@ def main():
     
     for i in range(len(ascc)):
         
-        #if (flag[i] > 0): continue 
+        if (flag[i] > 0): continue 
         
         x = jdmid[~mask[i]]
         y = mag[i, ~mask[i]]

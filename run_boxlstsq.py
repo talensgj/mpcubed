@@ -4,6 +4,8 @@
 import h5py
 import numpy as np
 
+import multiprocessing as mp
+
 import matplotlib.pyplot as plt
 
 from package.coordinates import grids
@@ -95,7 +97,7 @@ def data_as_array(filename, ascc):
     
     return jdmid, lst, mag, emag, mask
 
-def data_mc(data, ascc):
+def data_mc(data, ascc, detrend=True):
     
     jdmid = np.array([])
     lst = np.array([])
@@ -111,7 +113,8 @@ def data_mc(data, ascc):
         if len(jdmid_) == 0: continue
         
         # Correct for trends.
-        mag_ = trend_filter(jdmid_, lst_, mag_, emag_)
+        if detrend:
+            mag_ = trend_filter(jdmid_, lst_, mag_, emag_)
         
         jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lst_)
@@ -133,13 +136,92 @@ def trend_filter(jdmid, lst, mag, emag):
     
     return mag
 
+def bls_core(skyidx, jdmid, mag, emag, mask):
+    
+    print 'Computing boxlstsq for skypatch', skyidx
+    
+    # Run the box least-squares search.
+    weights = np.where(mask, 0, 1/emag**2)
+    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
+    
+    if freq is None:
+        print 'freq = None', skyidx
+        return 
+    
+    # Find the peak in the periodogram.
+    args1 = np.argmax(dchisq, axis=0)
+    args2 = np.arange(mag.shape[0])
+    
+    best_freq = freq[args1]
+    best_chisq = chisq0 - dchisq[args1, args2]
+    best_depth = depth[args1, args2]
+    best_epoch = epoch[args1, args2]
+    best_duration = duration[args1, args2]
+    best_nt = nt[args1, args2]
+    
+    # Create flags.
+    flag = np.zeros(mag.shape[0], dtype='int')
+    
+    # Check the best fit chi-square.
+    nobs = np.sum(~mask, axis=1)
+    quality = best_chisq/nobs
+    args, = np.where(quality > 4)
+    flag[args] = flag[args] + 1
+        
+    # Check the anti-transit ratio.
+    tmp = dchisq*np.sign(depth)
+    ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
+    args, = np.where(ratio < 1.5)
+    flag[args] = flag[args] + 2
+    
+    # Check the phase coverage.
+    q = phase_duration(best_freq, 1., 1.)
+    phase = np.outer(jdmid, best_freq)
+    phase = np.mod(phase, 1)
+    phase = np.sort(phase, axis=0)
+    gapsizes = np.diff(phase, axis=0)
+    gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
+    gapsizes = np.amax(gapsizes, axis=0)/q
+    args, = np.where(gapsizes > 2.5)
+    flag[args] = flag[args] + 4 
+    
+    # Check the number of observed transits.
+    ntransit = best_nt*(319.1262613/(24*3600))/best_duration
+    args, = np.where(ntransit < 3.)
+    flag[args] = flag[args] + 8
+    
+    # Save the results to file.
+    blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(skyidx)
+    #blsfile = '/home/talens/MASCARA/bls_test.hdf5'
+    with h5py.File(blsfile) as f:
+        grp = f.create_group('header')
+        grp.create_dataset('ascc', data=ascc[select])
+        grp.create_dataset('chisq0', data=chisq0)
+        grp.create_dataset('period', data=1/best_freq)
+        grp.create_dataset('depth', data=best_depth)
+        grp.create_dataset('epoch', data=best_epoch)
+        grp.create_dataset('duration', data=best_duration)
+        grp.create_dataset('nt', data=best_nt)
+        grp.create_dataset('flag', data=flag)
+        
+        grp = f.create_group('data')
+        grp.create_dataset('freq', data=freq)
+        grp.create_dataset('dchisq', data=dchisq)
+        grp.create_dataset('hchisq', data=hchisq)
+        grp.create_dataset('depth', data=depth)
+        grp.create_dataset('epoch', data=epoch)
+        grp.create_dataset('duration', data=duration)
+        grp.create_dataset('nt', data=nt)
+
+    return
+
 def main():
     
-    data = ['/data2/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
+    data = ['/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5',
+            '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
+            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
+            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5']
     
     # Read the combined header.
     ascc, ra, dec = header(data)
@@ -147,6 +229,8 @@ def main():
     # Divide the stars in groups of neighbouring stars.
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
+    
+    jobs = []
     
     for i in [266]:
         
@@ -163,75 +247,14 @@ def main():
         # Do not run if the baseline falls short of 60 days.
         if np.ptp(jdmid) < 60.: continue
         
-        # Run the box least-squares search.
-        weights = np.where(mask, 0, 1/emag**2)
-        freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
+        jobs.append((i, jdmid, mag, emag, mask))
         
-        # Find the peak in the periodogram.
-        args1 = np.argmax(dchisq, axis=0)
-        args2 = np.arange(mag.shape[0])
-        
-        best_freq = freq[args1]
-        best_chisq = chisq0 - dchisq[args1, args2]
-        best_depth = depth[args1, args2]
-        best_epoch = epoch[args1, args2]
-        best_duration = duration[args1, args2]
-        best_nt = nt[args1, args2]
-        
-        # Create flags.
-        flag = np.zeros(mag.shape[0], dtype='int')
-        
-        # Check the best fit chi-square.
-        nobs = np.sum(~mask, axis=1)
-        quality = best_chisq/nobs
-        args, = np.where(quality > 4)
-        flag[args] = flag[args] + 1
-            
-        # Check the anti-transit ratio.
-        tmp = dchisq*np.sign(depth)
-        ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
-        args, = np.where(ratio < 1.5)
-        flag[args] = flag[args] + 2
-        
-        # Check the phase coverage.
-        q = phase_duration(best_freq, 1., 1.)
-        phase = np.outer(jdmid, best_freq)
-        phase = np.mod(phase, 1)
-        phase = np.sort(phase, axis=0)
-        gapsizes = np.diff(phase, axis=0)
-        gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
-        gapsizes = np.amax(gapsizes, axis=0)/q
-        args, = np.where(gapsizes > 2.5)
-        flag[args] = flag[args] + 4 
-        
-        # Check the number of observed transits.
-        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-        args, = np.where(ntransit < 3.)
-        flag[args] = flag[args] + 8
-        
-        # Save the results to file.
-        #blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(i)
-        blsfile = '/home/talens/MASCARA/bls_test.hdf5'
-        with h5py.File(blsfile) as f:
-            grp = f.create_group('header')
-            grp.create_dataset('ascc', data=ascc[select])
-            grp.create_dataset('chisq0', data=chisq0)
-            grp.create_dataset('period', data=1/best_freq)
-            grp.create_dataset('depth', data=best_depth)
-            grp.create_dataset('epoch', data=best_epoch)
-            grp.create_dataset('duration', data=best_duration)
-            grp.create_dataset('nt', data=best_nt)
-            grp.create_dataset('flag', data=flag)
-            
-            grp = f.create_group('data')
-            grp.create_dataset('freq', data=freq)
-            grp.create_dataset('dchisq', data=dchisq)
-            grp.create_dataset('hchisq', data=hchisq)
-            grp.create_dataset('depth', data=depth)
-            grp.create_dataset('epoch', data=epoch)
-            grp.create_dataset('duration', data=duration)
-            grp.create_dataset('nt', data=nt)
-
+    pool = mp.Pool(processes = 6)
+    for i in range(len(jobs)):
+        pool.apply_async(bls_core, args = jobs[i])
+    pool.close()
+    pool.join()
+    
     return
 
 if __name__ == '__main__':
