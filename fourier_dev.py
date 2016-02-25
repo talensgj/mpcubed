@@ -21,47 +21,35 @@ def fftfreq(step, ns, cnst=False):
         
     return freq
     
-def cos_mat(time, freq):
-    
-    nt = len(time)
-    nf = len(freq)
-    
-    cmat = np.zeros((nt, nf))
-    for i in range(nf):
-        cmat[:,i] = np.cos(2*np.pi*freq[i]*time)
-        
-    return cmat
-    
 def sin_mat(time, freq):
     
-    nt = len(time)
-    nf = len(freq)
-    
-    smat = np.zeros((nt, nf))
-    for i in range(nf):
-        smat[:,i] = np.sin(2*np.pi*freq[i]*time)
+    smat = np.outer(time, freq)
+    smat = np.sin(2*np.pi*smat)
         
-    return smat
+    return smat  
+      
+def fit_sines(time, y, yerr, freq):
     
-def fit_fourier(time, y, yerr, freq):
-    
-    smat = sin_mat(time, freq)
-    cmat = cos_mat(time, freq)
-    mat = np.hstack([smat, cmat])
+    mat = sin_mat(time, freq)
     
     pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     
-def evaluate_fourier(time, pars, freq):
+def evaluate_sines(time, pars, freq):
     
-    smat = sin_mat(time, freq)
-    cmat = cos_mat(time, freq)
-    mat = np.hstack([smat, cmat])
-
+    mat = sin_mat(time, freq)
+    
     fit = np.dot(mat, pars)
-
+    
     return fit
+      
+def cos_mat(time, freq):
+    
+    cmat = np.outer(time, freq)
+    cmat = np.cos(2*np.pi*cmat)
+        
+    return cmat
     
 def fit_cosines(time, y, yerr, freq):
     
@@ -79,21 +67,35 @@ def evaluate_cosines(time, pars, freq):
     
     return fit
     
-def fit_sines(time, y, yerr, freq):
+def fourier_mat(time, freq):
     
-    mat = sin_mat(time, freq)
+    smat = sin_mat(time, freq)
+    cmat = cos_mat(time, freq)
+    mat = np.hstack([smat, cmat])
+    
+    return mat
+    
+def fit_fourier(time, y, yerr, freq):
+    
+    mat = fourier_mat(time, freq)
     
     pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     
-def evaluate_sines(time, pars, freq):
+def evaluate_fourier(time, pars, freq):
     
-    mat = sin_mat(time, freq)
-    
+    mat = fourier_mat(time, freq)
+
     fit = np.dot(mat, pars)
-    
+
     return fit
+    
+def fit_mat(y, yerr, mat):
+    
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    
+    return pars
     
 def main():
     
