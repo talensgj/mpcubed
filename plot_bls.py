@@ -24,7 +24,7 @@ from run_boxlstsq import data_mc
 
 def main():
     
-    blsfile = '/home/talens/MASCARA/bls_266.hdf5'
+    blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch266.hdf5'
     with h5py.File(blsfile, 'r') as f:
         
         grp = f['header']

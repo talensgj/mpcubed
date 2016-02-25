@@ -136,7 +136,7 @@ def trend_filter(jdmid, lst, mag, emag):
     
     return mag
 
-def bls_core(skyidx, jdmid, mag, emag, mask):
+def bls_core(skyidx, ascc, jdmid, mag, emag, mask):
     
     print 'Computing boxlstsq for skypatch', skyidx
     
@@ -195,7 +195,7 @@ def bls_core(skyidx, jdmid, mag, emag, mask):
     #blsfile = '/home/talens/MASCARA/bls_test.hdf5'
     with h5py.File(blsfile) as f:
         grp = f.create_group('header')
-        grp.create_dataset('ascc', data=ascc[select])
+        grp.create_dataset('ascc', data=ascc)
         grp.create_dataset('chisq0', data=chisq0)
         grp.create_dataset('period', data=1/best_freq)
         grp.create_dataset('depth', data=best_depth)
@@ -232,7 +232,7 @@ def main():
     
     jobs = []
     
-    for i in [266]:
+    for i in range(hg.npix):
         
         # Could loop over np.unique(skyidx), bu that is harder to restart.
         if i not in np.unique(skyidx): continue
@@ -247,7 +247,10 @@ def main():
         # Do not run if the baseline falls short of 60 days.
         if np.ptp(jdmid) < 60.: continue
         
-        jobs.append((i, jdmid, mag, emag, mask))
+        jobs.append((i, ascc[select], jdmid, mag, emag, mask))
+    
+    print 'Found {} sky-patches to perfrom the box least-squares on.'.format(len(jobs))
+    print
         
     pool = mp.Pool(processes = 6)
     for i in range(len(jobs)):
