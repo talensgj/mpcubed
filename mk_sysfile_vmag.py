@@ -20,21 +20,24 @@ def correct(LBfile):
 
     return
 
-data = ['/data2/talens/2015Q2/LPN/fLC_201504ALPN.hdf5',
-        '/data2/talens/2015Q2/LPN/fLC_201504BLPN.hdf5',
-        '/data2/talens/2015Q2/LPN/fLC_201505ALPN.hdf5',
-        '/data2/talens/2015Q2/LPN/fLC_201505BLPN.hdf5',
-        '/data2/talens/2015Q2/LPN/fLC_201506ALPN.hdf5',
-        '/data2/talens/2015Q2/LPN/fLC_201506BLPN.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201504ALPS.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201504BLPS.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201505ALPS.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201505BLPS.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201506ALPS.hdf5',
-        '/data2/talens/2015Q2/LPS/fLC_201506BLPS.hdf5']
+data = ['/data3/talens/2015Q3/LPE/fLC_201507ALPE.hdf5',
+        '/data3/talens/2015Q3/LPE/fLC_201507BLPE.hdf5',
+        '/data3/talens/2015Q3/LPE/fLC_201508ALPE.hdf5',
+        '/data3/talens/2015Q3/LPE/fLC_201508BLPE.hdf5',
+        '/data3/talens/2015Q3/LPE/fLC_201509ALPE.hdf5',
+        '/data3/talens/2015Q3/LPS/fLC_201507ALPS.hdf5',
+        '/data3/talens/2015Q3/LPS/fLC_201507BLPS.hdf5',
+        '/data3/talens/2015Q3/LPS/fLC_201508ALPS.hdf5',
+        '/data3/talens/2015Q3/LPS/fLC_201508BLPS.hdf5',
+        '/data3/talens/2015Q3/LPS/fLC_201509ALPS.hdf5',
+        '/data3/talens/2015Q3/LPW/fLC_201507ALPW.hdf5',
+        '/data3/talens/2015Q3/LPW/fLC_201507BLPW.hdf5',
+        '/data3/talens/2015Q3/LPW/fLC_201508ALPW.hdf5',
+        '/data3/talens/2015Q3/LPW/fLC_201508BLPW.hdf5',
+        '/data3/talens/2015Q3/LPW/fLC_201509ALPW.hdf5']
 
-pool = mp.Pool(processes = 6)
-for i in range(12):
-    pool.apply_async(correct, args = (data[i],))
+pool = mp.Pool(processes = 15)
+for i in range(15):
+    pool.apply_async(systematics, args = (data[i],))
 pool.close()
 pool.join()
