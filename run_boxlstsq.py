@@ -104,6 +104,7 @@ def data_mc(data, ascc, detrend=True):
     mag = np.array([[]]*len(ascc))
     emag = np.array([[]]*len(ascc))
     mask = np.array([[]]*len(ascc), dtype='bool')
+    trend = np.array([[]]*len(ascc))
     
     for filename in data:
         
@@ -114,27 +115,30 @@ def data_mc(data, ascc, detrend=True):
         
         # Correct for trends.
         if detrend:
-            mag_ = trend_filter(jdmid_, lst_, mag_, emag_)
+            mag_, trend_ = trend_filter(jdmid_, lst_, mag_, emag_)
         
         jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lst_)
         mag = np.append(mag, mag_, axis=1)
         emag = np.append(emag, emag_, axis=1)
         mask = np.append(mask, mask_, axis=1)
+        trend = np.append(trend, trend_, axis=1)
         
-    return jdmid, lst, mag, emag, mask
+    return jdmid, lst, mag, emag, mask, trend
 
 def trend_filter(jdmid, lst, mag, emag):
     
     nstars = mag.shape[0]
     weights = np.where(emag > 1e-3, 1./emag**2, 0.)
+    trend = np.zeros(mag.shape)
     
     for i in range(nstars):
         #chisq, pars, fit = filters.harmonic(lst, mag[i], weights[i], 24., 8)
         chisq, pars, fit = filters.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 20)
+        trend[i] = fit
         mag[i] = mag[i] - fit
     
-    return mag
+    return mag, trend
 
 def bls_core(skyidx, ascc, jdmid, mag, emag, mask):
     
@@ -191,7 +195,7 @@ def bls_core(skyidx, ascc, jdmid, mag, emag, mask):
     flag[args] = flag[args] + 8
     
     # Save the results to file.
-    blsfile = '/data2/talens/2015Q2/bls0_2015Q2_patch{:03d}.hdf5'.format(skyidx)
+    blsfile = '/data2/talens/2015Q2_vmag/bls0_vmag_2015Q2_patch{:03d}.hdf5'.format(skyidx)
     #blsfile = '/home/talens/MASCARA/bls_test.hdf5'
     with h5py.File(blsfile) as f:
         grp = f.create_group('header')
@@ -217,11 +221,11 @@ def bls_core(skyidx, ascc, jdmid, mag, emag, mask):
 
 def main():
     
-    data = ['/data2/talens/2015Q2/LPN/red0_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2/LPE/red0_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2/LPS/red0_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2/LPW/red0_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2/LPC/red0_2015Q2LPC.hdf5']
+    data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
+            '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
     
     # Read the combined header.
     ascc, ra, dec = header(data)

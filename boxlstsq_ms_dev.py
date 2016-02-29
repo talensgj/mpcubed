@@ -93,6 +93,9 @@ def boxlstsq_ms(time, flux, weights, **options):
     if (len(time) != len(flux)):
         raise ValueError('time and flux must have the same first dimension.')
     
+    if (np.ndim(flux) > 2):
+        raise ValueError('flux must be a 1d or a 2d array.')
+    
     if (np.shape(flux) != np.shape(weights)):
         raise ValueError('flux and weights must be the same shape.')
     
@@ -108,6 +111,7 @@ def boxlstsq_ms(time, flux, weights, **options):
     fmax = options.pop('fmax', None)
     OS = options.pop('OS', 3)
     
+    # Dtermine the baseline of the data.
     S = np.ptp(time)
     
     # Frequency sampling.
@@ -155,13 +159,18 @@ def boxlstsq_ms(time, flux, weights, **options):
     # Create arrays.
     nfreq = len(freq)
     
-    dchisq = np.zeros((nfreq, flux.shape[1]))
-    hchisq = np.zeros((nfreq, flux.shape[1]))
+    if (np.ndim(flux) == 1):
+        res_shape = (nfreq,)
+    else:
+        res_shape = (nfreq, flux.shape[1])
     
-    depth = np.zeros((nfreq, flux.shape[1]))
-    epoch = np.zeros((nfreq, flux.shape[1]))
-    duration = np.zeros((nfreq, flux.shape[1]))
-    nt = np.zeros((nfreq, flux.shape[1]))
+    dchisq = np.zeros(res_shape)
+    hchisq = np.zeros(res_shape)
+    
+    depth = np.zeros(res_shape)
+    epoch = np.zeros(res_shape)
+    duration = np.zeros(res_shape)
+    nt = np.zeros(res_shape)
     
     # Loop over frequency domain.
     for i in xrange(nfreq):
@@ -211,7 +220,7 @@ def boxlstsq_ms(time, flux, weights, **options):
         
         # Select the best solution.
         args1 = np.nanargmax(dchisq_tmp, axis=0)
-        args2 = np.arange(flux.shape[1])
+        args2 = np.arange(flux.shape[1]) # PROBLEM
         
         n = n[args1, args2]
         r = r[args1, args2]
