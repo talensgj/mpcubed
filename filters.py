@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from scipy import linalg
 
 import fourierfuncs
 
@@ -42,10 +43,37 @@ def masc_harmonic(jdmid, lst, mag0, weights, Pjd, njd, Plst=24., nlst=5):
     
     # Calculate the best fit.
     pars = np.linalg.lstsq(fmat*np.sqrt(weights[:,None]), mag0*np.sqrt(weights))[0]
+   
+    fit = np.dot(fmat, pars)
+    chisq = np.sum(weights*(mag0 - fit)**2)
+    
+    return chisq, pars, fit, fmat
+    
+def masc_harmonic_sp(jdmid, lst, mag0, weights, Pjd, njd, Plst=24., nlst=5):
+    """ Filter long term and lst variations from a lightcurve using sinusoids."""
+    
+    # Fit with a constant.
+    #fmat = np.ones((len(mag0),1))
+    
+    # Plus harmonics in the baseline.
+    if (njd > 0):
+        mat_jd = fourierfuncs.fourier_mat(jdmid, 1/Pjd, njd)
+        #fmat = np.hstack([fmat, mat_jd])
+        fmat = mat_jd
+        
+    # Plus harmonics in a sidereal day.
+    if (nlst > 0):
+        mat_lst = fourierfuncs.fourier_mat(lst, 1/Plst, nlst)
+        fmat = np.hstack([fmat, mat_lst])
+    
+    # Calculate the best fit.
+    pars = linalg.lstsq(fmat*np.sqrt(weights[:,None]), mag0*np.sqrt(weights))[0]
+   
     fit = np.dot(fmat, pars)
     chisq = np.sum(weights*(mag0 - fit)**2)
     
     return chisq, pars, fit
+
 
 def hybrid(jdmid, lstseq, mag0, emag0, Pjd, njd):
     

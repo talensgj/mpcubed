@@ -23,15 +23,15 @@ def masc_harmonic1(jdmid, lst, value, error, Pjd, njd, Plst, nlst, cnst=False):
     chisq = (value - fit)**2/error**2
     chisq = np.sum(chisq)
     
-    return chisq, pars, fit
+    return chisq, pars, fit, mat
 
-def masc_harminic2(jdmid, lst, value, error, stepjd, njd, steplst, nlst, cnst=False):
+def masc_harmonic2(jdmid, lst, value, error, stepjd, njd, steplst, nlst, cnst=False):
     
     freq_jd = fourier_dev.fftfreq(stepjd, njd, False)
     freq_lst = fourier_dev.fftfreq(steplst, nlst, False)
 
-    freq_jd = freq_jd[freq_jd < 1/9.]
-    freq_lst = freq_lst[freq_lst < 1/.5]
+    freq_jd = freq_jd[freq_jd < 1/2.]
+    freq_lst = freq_lst#[freq_lst < 1/.5]
 
     mat_jd = fourier_dev.fourier_mat(jdmid, freq_jd)
     mat_lst = fourier_dev.fourier_mat(lst, freq_lst)
@@ -46,7 +46,48 @@ def masc_harminic2(jdmid, lst, value, error, stepjd, njd, steplst, nlst, cnst=Fa
     chisq = (value - fit)**2/error**2
     chisq = np.sum(chisq)
     
-    return chisq, pars, fit
+    return chisq, pars, fit, mat
+
+def masc_harmonic3(jdmid, lstidx, value, error, stepjd, njd, cnst=False):
+    
+    freq = fourier_dev.fftfreq(stepjd, njd, cnst)
+    freq = freq[freq < 1./6]
+
+    mat = fourier_dev.fourier_mat(jdmid, freq)
+    
+    fit2 = 0
+    for i in range(5):
+        pars = fourier_dev.fit_mat(value - fit2, error, mat)
+        fit1 = np.dot(mat, pars)
+        
+        par = np.bincount(lstidx, (value - fit1)/error**2)/np.bincount(lstidx, 1/error**2)
+        fit2 = par[lstidx]
+    
+    fit = fit1 + fit2
+    chisq = (value - fit)**2/error**2
+    chisq = np.sum(chisq)
+    
+    return chisq, pars, fit, mat
+    
+def masc_harmonic4(jdmid, lstidx, value, error, Pjd, njd, cnst=False):
+    
+    freq = fourier_dev.frequencies(Pjd, njd, cnst)
+
+    mat = fourier_dev.fourier_mat(jdmid, freq)
+    
+    fit2 = 0
+    for i in range(5):
+        pars = fourier_dev.fit_mat(value - fit2, error, mat)
+        fit1 = np.dot(mat, pars)
+        
+        par = np.bincount(lstidx, (value - fit1)/error**2)/np.bincount(lstidx, 1/error**2)
+        fit2 = par[lstidx]
+    
+    fit = fit1 + fit2
+    chisq = (value - fit)**2/error**2
+    chisq = np.sum(chisq)
+    
+    return chisq, pars, fit, mat
 
 def main():
     
