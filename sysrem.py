@@ -15,7 +15,7 @@ def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
     npars = npars1 + npars2
 
     # Create arrays.
-    par2 = np.ones((mag0.shape[0], 1))
+    par2 = np.ones((value.shape[0], 1))
     
     for niter in range(maxiter):
         
@@ -23,8 +23,11 @@ def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
             print 'niter = {}'.format(niter)
         
         # Compute the parameters.
-        par1 = np.nansum(weights*data*par2, axis=1, keepdims=True)/np.nansum(weights*par2**2, axis=1, keepdims=True)
-        par2 = np.nansum(weights*data*par1, axis=0, keepdims=True)/np.nansum(weights*par1**2, axis=0, keepdims=True)
+        par1 = np.nansum(weights*value*par2, axis=1, keepdims=True)/np.nansum(weights*par2**2, axis=1, keepdims=True)
+        par2 = np.nansum(weights*value*par1, axis=0, keepdims=True)/np.nansum(weights*par1**2, axis=0, keepdims=True)
+    
+        print par1
+        print par2
     
         # Check if the solution has converged.
         if (niter > 0):
@@ -41,7 +44,7 @@ def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
     # Compute the chi-square of the fit.
     fit = np.outer(par1, par2)
     chisq = weights*(value - fit)**2        
-    chisq = np.sum(chisq)
+    chisq = np.nansum(chisq)
     
     return par1, par2, Quality(niter, chisq, npoints, npars)
 
