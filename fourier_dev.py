@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from scipy import linalg
 
 def frequencies(P, nf, cnst=False):
     
@@ -31,7 +32,7 @@ def sin_mat(time, freq):
 def fit_sines(time, y, yerr, freq):
     
     mat = sin_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     
@@ -52,7 +53,7 @@ def cos_mat(time, freq):
 def fit_cosines(time, y, yerr, freq):
     
     mat = cos_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     
@@ -74,7 +75,7 @@ def fourier_mat(time, freq):
 def fit_fourier(time, y, yerr, freq):
     
     mat = fourier_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     
@@ -87,7 +88,7 @@ def evaluate_fourier(time, pars, freq):
     
 def fit_mat(y, yerr, mat):
     
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
     
     return pars
     

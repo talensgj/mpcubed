@@ -48,56 +48,79 @@ def masc_harmonic2(jdmid, lst, value, error, stepjd, njd, steplst, nlst, cnst=Fa
     
     return chisq, pars, fit, mat
 
-def masc_harmonic3(jdmid, lstidx, value, error, stepjd, njd, cnst=False):
-    
-    freq = fourier_dev.fftfreq(stepjd, njd, cnst)
-    freq = freq[freq < 1./6]
 
-    mat = fourier_dev.fourier_mat(jdmid, freq)
+def iterative_detrending(jdmid, mag, emag, step, ns, maxiter=10):
     
-    fit2 = 0
-    for i in range(5):
-        pars = fourier_dev.fit_mat(value - fit2, error, mat)
-        fit1 = np.dot(mat, pars)
+    from scipy.signal import lombscargle
+    
+    freqs = fourier_dev.fftfreq(step, ns)
+    freqs = freqs[freqs <= 24./2.]
+    normval = jdmid.shape[0]
+    
+    use_args = np.array([], dtype='int')
+    fit = 0
+    
+    for niter in range(maxiter):
         
-        par = np.bincount(lstidx, (value - fit1)/error**2)/np.bincount(lstidx, 1/error**2)
-        fit2 = par[lstidx]
-    
-    fit = fit1 + fit2
-    chisq = (value - fit)**2/error**2
+        # Compute the normalized Lomb-Scargle periodogram.
+        pgram = lombscargle(jdmid, mag.astype('float64') - fit, 2*np.pi*freqs)
+        pgram = np.sqrt(4.*pgram/normval)
+        
+        # Find the peak in the periogram.
+        arg = np.argmax(pgram)
+        
+        # Add the corresponding frequency to the fit.
+        if arg in use_args:
+            print 'Frequency already in use.'
+            break
+        elif (pgram[arg] > .001):
+            use_args = np.append(use_args, arg)
+        else:
+            print 'Small amplitude.'
+            break
+        
+        # Fit the data.
+        mat = fourier_dev.fourier_mat(jdmid, freqs[use_args])
+        pars = fourier_dev.fit_mat(mag, emag, mat)
+        fit = np.dot(mat, pars)
+        
+    chisq = (mag - fit)**2/emag**2
     chisq = np.sum(chisq)
     
-    return chisq, pars, fit, mat
-    
-def masc_harmonic4(jdmid, lstidx, value, error, Pjd, njd, cnst=False):
-    
-    freq = fourier_dev.frequencies(Pjd, njd, cnst)
+    return chisq, pars, fit
 
-    mat = fourier_dev.fourier_mat(jdmid, freq)
-    
-    fit2 = 0
-    for i in range(5):
-        pars = fourier_dev.fit_mat(value - fit2, error, mat)
-        fit1 = np.dot(mat, pars)
-        
-        par = np.bincount(lstidx, (value - fit1)/error**2)/np.bincount(lstidx, 1/error**2)
-        fit2 = par[lstidx]
-    
-    fit = fit1 + fit2
-    chisq = (value - fit)**2/error**2
-    chisq = np.sum(chisq)
-    
-    return chisq, pars, fit, mat
 
 def main():
     
-    import h5py
-    
     import matplotlib.pyplot as plt
     
-    import trend_removal
+    #jdmid = np.linspace(0, 10, 500)
+    #mag = .4*np.sin(2*np.pi*3.*jdmid) + .23*np.cos(2*np.pi*.2*jdmid+.6) + .05*np.random.randn(500)
+    #emag = .05*np.ones(500)
     
-    with h5py.File('/data2/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5', 'r') as f:
+    #r = np.random.rand(500)
+    #jdmid = jdmid[r < .9]
+    #mag = mag[r < .9]
+    #emag = emag[r < .9]
+    
+    #freqs, pars, fit = iterative_detrending(jdmid, mag, emag, 10./499, 500)
+    
+    #print freqs, pars
+    
+    #plt.subplot(211)
+    #plt.errorbar(jdmid, mag, emag, fmt='.')
+    #plt.plot(jdmid, fit)
+    
+    #plt.subplot(212)
+    #plt.errorbar(jdmid, mag - fit, emag, fmt='.')
+    
+    #plt.tight_layout()
+    #plt.show()
+    
+    import h5py
+    
+    with h5py.File('/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5', 'r') as f:
+        
         grp = f['data/807144']
         jdmid = grp['jdmid'].value
         lst = grp['lst'].value
@@ -112,28 +135,37 @@ def main():
     mag = mag[select]
     emag = emag[select]
     lstseq = lstseq[select]
+    
     emag = emag/np.sqrt(50)
+        
+    step = np.amin(np.diff(jdmid))
+    ns = np.ptp(lstseq) + 1
+        
+    chisq1, pars1, fit1, mat = masc_harmonic1(jdmid, lst, mag, emag, 180., 21, 24., 6)
+    chisq2, pars2, fit2 = iterative_detrending(jdmid, mag, emag, step, ns, maxiter=17)
     
-    njd = np.ptp(lstseq) + 1
-    stepjd = np.amin(np.diff(jdmid))
-    nlst = np.ptp(lstseq%270) + 1
-    steplst = 320./3600
+    print len(pars1), len(pars2)
+    print chisq1, chisq2
     
-    chisq1, pars1, fit1 = remove_trend1(jdmid, lst, mag, emag, stepjd, njd, steplst, nlst, True)
-    print chisq1, len(pars1)
     print pars1
-    
-    pars2, fit2 = trend_removal.remove_trend1(lstseq, jdmid, lst, mag, emag)
-    print len(pars2)
     print pars2
     
-    #print np.allclose(pars1, pars2)
+    ax = plt.subplot(311)
+    ax.invert_yaxis()
+    plt.errorbar(jdmid, mag, emag, fmt='.', c='k')
+    plt.plot(jdmid, fit1, c='r')
+    plt.plot(jdmid, fit2, c='g')
     
-    plt.errorbar(jdmid, mag, emag, fmt='.')
-    plt.plot(jdmid, fit1, '.')
-    plt.plot(jdmid, fit2, '.')
+    plt.subplot(312, sharex=ax, sharey=ax)
+    plt.errorbar(jdmid, mag - fit1, emag, fmt='.', c='r')
+    plt.errorbar(jdmid, mag - fit2, emag, fmt='.', c='g')
+    
+    plt.subplot(313, sharey=ax)
+    plt.errorbar(np.mod(jdmid/2.21857, 1), mag - fit1, emag, fmt='.', c='r')
+    plt.errorbar(np.mod(jdmid/2.21857, 1), mag - fit2, emag, fmt='.', c='g')
+    
+    plt.tight_layout()
     plt.show()
-    
     
     return
 
