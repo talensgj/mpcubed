@@ -48,7 +48,6 @@ def masc_harmonic2(jdmid, lst, value, error, stepjd, njd, steplst, nlst, cnst=Fa
     
     return chisq, pars, fit, mat
 
-
 def iterative_detrending(jdmid, mag, emag, step, ns, maxiter=10):
     
     from scipy.signal import lombscargle

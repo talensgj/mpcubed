@@ -11,14 +11,18 @@ import filters
 from boxlstsq_ms_dev import boxlstsq_ms, phase_duration
 
 def read_header(filelist):
+    """ Read the combined header given reduced lightcurves."""
     
+    # Create arrays.
     ascc = np.array([])
     ra = np.array([])
     dec = np.array([])
     
     for filename in filelist:
         
+        # Read the headers.
         with h5py.File(filename, 'r') as f:
+            
             grp = f['header']
             ascc_ = grp['ascc'].value
             ra_ = grp['ra'].value
@@ -27,7 +31,8 @@ def read_header(filelist):
             ascc = np.append(ascc, ascc_)
             ra = np.append(ra, ra_)
             dec = np.append(dec, dec_)
-            
+    
+    # Obtain the unique entries.
     ascc, args = np.unique(ascc, return_index=True)
     ra = ra[args]
     dec = dec[args]
@@ -35,7 +40,9 @@ def read_header(filelist):
     return ascc, ra, dec
 
 def read_data_array(filename, ascc):
+    """ Read the lightcurves of a group of stars."""
     
+    # Create arrays.
     lstseq = np.array([])
     staridx = np.array([])
     jdmid = np.array([])
@@ -43,6 +50,7 @@ def read_data_array(filename, ascc):
     mag = np.array([])
     emag = np.array([])
     
+    # Read the lightcurves.
     with h5py.File(filename, 'r') as f:
         
         for i in range(len(ascc)):
@@ -100,6 +108,7 @@ def read_data_array(filename, ascc):
     return jdmid, lst, mag, emag, mask
 
 def detrend(jdmid, lst, mag, emag):
+    """ Detrend an array of lightcurves."""
     
     nstars = mag.shape[0]
     weights = np.where(emag > 1e-3, 1./emag**2, 0.)
@@ -107,12 +116,14 @@ def detrend(jdmid, lst, mag, emag):
     
     for i in range(nstars):
         
-        chisq, pars, trend[i] = filters.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 20)
+        chisq, pars, trend[i], fmat = filters.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 20)
     
     return trend
 
 def read_data(filelist, ascc):
+    """ Read the data from a list of reduced lightcurve files."""
     
+    # Create arrays.
     jdmid = np.array([])
     lst = np.array([])
     mag = np.array([[]]*len(ascc))
@@ -125,7 +136,8 @@ def read_data(filelist, ascc):
         # Read the data.
         jdmid_, lst_, mag_, emag_, mask_ = read_data_array(filename, ascc)
         
-        if len(jdmid_) == 0: continue
+        if len(jdmid_) == 0:
+            continue
         
         # Detrend the lightcurves.
         trend_ = detrend(jdmid_, lst_, mag_, emag_)
@@ -218,7 +230,19 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
 
     return
 
-def transit_search(filelist):
+def search_skypatch_mp(jobs, nprocs):
+    """ Use multiprocessing to perform the transit search."""
+    
+    pool = mp.Pool(processes = nprocs)
+    for i in range(len(jobs)):
+        pool.apply_async(search_skypatch, args = jobs[i])
+    pool.close()
+    pool.join()
+    
+    return
+    
+def transit_search(filelist, outpath, nprocs=6):
+    """ Perform detrending and transit search given reduced lightcurves."""
     
     # Read the combined header of the files.
     ascc, ra, dec = read_header(filelist)
@@ -227,35 +251,56 @@ def transit_search(filelist):
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
 
+    skypatches = np.unique(skyidx)
     jobs = []
     
-    for i in range(hg.npix):
+    for i in range(261, 267):
         
-        if i not in np.unique(skyidx): continue
+        # Check that the patch was observed.
+        if i not in skypatches:
+            continue
         
-        # Read the skybin for all cameras.
+        # Read the stars in the skypatch.
         select = (skyidx == i)
         jdmid, lst, mag, emag, mask, trend = read_data(filelist, ascc[select])
         
         # Make sure there was data.
-        if len(jdmid) == 0: continue
+        if (len(jdmid) == 0):
+            continue
         
         # Do not run if the baseline falls short of 60 days.
-        if np.ptp(jdmid) < 60.: continue
+        if (np.ptp(jdmid) < 60.):
+            continue
         
-        jobs.append((i, ascc[select], jdmid, mag, emag, mask))
+        # Check if multiprocessing was set.
+        if (nprocs == 1):
+            search_skypatch(i, ascc[select], jdmid, mag, emag, mask)
+            
+        elif (len(jobs) < nprocs):
+            jobs.append((i, ascc[select], jdmid, mag, emag, mask))
+           
+        if (len(jobs) == nprocs):
+            search_skypatch_mp(jobs, nprocs)
+            jobs = []
     
-    print 'Found {} sky-patches to perfrom the box least-squares on.'.format(len(jobs))
-    print
+    # Make sure no jobs remain.
+    if (len(jobs) != 0):
+        print 'Cleaning up final jobs.'
+        search_skypatch_mp(jobs, nprocs)
         
-    pool = mp.Pool(processes = 6)
-    for i in range(len(jobs)):
-        pool.apply_async(search_skypatch, args = jobs[i])
-    pool.close()
-    pool.join()
+    return
 
 
 def main():
+    
+    data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
+            '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
+    
+    transit_search(data, 'bla', nprocs=3)
+    
     return
 
 if __name__ == '__main__':
