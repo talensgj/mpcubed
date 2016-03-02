@@ -29,10 +29,10 @@ def sin_mat(time, freq):
         
     return smat  
       
-def fit_sines(time, y, yerr, freq):
+def fit_sines(time, y, weights, freq):
     
     mat = sin_mat(time, freq)
-    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
     
     return pars
     
@@ -50,10 +50,10 @@ def cos_mat(time, freq):
         
     return cmat
     
-def fit_cosines(time, y, yerr, freq):
+def fit_cosines(time, y, weights, freq):
     
     mat = cos_mat(time, freq)
-    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
     
     return pars
     
@@ -72,10 +72,10 @@ def fourier_mat(time, freq):
     
     return mat
     
-def fit_fourier(time, y, yerr, freq):
+def fit_fourier(time, y, weights, freq):
     
     mat = fourier_mat(time, freq)
-    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
     
     return pars
     
@@ -86,9 +86,9 @@ def evaluate_fourier(time, pars, freq):
 
     return fit
     
-def fit_mat(y, yerr, mat):
+def fit_mat(y, weights, mat):
     
-    pars = linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
     
     return pars
     
