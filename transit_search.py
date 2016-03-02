@@ -8,6 +8,7 @@ import multiprocessing as mp
 from package.coordinates import grids
 
 import filters
+import lst_trend_dev
 from boxlstsq_ms_dev import boxlstsq_ms, phase_duration
 
 def read_header(filelist):
@@ -107,16 +108,16 @@ def read_data_array(filename, ascc):
     
     return jdmid, lst, mag, emag, mask
 
-def detrend(jdmid, lst, mag, emag):
+def detrend(jdmid, lst, mag, emag, mask):
     """ Detrend an array of lightcurves."""
     
     nstars = mag.shape[0]
-    weights = np.where(emag > 1e-3, 1./emag**2, 0.)
+    weights = np.where(mask, 0., 1./emag**2)
     trend = np.zeros(mag.shape)
     
     for i in range(nstars):
         
-        chisq, pars, trend[i], fmat = filters.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 20)
+        pars, trend[i], chisq = lst_trend_dev.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
     
     return trend
 
@@ -140,7 +141,7 @@ def read_data(filelist, ascc):
             continue
         
         # Detrend the lightcurves.
-        trend_ = detrend(jdmid_, lst_, mag_, emag_)
+        trend_ = detrend(jdmid_, lst_, mag_, emag_, mask_)
         mag_ = mag_ - trend_
         
         jdmid = np.append(jdmid, jdmid_)
@@ -157,7 +158,7 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
     print 'Computing boxlstsq for skypatch', skyidx
     
     # Run the box least-squares search.
-    weights = np.where(mask, 0, 1/emag**2)
+    weights = np.where(mask, 0., 1./emag**2)
     freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
     
     if freq is None:
@@ -299,7 +300,7 @@ def main():
             '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    transit_search(data, 'bla', nprocs=3)
+    transit_search(data, 'bla', nprocs=6)
     
     return
 
