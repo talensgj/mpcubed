@@ -7,9 +7,8 @@ import multiprocessing as mp
 
 from package.coordinates import grids
 
-import filters
-import lst_trend_dev
-from boxlstsq_ms_dev import boxlstsq_ms, phase_duration
+import detrend
+import boxlstsq
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -108,7 +107,7 @@ def read_data_array(filename, ascc):
     
     return jdmid, lst, mag, emag, mask
 
-def detrend(jdmid, lst, mag, emag, mask):
+def fit_trend(jdmid, lst, mag, emag, mask):
     """ Detrend an array of lightcurves."""
     
     nstars = mag.shape[0]
@@ -117,7 +116,7 @@ def detrend(jdmid, lst, mag, emag, mask):
     
     for i in range(nstars):
         
-        pars, trend[i], chisq = lst_trend_dev.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
+        pars, trend[i], chisq = detrend.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
     
     return trend
 
@@ -141,7 +140,7 @@ def read_data(filelist, ascc):
             continue
         
         # Detrend the lightcurves.
-        trend_ = detrend(jdmid_, lst_, mag_, emag_, mask_)
+        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_)
         mag_ = mag_ - trend_
         
         jdmid = np.append(jdmid, jdmid_)
@@ -159,7 +158,7 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
     
     # Run the box least-squares search.
     weights = np.where(mask, 0., 1./emag**2)
-    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq_ms(jdmid, mag.T, weights.T)
+    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T)
     
     if freq is None:
         print 'freq = None', skyidx
@@ -192,7 +191,7 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
     flag[args] = flag[args] + 2
     
     # Check the phase coverage.
-    q = phase_duration(best_freq, 1., 1.)
+    q = boxlstsq.phase_duration(best_freq, 1., 1.)
     phase = np.outer(jdmid, best_freq)
     phase = np.mod(phase, 1)
     phase = np.sort(phase, axis=0)
@@ -300,7 +299,7 @@ def main():
             '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    transit_search(data, 'bla', nprocs=6)
+    transit_search(data, 'bla', nprocs=1)
     
     return
 

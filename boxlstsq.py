@@ -83,7 +83,7 @@ def cumsum_to_grid(time, bin_edges, weights):
     
     return n
 
-def boxlstsq_ms(time, flux, weights, **options):
+def boxlstsq(time, flux, weights, **options):
     """ Compute the box least-square periodogram for multiple stars."""
     
     time = np.asarray(time)
