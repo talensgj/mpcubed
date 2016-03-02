@@ -77,7 +77,7 @@ def cumsum_to_grid(time, bin_edges, weights):
         sa = time[i:i+block]
         sw = weights[i:i+block]
         tmp = np.cumsum(sw, axis=0)
-        cw = np.vstack(([zero,], tmp))
+        cw = np.concatenate(([zero,], tmp))
         bin_index = np.r_[sa.searchsorted(bin_edges[:-1], 'left'), sa.searchsorted(bin_edges[-1], 'right')]
         n += cw[bin_index]
     
@@ -219,20 +219,25 @@ def boxlstsq_ms(time, flux, weights, **options):
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
         
         # Select the best solution.
-        args1 = np.nanargmax(dchisq_tmp, axis=0)
-        args2 = np.arange(flux.shape[1]) # PROBLEM
+        args_1d = np.nanargmax(dchisq_tmp, axis=0)
         
-        n = n[args1, args2]
-        r = r[args1, args2]
-        s = s[args1, args2]
-        q = q[args1, args2]
+        if (np.ndim(flux) == 2):
+            args_2d = np.arange(flux.shape[1])
+            args_2d = (args_1d, args_2d)
+        else:
+            args_2d = args_1d
         
-        dchisq[i] = dchisq_tmp[args1, args2]
+        n = n[args_2d]
+        r = r[args_2d]
+        s = s[args_2d]
+        q = q[args_2d]
+        
+        dchisq[i] = dchisq_tmp[args_2d]
         hchisq[i] = chisq0 - s**2/(t - r) - q
         
         depth[i] = s*t/(r*(t - r))
-        epoch[i] = epoch_tmp[args1]
-        duration[i] = duration_tmp[args1]
+        epoch[i] = epoch_tmp[args_1d]
+        duration[i] = duration_tmp[args_1d]
         nt[i] = n
         
     return freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt
