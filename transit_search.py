@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 
+import os
+
 import h5py
 import numpy as np
 import multiprocessing as mp
@@ -17,6 +19,8 @@ def read_header(filelist):
     ascc = np.array([])
     ra = np.array([])
     dec = np.array([])
+    vmag = np.array([])
+    sptype = np.array([])
     
     for filename in filelist:
         
@@ -27,17 +31,23 @@ def read_header(filelist):
             ascc_ = grp['ascc'].value
             ra_ = grp['ra'].value
             dec_ = grp['dec'].value
+            vmag_ = grp['vmag'].value
+            sptype_ = grp['spectype'].value
             
             ascc = np.append(ascc, ascc_)
             ra = np.append(ra, ra_)
             dec = np.append(dec, dec_)
+            vmag = np.append(vmag, vmag_)
+            sptype = np.append(sptype, sptype_)
     
     # Obtain the unique entries.
     ascc, args = np.unique(ascc, return_index=True)
     ra = ra[args]
     dec = dec[args]
+    vmag = vmag[args]
+    sptype = sptype[args]
     
-    return ascc, ra, dec
+    return ascc, ra, dec, vmag, sptype
 
 def read_data_array(filename, ascc):
     """ Read the lightcurves of a group of stars."""
@@ -152,7 +162,7 @@ def read_data(filelist, ascc):
         
     return jdmid, lst, mag, emag, mask, trend
 
-def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
+def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     
     print 'Computing boxlstsq for skypatch', skyidx
     
@@ -193,7 +203,7 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
     # Check the phase coverage.
     q = boxlstsq.phase_duration(best_freq, 1., 1.)
     phase = np.outer(jdmid, best_freq)
-    phase = np.mod(phase, 1)
+    phase = np.mod(phase, 1.)
     phase = np.sort(phase, axis=0)
     gapsizes = np.diff(phase, axis=0)
     gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
@@ -207,26 +217,26 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask):
     flag[args] = flag[args] + 8
     
     # Save the results to file.
-    blsfile = '/data2/talens/2015Q2_vmag/bls0_vmag_2015Q2_patch{:03d}.hdf5'.format(skyidx)
     with h5py.File(blsfile) as f:
+        
         grp = f.create_group('header')
         grp.create_dataset('ascc', data=ascc)
-        grp.create_dataset('chisq0', data=chisq0)
-        grp.create_dataset('period', data=1/best_freq)
+        grp.create_dataset('chisq0', data=chisq0, dtype='float32')
+        grp.create_dataset('period', data=1./best_freq)
         grp.create_dataset('depth', data=best_depth)
         grp.create_dataset('epoch', data=best_epoch)
         grp.create_dataset('duration', data=best_duration)
-        grp.create_dataset('nt', data=best_nt)
-        grp.create_dataset('flag', data=flag)
+        grp.create_dataset('nt', data=best_nt, dtype='uint32')
+        grp.create_dataset('flag', data=flag, dtype='uint32')
         
         grp = f.create_group('data')
         grp.create_dataset('freq', data=freq)
-        grp.create_dataset('dchisq', data=dchisq)
-        grp.create_dataset('hchisq', data=hchisq)
+        grp.create_dataset('dchisq', data=dchisq, dtype='float32')
+        grp.create_dataset('hchisq', data=hchisq, dtype='float32')
         grp.create_dataset('depth', data=depth)
         grp.create_dataset('epoch', data=epoch)
         grp.create_dataset('duration', data=duration)
-        grp.create_dataset('nt', data=nt)
+        grp.create_dataset('nt', data=nt, dtype='uint32')
 
     return
 
@@ -241,11 +251,11 @@ def search_skypatch_mp(jobs, nprocs):
     
     return
     
-def transit_search(filelist, outpath, nprocs=6):
+def transit_search(filelist, outdir, name, nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
     
     # Read the combined header of the files.
-    ascc, ra, dec = read_header(filelist)
+    ascc, ra, dec, vmag, sptype = read_header(filelist)
     
     # Divide the stars in groups of neighbouring stars.
     hg = grids.HealpixGrid(8)
@@ -254,7 +264,7 @@ def transit_search(filelist, outpath, nprocs=6):
     skypatches = np.unique(skyidx)
     jobs = []
     
-    for i in range(261, 267):
+    for i in range(hg.npix):
         
         # Check that the patch was observed.
         if i not in skypatches:
@@ -272,20 +282,22 @@ def transit_search(filelist, outpath, nprocs=6):
         if (np.ptp(jdmid) < 60.):
             continue
         
+        blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
+        blsfile = os.path.join(outdir, blsfile)
+        
         # Check if multiprocessing was set.
         if (nprocs == 1):
-            search_skypatch(i, ascc[select], jdmid, mag, emag, mask)
-            
-        elif (len(jobs) < nprocs):
-            jobs.append((i, ascc[select], jdmid, mag, emag, mask))
-           
+            search_skypatch(i, ascc[select], jdmid, mag, emag, mask, blsfile)
+        else:
+            jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
+        
+        # Compute the periodgrams in the joblist.
         if (len(jobs) == nprocs):
             search_skypatch_mp(jobs, nprocs)
             jobs = []
     
-    # Make sure no jobs remain.
+    # Compute any remaining periodograms.
     if (len(jobs) != 0):
-        print 'Cleaning up final jobs.'
         search_skypatch_mp(jobs, nprocs)
         
     return
@@ -299,7 +311,9 @@ def main():
             '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    transit_search(data, 'bla', nprocs=1)
+    outdir = '/data2/talens/2015Q2_vmag'
+    
+    transit_search(data, outdir, 'vmag_2015Q2', nprocs=6)
     
     return
 
