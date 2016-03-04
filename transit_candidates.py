@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import glob
+
 import h5py
 import numpy as np
 
@@ -20,7 +23,96 @@ rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
 
+from boxlstsq import phase_duration
 from transit_search import read_header, read_data
+
+def boxlstsq_header(filelist):
+    
+    ascc = np.array([])
+    flag = np.array([], dtype='int')
+    period = np.array([])
+    depth = np.array([])
+    duration = np.array([])
+    nt = np.array([])
+    
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            grp = f['header']
+            ascc_ = grp['ascc'].value
+            flag_ = grp['flag'].value
+            period_ = grp['period'].value
+            depth_ = grp['depth'].value
+            duration_ = grp['duration'].value
+            nt_ = grp['nt'].value
+            
+            ascc = np.append(ascc, ascc_)
+            flag = np.append(flag, flag_)
+            period = np.append(period, period_)
+            depth = np.append(depth, depth_)
+            duration = np.append(duration, duration_)
+            nt = np.append(nt, nt_)
+            
+    return ascc, flag, period, depth, duration, nt
+
+def plot_diagnostics(filelist):
+    
+    ascc, flag, period, depth, duration, nt = boxlstsq_header(filelist)
+    q = phase_duration(1/period, 1., 1.)
+    select = (flag < 1)
+    
+    ax = plt.subplot(311)
+    plt.plot(1/period, depth, '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(1/period[select], depth[select], c='r', zorder=1)
+    plt.xlim(0, 1.8)
+    plt.ylim(-.1, .1)
+    plt.xlabel(r'Frequency [day$^{-1}$]')
+    plt.ylabel('Depth')
+    
+    plt.subplot(312, sharex=ax)
+    plt.plot(1/period, duration/(period*q), '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(1/period[select], duration[select]/(period[select]*q[select]), c='r', zorder=1)
+    plt.xlim(0, 1.8)
+    plt.ylim(0, 3.5)
+    plt.xlabel(r'Frequency [day$^{-1}$]')
+    plt.ylabel('Duration [q]')
+    
+    plt.subplot(313, sharex=ax, yscale='log')
+    plt.plot(1/period, nt, '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(1/period[select], nt[select], c='r', zorder=1)
+    plt.xlim(0, 1.8)
+    plt.xlabel(r'Frequency [day$^{-1}$]')
+    plt.ylabel(r'$n_t$')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    ax = plt.subplot(221, yscale='log')
+    plt.plot(duration/(period*q), nt, '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(duration[select]/(period[select]*q[select]), nt[select], c='r', zorder=1)
+    plt.xlim(0, 3.5)
+    plt.xlabel('Duration [q]')
+    plt.ylabel(r'$n_t$')
+    
+    plt.subplot(223)
+    plt.plot(duration/(period*q), depth, '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(duration[select]/(period[select]*q[select]), depth[select], c='r', zorder=1)
+    plt.xlim(0, 3.5)
+    plt.ylim(-.1, .1)
+    plt.xlabel('Duration [q]')
+    plt.ylabel('Depth')
+    
+    plt.subplot(224, xscale='log')
+    plt.plot(nt, depth, '.', c='k', alpha=.2, zorder=0)
+    plt.scatter(nt[select], depth[select], c='r', zorder=1)
+    plt.ylim(-.1, .1)
+    plt.ylabel('Depth')
+    plt.xlabel(r'$n_t$')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return 
 
 def plot_candidates(filename, data, outdir):
     
@@ -46,6 +138,8 @@ def plot_candidates(filename, data, outdir):
         duration = grp['duration'].value
         epoch = grp['epoch'].value
         nt = grp['nt'].value
+    
+    ntransit = best_nt*(319.1262613/(24*3600))/best_duration
     
     # Determine if there are any transit candidates.
     select = (flag < 1)
@@ -88,14 +182,27 @@ def plot_candidates(filename, data, outdir):
         
         gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
     
-        plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $n_t = {:d}$'.format(ascc[i], sptype[ASCC==ascc[i]][0], vmag[ASCC==ascc[i]][0], best_depth[i]*100, period[i], best_duration[i], int(best_nt[i])), size='xx-large')
+        plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}$'.format(ascc[i], sptype[ASCC==ascc[i]][0], vmag[ASCC==ascc[i]][0], best_depth[i]*100, period[i], best_duration[i], ntransit[i]), size='xx-large')
         
         ax = plt.subplot(gs[1,:])
         plt.plot(freq, dchisq[:,i], c='k')
-        #plt.axvline(1/period[i], c='g', ls='--')
+        
+        plt.axvline(1/period[i], c='g', ls='--')
+        for n in range(2, 5):
+            plt.axvline(n/period[i], c='g', ls='--')
+            plt.axvline(1/(n*period[i]), c='g', ls='--')
+        #for n in range(1, 5):
+            #plt.axvline(n/(period[i]*(n+1.)), c='g', ls='--', ymax=.4)
+            #plt.axvline((n+1.)/(n*period[i]), c='g', ls='--', ymax=.4)
+        
+        plt.axvline(1/.9972, c='r', ymax=.1, lw=2)
+        for n in range(2, 5):
+            plt.axvline(n/.9972, c='r', ymax=.1, lw=2)
+            plt.axvline(1/(n*.9972), c='r', ymax=.1, lw=2)
         for n in range(1, 5):
-            plt.axvline(n/period[i], c='r', ls='--')
-            plt.axvline(1/(n*period[i]), c='r', ls='--')
+            plt.axvline(n/(.9972*(n+1.)), c='r', ymax=.1, lw=2)
+            plt.axvline((n+1.)/(n*.9972), c='r', ymax=.1, lw=2)
+            
         plt.xlim(0, 1.8)
         plt.xlabel('Frequency [day$^{-1}$]')
         plt.ylabel(r'$\Delta\chi^2$')
@@ -110,24 +217,91 @@ def plot_candidates(filename, data, outdir):
         plt.ylabel(r'$\Delta m$')
         
         plt.tight_layout()
-        #plt.savefig('/home/talens/a4.png')
-        plt.show()
+        if (np.amax(dchisq[:,i]) > 1000):
+            plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}.png'.format(ascc[i])))
+        else:
+            plt.savefig(os.path.join(outdir, 'candidate_ASCC{}.png'.format(ascc[i])))
+        #plt.show()
         plt.close()
         
     return
 
+def plot_lightcurve(data, ascc, period):
+    
+    jdmid, lst, mag, emag, mask, trend = read_data(data, ascc)
+    jdmid = jdmid - np.amin(jdmid)
+    
+    for i in range(len(ascc)):
+        phase = np.mod(jdmid/period[i], 1.)
+        
+        ax = plt.subplot(111)
+        ax.invert_yaxis()
+        plt.title('ASCC {}'.format(ascc[i]))
+        plt.errorbar(phase[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], fmt='.', c='k')
+        plt.xlim(0,1)
+        #plt.show()
+        plt.savefig('binary_ASCC{}.png'.format(ascc[i]))
+        plt.close()
+    
+    return
+
+def plot_periodogram(filelist, ascc):
+    
+    for filename in filelist:
+        with h5py.File(filename, 'r') as f:
+            grp = f['header']
+            sID = grp['ascc'].value
+            
+            if ascc in sID:
+                grp = f['data']
+                freq = grp['freq'].value
+                dchisq = grp['dchisq'].value
+                
+                arg, = np.where(sID == ascc)
+                
+                plt.plot(freq, dchisq[:,arg])
+                plt.show()
+                
+                break
+    
+    return
+                
 
 def main():
     
-    filename = '/data2/talens/2015Q2_vmag/boxlstsq/bls0_vmag_2015Q2_patch266.hdf5'
     data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
             '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
             '/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
             '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
-    outdir = 'bla'
     
-    plot_candidates(filename, data, outdir)
+    filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq_new/bls0_*.hdf5')
+    filelist = np.sort(filelist)
+    
+    ascc, flag, period, depth, duration, nt = boxlstsq_header(filelist)
+    
+    select = (depth > .03) & (nt > 500) & (flag == 1)
+    print ascc[select], len(ascc[select])
+    
+    #plot_lightcurve(data, ascc[select], period[select])
+    plot_periodogram(filelist, '127601')
+    
+    ##plot_diagnostics(filelist)
+    #exit()
+    
+    #filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq_new/bls0_*.hdf5')
+    #filelist = np.sort(filelist)
+    
+    #data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
+            #'/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
+            #'/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
+            #'/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
+            #'/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
+            
+    #outdir = '/data2/talens/2015Q2_vmag/boxlstsq_new/figures'
+    
+    #for filename in filelist:
+        #plot_candidates(filename, data, outdir)
     
     return
 
