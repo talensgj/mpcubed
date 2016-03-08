@@ -267,6 +267,83 @@ def plot_periodogram(filelist, ascc):
     return
                 
 
+def periodogram_animation(filelist, data, sID):
+    
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            ascc = f['header/ascc'].value
+        
+        if sID in ascc:
+            break
+    
+    with h5py.File(filename, 'r') as f:
+        
+        grp = f['header']
+        ascc = grp['ascc'].value
+        chisq0 = grp['chisq0'].value
+        
+        grp = f['data']
+        freq = grp['freq'].value
+        dchisq = grp['dchisq'].value
+        depth = grp['depth'].value
+        duration = grp['duration'].value
+        epoch = grp['epoch'].value
+    
+    # Read the data.
+    jdmid, lst, mag, emag, mask, trend = read_data(data, ascc)
+    jdmid = jdmid - np.amin(jdmid)
+    
+    arg, = np.where(ascc == sID)
+    arg = arg[0]
+    
+    for i in range(len(freq)):
+        
+        print i
+    
+        phase = np.mod((jdmid - epoch[i,arg])*freq[i] + .5, 1.) - .5
+    
+        # The best fit box-model.
+        model = transit.box_model(jdmid, 1/freq[i], epoch[i,arg], -depth[i,arg], duration[i,arg])
+        weights = np.where(mask, 0., 1./emag**2)
+        mean = np.sum(weights[arg]*(mag[arg] - model))/np.sum(weights[arg])
+        model = model + mean
+        
+        sort = np.argsort(phase)
+        mphase = phase[sort]
+        model = model[sort]
+        
+        # Make the figure.
+        fig = plt.figure()
+        
+        gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
+        
+        plt.suptitle('ASCC {}'.format(sID))
+        
+        ax1 = plt.subplot(gs[1,:])
+        plt.annotate('$P = {:.2f}$ days'.format(1/freq[i]), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='x-large', backgroundcolor='w')
+        plt.plot(freq, dchisq[:,arg], c='k')
+        plt.axvline(freq[i], c='g', ls='--')
+        plt.xlim(freq[i]-.1, freq[i]+.1)
+        plt.xlabel('Frequency [day$^{-1}$]')
+        plt.ylabel(r'$\Delta\chi^2$')
+        
+        ax2 = plt.subplot(gs[2,:])
+        ax2.invert_yaxis()
+        plt.errorbar(phase[~mask[arg]], mag[arg,~mask[arg]], emag[arg,~mask[arg]], fmt='.', c='k')
+        plt.plot(mphase, model, c='r', lw=2)
+        plt.xlim(-.5, .5)
+        plt.xlabel('Phase')
+        plt.ylabel(r'$\Delta m$')
+        
+        plt.tight_layout()
+        plt.savefig('/data2/talens/boxlstsq_movie/mov_{:04d}.png'.format(i))
+        #plt.show()
+        plt.close()
+    
+    return
+
+
 def main():
     
     data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
@@ -284,7 +361,8 @@ def main():
     print ascc[select], len(ascc[select])
     
     #plot_lightcurve(data, ascc[select], period[select])
-    plot_periodogram(filelist, '127601')
+    #plot_periodogram(filelist, '127601')
+    periodogram_animation(filelist, data, '127601')
     
     ##plot_diagnostics(filelist)
     #exit()
