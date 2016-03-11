@@ -174,8 +174,7 @@ def free_frequencies():
     
     return
     
-
-def main():
+def hybrid():
     
     filename = '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5'
     
@@ -293,6 +292,75 @@ def main():
     #plt.ylim(.1, -.1)
     
     #plt.show()
+    
+    return
+
+def main():
+    
+    filename = '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5'
+        
+    jdmid, lst, mag, emag, lstseq = read_data(filename, '807144')
+    jdmid = jdmid - np.amin(jdmid)
+    
+    step = [np.amin(np.diff(jdmid)), 320./3600.]
+    ns = [np.ptp(lstseq) + 1, np.ptp(lstseq%270) + 1]
+    
+    # The current model.
+    pars1, fit1, chisq1 = detrend.masc_harmonic(jdmid, lst, mag, 1/emag**2, 180., 21, 24., 6)
+    print chisq1, len(pars1)
+    
+    pars2, fit2, chisq2 = detrend.new_harmonic(jdmid, lst, mag, 1/emag**2, step, ns, True)
+    print chisq2, len(pars2)
+    
+    pars3, fit3, chisq3 = detrend.hybrid(jdmid, lstseq%270, mag, 1/emag**2, step[0], ns[0])
+    print chisq3, len(pars3)
+    
+    arg = np.argsort(lst)
+
+    fig = plt.figure()
+    
+    ax1 = plt.subplot(211)
+    #plt.title(ascc[i])
+    ax1.invert_yaxis()
+    plt.errorbar(jdmid, mag, emag, fmt='.', c='k')
+    plt.plot(jdmid, fit1, c='r')
+    plt.plot(jdmid, fit2, c='g')
+    plt.plot(jdmid, fit3, c='y')
+    plt.xlabel('Time [JD]')
+    plt.ylabel(r'$\Delta m$')
+    
+    ax2 = plt.subplot(212, sharex=ax1, sharey=ax1)
+    #ax2.invert_yaxis()
+    plt.errorbar(jdmid, mag - fit1, emag, fmt='.', c='r')
+    plt.errorbar(jdmid, mag - fit2, emag, fmt='.', c='g')
+    plt.errorbar(jdmid, mag - fit3, emag, fmt='.', c='y')
+    plt.xlabel('Time [JD]')
+    plt.ylabel(r'$\Delta m$')
+    
+    plt.show()
+    
+    freq1, chisq0, dchisq1 = boxlstsq.boxlstsq(jdmid, mag - fit1, 1/emag**2)[:3]
+    freq2, chisq0, dchisq2 = boxlstsq.boxlstsq(jdmid, mag - fit2, 1/emag**2)[:3]
+    
+    phase = np.mod(jdmid/2.21857, 1)
+    
+    plt.subplot(211)
+    plt.plot(freq1, dchisq1)
+    
+    plt.subplot(212)
+    plt.errorbar(phase, mag - fit1, emag, fmt='.')
+    plt.ylim(.1, -.1)
+    
+    plt.show()
+    
+    plt.subplot(211)
+    plt.plot(freq1, dchisq2)
+    
+    plt.subplot(212)
+    plt.errorbar(phase, mag - fit2, emag, fmt='.')
+    plt.ylim(.1, -.1)
+    
+    plt.show()
     
     return
 
