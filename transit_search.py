@@ -49,6 +49,19 @@ def read_header(filelist):
     
     return ascc, ra, dec, vmag, sptype
 
+def find_ns(lstseq):
+    
+    lstidx = lstseq%270
+    option1 = np.ptp(lstidx) + 1
+    
+    lstidx = np.mod(lstidx + 135, 270)
+    option2 = np.ptp(lstidx) + 1
+    
+    if (option1 != option2):
+        print option1, option2
+    
+    return np.minimum(option1, option2)
+    
 def read_data_array(filename, ascc):
     """ Read the lightcurves of a group of stars."""
     
@@ -59,6 +72,7 @@ def read_data_array(filename, ascc):
     lst = np.array([])
     mag = np.array([])
     emag = np.array([])
+    ns = 2*np.ones((len(ascc), 2), dtype='int')
     
     # Read the lightcurves.
     with h5py.File(filename, 'r') as f:
@@ -92,7 +106,11 @@ def read_data_array(filename, ascc):
             lst = np.append(lst, lst_)
             mag = np.append(mag, mag_)
             emag = np.append(emag, emag_)
-    
+            
+            if (len(lstseq_) > 0):
+                ns[i, 0] = np.maximum(np.ptp(lstseq_) + 1, 2)
+                ns[i, 1] = np.maximum(find_ns(lstseq_), 2) 
+
     # Get the array indices of the data.
     staridx = staridx.astype('int')
     lstseq, args, idx = np.unique(lstseq, return_index=True, return_inverse=True)
@@ -115,19 +133,31 @@ def read_data_array(filename, ascc):
     tmp[staridx, idx] = True
     mask = ~tmp
     
-    return jdmid, lst, mag, emag, mask
+    return jdmid, lst, mag, emag, mask, ns
 
-def fit_trend(jdmid, lst, mag, emag, mask):
-    """ Detrend an array of lightcurves."""
+#def fit_trend(jdmid, lst, mag, emag, mask):
+    #""" Detrend an array of lightcurves."""
+    
+    #nstars = mag.shape[0]
+    #weights = np.where(mask, 0., 1./emag**2)
+    #trend = np.zeros(mag.shape)
+    
+    #for i in range(nstars):
+        
+        #pars, trend[i], chisq = detrend.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
+    
+    #return trend
+
+def fit_trend(jdmid, lst, mag, emag, mask, ns):
     
     nstars = mag.shape[0]
     weights = np.where(mask, 0., 1./emag**2)
     trend = np.zeros(mag.shape)
     
     for i in range(nstars):
-        
-        pars, trend[i], chisq = detrend.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
-    
+        print len(mag[i]), np.sum(~mask[i]), ns[i]
+        pars, trend[i], chisq = detrend.new_harmonic(jdmid, lst, mag[i], weights[i], ns[i])
+
     return trend
 
 def read_data(filelist, ascc):
@@ -144,13 +174,13 @@ def read_data(filelist, ascc):
     for filename in filelist:
         
         # Read the data.
-        jdmid_, lst_, mag_, emag_, mask_ = read_data_array(filename, ascc)
+        jdmid_, lst_, mag_, emag_, mask_, ns_ = read_data_array(filename, ascc)
         
         if len(jdmid_) == 0:
             continue
         
         # Detrend the lightcurves.
-        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_)
+        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_, ns_)
         mag_ = mag_ - trend_
         
         jdmid = np.append(jdmid, jdmid_)
@@ -292,7 +322,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
             jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
         
         # Compute the periodgrams in the joblist.
-        if (len(jobs) == nprocs):
+        if (len(jobs) == 5*nprocs):
             search_skypatch_mp(jobs, nprocs)
             jobs = []
     
@@ -311,7 +341,7 @@ def main():
             '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    outdir = '/data2/talens/2015Q2_vmag'
+    outdir = '/data2/talens/2015Q2_vmag/boxlstsq'
     
     transit_search(data, outdir, 'vmag_2015Q2', nprocs=6)
     
