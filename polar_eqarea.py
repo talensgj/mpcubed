@@ -146,36 +146,43 @@ def main():
         
         weights = 1/(emag**2 + (err1**2)[skyidx] + (err2**2)[staridx])
     
-    fit = (cam[camidx] + sky[skyidx] + ipx_x + ipx_y)
-    for i in range(0, 100000, 10000):
-        plt.plot(mag[i:i+10000], '.')
-        plt.plot(fit[i:i+10000])
-        plt.show()
+    haidx, decidx = np.unravel_index(np.arange(len(cam)), (13502, 722))
+    with h5py.File('/data2/talens/polar_eqarea.hdf5') as f:
+        grp = f.create_group('data')
+        grp.create_dataset('haidx', data=haidx)
+        grp.create_dataset('decidx', data=decidx)
+        grp.create_dataset('value', data=cam)
+    
+    #fit = (cam[camidx] + sky[skyidx] + ipx_x + ipx_y)
+    #for i in range(0, 100000, 10000):
+        #plt.plot(mag[i:i+10000], '.')
+        #plt.plot(fit[i:i+10000])
+        #plt.show()
         
-    array = np.full((13502, 722), fill_value=np.nan)
-    array[haidx1, decidx] = cam[camidx]
-    plt.imshow(array.T, aspect='auto', interpolation='nearest')
-    plt.colorbar()
-    plt.show()
+    #array = np.full((13502, 722), fill_value=np.nan)
+    #array[haidx1, decidx] = cam[camidx]
+    #plt.imshow(array.T, aspect='auto', interpolation='nearest')
+    #plt.colorbar()
+    #plt.show()
     
-    array = np.full((272, 722), fill_value=np.nan)
-    array[haidx2, decidx] = c[idx3]
-    plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1)
-    plt.colorbar()
-    plt.show()
+    #array = np.full((272, 722), fill_value=np.nan)
+    #array[haidx2, decidx] = c[idx3]
+    #plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1)
+    #plt.colorbar()
+    #plt.show()
     
-    ax = plt.subplot(121)
-    array = np.full((38, lstlen), fill_value=np.nan)
-    array[raidx, lstseq] = sky[skyidx]
-    plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=-.5, vmax=.5)
-    plt.colorbar()
+    #ax = plt.subplot(121)
+    #array = np.full((38, lstlen), fill_value=np.nan)
+    #array[raidx, lstseq] = sky[skyidx]
+    #plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=-.5, vmax=.5)
+    #plt.colorbar()
 
-    plt.subplot(122, sharex=ax, sharey=ax)
-    array = np.full((38, lstlen), fill_value=np.nan)
-    array[raidx, lstseq] = err1[skyidx]
-    plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=0, vmax=.2)
-    plt.colorbar()
-    plt.show()
+    #plt.subplot(122, sharex=ax, sharey=ax)
+    #array = np.full((38, lstlen), fill_value=np.nan)
+    #array[raidx, lstseq] = err1[skyidx]
+    #plt.imshow(array.T, aspect='auto', interpolation='nearest', vmin=0, vmax=.2)
+    #plt.colorbar()
+    #plt.show()
 
     return
 
