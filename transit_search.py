@@ -21,6 +21,8 @@ def read_header(filelist):
     dec = np.array([])
     vmag = np.array([])
     sptype = np.array([])
+    jdmin = np.array([])
+    jdmax = np.array([])
     
     for filename in filelist:
         
@@ -33,12 +35,16 @@ def read_header(filelist):
             dec_ = grp['dec'].value
             vmag_ = grp['vmag'].value
             sptype_ = grp['spectype'].value
+            jdmin_ = grp['jdmin'].value
+            jdmax_ = grp['jdmax'].value
             
             ascc = np.append(ascc, ascc_)
             ra = np.append(ra, ra_)
             dec = np.append(dec, dec_)
             vmag = np.append(vmag, vmag_)
             sptype = np.append(sptype, sptype_)
+            jdmin = np.append(jdmin, jdmin_)
+            jdmax = np.append(jdmax, jdmax_)
     
     # Obtain the unique entries.
     ascc, args = np.unique(ascc, return_index=True)
@@ -47,7 +53,7 @@ def read_header(filelist):
     vmag = vmag[args]
     sptype = sptype[args]
     
-    return ascc, ra, dec, vmag, sptype
+    return ascc, ra, dec, vmag, sptype, jdmin, jdmax
 
 def find_ns(lstseq):
     
@@ -100,6 +106,9 @@ def read_data_array(filename, ascc):
             mag_ = mag_[select]
             emag_ = emag_[select]
             
+            if (len(jdmid_) == 0):
+                continue
+            
             lstseq = np.append(lstseq, lstseq_)
             staridx = np.append(staridx, [i]*len(lstseq_))
             jdmid = np.append(jdmid, jdmid_)
@@ -107,9 +116,8 @@ def read_data_array(filename, ascc):
             mag = np.append(mag, mag_)
             emag = np.append(emag, emag_)
             
-            if (len(lstseq_) > 0):
-                ns[i, 0] = np.maximum(np.ptp(lstseq_) + 1, 2)
-                ns[i, 1] = np.maximum(find_ns(lstseq_), 2) 
+            ns[i, 0] = np.maximum(np.ptp(lstseq_) + 1, 2)
+            ns[i, 1] = np.maximum(find_ns(lstseq_), 2) 
 
     # Get the array indices of the data.
     staridx = staridx.astype('int')
@@ -149,13 +157,14 @@ def read_data_array(filename, ascc):
     #return trend
 
 def fit_trend(jdmid, lst, mag, emag, mask, ns):
+    """ Detrend an array of lightcurves."""
     
     nstars = mag.shape[0]
     weights = np.where(mask, 0., 1./emag**2)
     trend = np.zeros(mag.shape)
     
     for i in range(nstars):
-        print len(mag[i]), np.sum(~mask[i]), ns[i]
+        
         pars, trend[i], chisq = detrend.new_harmonic(jdmid, lst, mag[i], weights[i], ns[i])
 
     return trend
@@ -285,19 +294,28 @@ def transit_search(filelist, outdir, name, nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
     
     # Read the combined header of the files.
-    ascc, ra, dec, vmag, sptype = read_header(filelist)
+    ascc, ra, dec, vmag, sptype, jdmin, jdmax = read_header(filelist)
     
     # Divide the stars in groups of neighbouring stars.
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
 
-    skypatches = np.unique(skyidx)
-    jobs = []
+    # Determine the maximum baseline in each grid cell.
+    blgrid = np.zeros(hg.npix)
+    for i in range(hg.npix):
+        select = (skyidx == i)
+        
+        if (np.sum(select) == 0):
+            continue
+        
+        blgrid[i] = np.amax(jdmax[select]) - np.amin(jdmin[select])
     
+    jobs = []
     for i in range(hg.npix):
         
-        # Check that the patch was observed.
-        if i not in skypatches:
+        # Do not run if the baseline falls short of 60 days.
+        if (blgrid[i] < 60.):
+            print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
             continue
         
         # Read the stars in the skypatch.
@@ -308,10 +326,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
         if (len(jdmid) == 0):
             continue
         
-        # Do not run if the baseline falls short of 60 days.
-        if (np.ptp(jdmid) < 60.):
-            continue
-        
+        # Filename for the output file. 
         blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
         blsfile = os.path.join(outdir, blsfile)
         
@@ -322,7 +337,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
             jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
         
         # Compute the periodgrams in the joblist.
-        if (len(jobs) == 5*nprocs):
+        if (len(jobs) == 2*nprocs):
             search_skypatch_mp(jobs, nprocs)
             jobs = []
     
@@ -332,18 +347,24 @@ def transit_search(filelist, outdir, name, nprocs=6):
         
     return
 
+def ensure_dir(path):
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
+    return
 
 def main():
     
-    data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
+    data = ['/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
+            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
+            '/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5']
     
-    outdir = '/data2/talens/2015Q2_vmag/boxlstsq'
+    outdir = '/data3/talens/boxlstsq/2015LPE'
+    ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015Q2', nprocs=6)
+    transit_search(data, outdir, 'vmag_2015LPE', nprocs=8)
     
     return
 

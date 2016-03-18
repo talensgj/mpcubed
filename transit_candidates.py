@@ -116,7 +116,7 @@ def plot_diagnostics(filelist):
 
 def plot_candidates(filename, data, outdir):
     
-    ASCC, ra, dec, vmag, sptype = read_header(data)
+    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
     
     # Read the box least-squares results.
     with h5py.File(filename, 'r') as f:
@@ -182,7 +182,7 @@ def plot_candidates(filename, data, outdir):
         
         gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
     
-        plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}$'.format(ascc[i], sptype[ASCC==ascc[i]][0], vmag[ASCC==ascc[i]][0], best_depth[i]*100, period[i], best_duration[i], ntransit[i]), size='xx-large')
+        plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}, flag={:d}$'.format(ascc[i], sptype[ASCC==ascc[i]][0], vmag[ASCC==ascc[i]][0], best_depth[i]*100, period[i], best_duration[i], ntransit[i], flag[i]), size='xx-large')
         
         ax = plt.subplot(gs[1,:])
         plt.plot(freq, dchisq[:,i], c='k')
@@ -346,40 +346,33 @@ def periodogram_animation(filelist, data, sID):
 
 def main():
     
-    data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
+    data = ['/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
+            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq_new/bls0_*.hdf5')
-    filelist = np.sort(filelist)
+    filelist = glob.glob('/data3/talens/2015Q2/boxlstsq/bls0_*.hdf5')
     
-    ascc, flag, period, depth, duration, nt = boxlstsq_header(filelist)
+    for filename in filelist:
+        plot_candidates(filename, data, '/data3/talens/2015Q2/boxlstsq/figures')
     
-    select = (depth > .03) & (nt > 500) & (flag == 1)
-    print ascc[select], len(ascc[select])
-    
-    #plot_lightcurve(data, ascc[select], period[select])
-    #plot_periodogram(filelist, '127601')
-    periodogram_animation(filelist, data, '127601')
-    
-    ##plot_diagnostics(filelist)
-    #exit()
+    #filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq/bls0_*.hdf5')
+    #ascc1, flag, period, depth, duration, nt = boxlstsq_header(filelist)
+    #ascc1 = ascc1[flag == 0]
     
     #filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq_new/bls0_*.hdf5')
-    #filelist = np.sort(filelist)
+    #ascc2, flag, period, depth, duration, nt = boxlstsq_header(filelist)
+    #ascc2 = ascc2[flag == 0]
     
-    #data = ['/data2/talens/2015Q2_vmag/LPN/red0_vmag_2015Q2LPN.hdf5',
-            #'/data2/talens/2015Q2_vmag/LPE/red0_vmag_2015Q2LPE.hdf5',
-            #'/data2/talens/2015Q2_vmag/LPS/red0_vmag_2015Q2LPS.hdf5',
-            #'/data2/talens/2015Q2_vmag/LPW/red0_vmag_2015Q2LPW.hdf5',
-            #'/data2/talens/2015Q2_vmag/LPC/red0_vmag_2015Q2LPC.hdf5']
-            
-    #outdir = '/data2/talens/2015Q2_vmag/boxlstsq_new/figures'
+    #print 'In 1 but not in 2:', np.setdiff1d(ascc1, ascc2)
+    #print 'In 2 but not in 1:', np.setdiff1d(ascc2, ascc1)
     
-    #for filename in filelist:
-        #plot_candidates(filename, data, outdir)
+    #for ascc in np.setdiff1d(ascc1, ascc2):
+        #os.system('shotwell /data2/talens/2015Q2_vmag/boxlstsq/figures/*{}*'.format(ascc))
+    
+    #for ascc in np.setdiff1d(ascc2, ascc1):
+        #os.system('shotwell /data2/talens/2015Q2_vmag/boxlstsq_new/figures/*{}*'.format(ascc))
     
     return
 
