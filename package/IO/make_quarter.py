@@ -97,23 +97,47 @@ def make_quarter(filelist, outfile):
     
     # Merge the headers.
     hdr = _merge_headers(filelist)
-    with h5py.File(outfile) as f:
-        grp = f.create_group('header')
-        for key, value in hdr.iteritems():
-            grp.create_dataset(key, data = value)
         
     # Merge the lightcurves.
     ascc = hdr['ascc']
     nstars = len(ascc)
+    nobs = np.zeros(nstars)
+    jdmin = np.zeros(nstars)
+    jdmax = np.zeros(nstars)
+    lstseqmin = np.zeros(nstars)
+    lstseqmax = np.zeros(nstars)
     for i in range(nstars):
         
         # Read the data.
         lc = _merge_data(filelist, ascc[i])
+        
+        if (len(lc) == 0):
+            continue
+        
+        nobs[i] = len(lc)
+        jdmin[i] = np.amin(lc['jdmid'])
+        jdmax[i] = np.amax(lc['jdmid'])
+        lstseqmin[i] = np.amin(lc['lstseq'])
+        lstseqmax[i] = np.amax(lc['lstseq'])
         
         # Write the data.
         with h5py.File(outfile) as f:
             grp = f.create_group('data/' + ascc[i])
             for key in lc.dtype.names:
                 grp.create_dataset(key, data = lc[key])
+
+    select = (nobs > 0)
+    with h5py.File(outfile) as f:
+        
+        grp = f.create_group('header')
+        
+        for key, value in hdr.iteritems():
+            grp.create_dataset(key, data = value[select])
+            
+        grp.create_dataset('nobs', data=nobs[select], dtype='uint32')
+        grp.create_dataset('jdmin', data=jdmin[select])
+        grp.create_dataset('jdmax', data=jdmax[select])
+        grp.create_dataset('lstseqmin', data=lstseqmin[select], dtype='uint32')
+        grp.create_dataset('lstseqmax', data=lstseqmax[select], dtype='uint32')
 
     return

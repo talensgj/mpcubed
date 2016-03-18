@@ -26,7 +26,7 @@ def verify_filelist(filelist):
     if len(filelist) == 0:
         print 'No valid files.'
         print 'exiting...'
-        exit()
+        return filelist
     
     return filelist
 
@@ -84,8 +84,8 @@ def _merge_global(filelist):
                 try: attrdict['aper1'] = grp.attrs['aper1']
                 except: attrdict['aper1'] = grp.attrs['APER1']
                 
-                try: attrdict['nstaper'] = grp.attrs['nstaper']
-                except: attrdict['nstaper'] = grp.attrs['NSTAPER']
+                #try: attrdict['nstaper'] = grp.attrs['nstaper']
+                #except: attrdict['nstaper'] = grp.attrs['NSTAPER']
                 
                 try: attrdict['skyrad0'] = grp.attrs['skyrad0']
                 except: attrdict['skyrad0'] = grp.attrs['SKYRAD0']
@@ -222,6 +222,9 @@ def make_baseline(filelist, outfile):
 
     filelist = np.sort(filelist)
     filelist = verify_filelist(filelist)
+    
+    if len(filelist) == 0:
+        return
     
     # Write the global group.
     lstmin, _ = _lstrange(filelist[0])
