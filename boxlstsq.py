@@ -190,6 +190,8 @@ def boxlstsq(time, flux, weights, **options):
         s_cum = cumsum_to_grid(phase_fold, bins, weights_fold*flux_fold)
         q_cum = cumsum_to_grid(phase_fold, bins, weights_fold*flux_fold**2)
         
+        nmax = np.amax(n_cum, axis=0)
+        
         # Extend the grid to account for all epochs.
         bins = np.append(bins, bins[1:NumSteps*ES] + bins[-1])
         n_cum = np.append(n_cum, n_cum[1:NumSteps*ES] + n_cum[-1], axis=0)
@@ -214,6 +216,7 @@ def boxlstsq(time, flux, weights, **options):
         # Find the best fit.
         dchisq_tmp = s**2*t/(r*(t - r))
         dchisq_tmp[n < 1] = 0
+        dchisq_tmp[(nmax - n) < 1] = 0
         
         epoch_tmp = (bins[i1] + bins[i2])/(2*freq[i])
         duration_tmp = (bins[i2] - bins[i1])/freq[i]

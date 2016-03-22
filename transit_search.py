@@ -344,6 +344,14 @@ def transit_search(filelist, outdir, name, nprocs=6):
     # Compute any remaining periodograms.
     if (len(jobs) != 0):
         search_skypatch_mp(jobs, nprocs)
+    
+    print
+    print 'Succesfully ran the boxlstsq on:'
+    for filename in filelist:
+        print ' ', filename
+    print
+    print 'The results were writen to:'
+    print ' ', outdir
         
     return
 
@@ -356,15 +364,16 @@ def ensure_dir(path):
 
 def main():
     
-    data = ['/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
-            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+    data = ['/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
             '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
-            '/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5']
+            '/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
+            '/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
+            '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5']
     
-    outdir = '/data3/talens/boxlstsq/2015LPE'
+    outdir = '/data3/talens/boxlstsq/2015Q3'
     ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015LPE', nprocs=8)
+    transit_search(data, outdir, 'vmag_2015Q3', nprocs=8)
     
     return
 
