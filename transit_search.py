@@ -8,6 +8,7 @@ import numpy as np
 import multiprocessing as mp
 
 from package.coordinates import grids
+from package.statistics import statistics
 
 import detrend
 import boxlstsq
@@ -38,33 +39,33 @@ def read_header(filelist):
             jdmin_ = grp['jdmin'].value
             jdmax_ = grp['jdmax'].value
             
-            ascc = np.append(ascc, ascc_)
-            ra = np.append(ra, ra_)
-            dec = np.append(dec, dec_)
-            vmag = np.append(vmag, vmag_)
-            sptype = np.append(sptype, sptype_)
-            jdmin = np.append(jdmin, jdmin_)
-            jdmax = np.append(jdmax, jdmax_)
+        ascc = np.append(ascc, ascc_)
+        ra = np.append(ra, ra_)
+        dec = np.append(dec, dec_)
+        vmag = np.append(vmag, vmag_)
+        sptype = np.append(sptype, sptype_)
+        jdmin = np.append(jdmin, jdmin_)
+        jdmax = np.append(jdmax, jdmax_)
     
     # Obtain the unique entries.
-    ascc, args = np.unique(ascc, return_index=True)
+    ascc, args, idx = np.unique(ascc, return_index=True, return_inverse=True)
     ra = ra[args]
     dec = dec[args]
     vmag = vmag[args]
     sptype = sptype[args]
+    jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
+    jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
     
     return ascc, ra, dec, vmag, sptype, jdmin, jdmax
 
 def find_ns(lstseq):
+    """ Number of sampling points in LST, takes wrapping into account."""
     
     lstidx = lstseq%270
     option1 = np.ptp(lstidx) + 1
     
     lstidx = np.mod(lstidx + 135, 270)
     option2 = np.ptp(lstidx) + 1
-    
-    if (option1 != option2):
-        print option1, option2
     
     return np.minimum(option1, option2)
     
@@ -73,11 +74,11 @@ def read_data_array(filename, ascc):
     
     # Create arrays.
     lstseq = np.array([])
-    staridx = np.array([])
     jdmid = np.array([])
     lst = np.array([])
     mag = np.array([])
     emag = np.array([])
+    staridx = np.array([])
     ns = 2*np.ones((len(ascc), 2), dtype='int')
     
     # Read the lightcurves.
@@ -110,12 +111,11 @@ def read_data_array(filename, ascc):
                 continue
             
             lstseq = np.append(lstseq, lstseq_)
-            staridx = np.append(staridx, [i]*len(lstseq_))
             jdmid = np.append(jdmid, jdmid_)
             lst = np.append(lst, lst_)
             mag = np.append(mag, mag_)
             emag = np.append(emag, emag_)
-            
+            staridx = np.append(staridx, [i]*len(lstseq_))
             ns[i, 0] = np.maximum(np.ptp(lstseq_) + 1, 2)
             ns[i, 1] = np.maximum(find_ns(lstseq_), 2) 
 
@@ -181,7 +181,7 @@ def read_data(filelist, ascc):
     trend = np.array([[]]*len(ascc))
     
     for filename in filelist:
-        
+
         # Read the data.
         jdmid_, lst_, mag_, emag_, mask_, ns_ = read_data_array(filename, ascc)
         
@@ -202,6 +202,7 @@ def read_data(filelist, ascc):
     return jdmid, lst, mag, emag, mask, trend
 
 def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
+    """ Perform the box least-squares and flag non-detections."""
     
     print 'Computing boxlstsq for skypatch', skyidx
     
@@ -302,14 +303,11 @@ def transit_search(filelist, outdir, name, nprocs=6):
 
     # Determine the maximum baseline in each grid cell.
     blgrid = np.zeros(hg.npix)
-    for i in range(hg.npix):
-        select = (skyidx == i)
+    skyuni, idx = np.unique(skyidx, return_inverse=True)
+    jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
+    jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
+    blgrid[skyuni] =  jdmax - jdmin
         
-        if (np.sum(select) == 0):
-            continue
-        
-        blgrid[i] = np.amax(jdmax[select]) - np.amin(jdmin[select])
-    
     jobs = []
     for i in range(hg.npix):
         
@@ -321,7 +319,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
         # Read the stars in the skypatch.
         select = (skyidx == i)
         jdmid, lst, mag, emag, mask, trend = read_data(filelist, ascc[select])
-        
+    
         # Make sure there was data.
         if (len(jdmid) == 0):
             continue
@@ -345,6 +343,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
     if (len(jobs) != 0):
         search_skypatch_mp(jobs, nprocs)
     
+    # Print a message indicating succes.
     print
     print 'Succesfully ran the boxlstsq on:'
     for filename in filelist:
@@ -364,16 +363,16 @@ def ensure_dir(path):
 
 def main():
     
-    data = ['/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
-            '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
-            '/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
-            '/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
-            '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5']
+    data = ['/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
+            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
     
-    outdir = '/data3/talens/boxlstsq/2015Q3'
+    outdir = '/data3/talens/boxlstsq/2015Q1'
     ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015Q3', nprocs=8)
+    transit_search(data, outdir, 'vmag_2015Q1', nprocs=8)
     
     return
 
