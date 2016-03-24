@@ -263,9 +263,9 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         grp.create_dataset('ascc', data=ascc)
         grp.create_dataset('chisq0', data=chisq0, dtype='float32')
         grp.create_dataset('period', data=1./best_freq)
-        grp.create_dataset('depth', data=best_depth)
+        grp.create_dataset('depth', data=best_depth, dtype='float32')
         grp.create_dataset('epoch', data=best_epoch)
-        grp.create_dataset('duration', data=best_duration)
+        grp.create_dataset('duration', data=best_duration, dtype='float32')
         grp.create_dataset('nt', data=best_nt, dtype='uint32')
         grp.create_dataset('flag', data=flag, dtype='uint32')
         
@@ -273,9 +273,9 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         grp.create_dataset('freq', data=freq)
         grp.create_dataset('dchisq', data=dchisq, dtype='float32')
         grp.create_dataset('hchisq', data=hchisq, dtype='float32')
-        grp.create_dataset('depth', data=depth)
+        grp.create_dataset('depth', data=depth, dtype='float32')
         grp.create_dataset('epoch', data=epoch)
-        grp.create_dataset('duration', data=duration)
+        grp.create_dataset('duration', data=duration, dtype='float32')
         grp.create_dataset('nt', data=nt, dtype='uint32')
 
     return
@@ -363,16 +363,15 @@ def ensure_dir(path):
 
 def main():
     
-    data = ['/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5']
+    data = ['/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
+            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
+            '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5',
+            '/data3/talens/2015Q4/LPC/red0_vmag_2015Q4LPC.hdf5']
     
-    outdir = '/data3/talens/boxlstsq/2015Q1'
+    outdir = '/data3/talens/boxlstsq'
     ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015Q1', nprocs=8)
+    transit_search(data, outdir, 'vmag_2015LPC', nprocs=8)
     
     return
 
