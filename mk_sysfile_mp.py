@@ -7,46 +7,79 @@ import multiprocessing as mp
 from package.red_decor import CoarseDecorrelation
 from package.red_apply import CorrectLC
 
-def systematics(LBfile):
+def systematics(filename, aper):
     
     # Perform coarse decorrelation.
-    CoarseDecorrelation(LBfile, 0)
+    CoarseDecorrelation(filename, aper)
     
     return
 
-def correct(LBfile):
+def correct(filename, aper):
     
     # Create reduced lightcurves.
-    f = CorrectLC(LBfile, 0)
+    f = CorrectLC(LBfile, aper)
     redfile = f.make_redfile()
 
     return
     
-def reduction(LBfile):
+def systematics_mp(jobs, nprocs):
     
-    # Perform coarse decorrelation.
-    CoarseDecorrelation(LBfile, 0)
+    pool = mp.Pool(nprocs)
+    for i in range(len(jobs)):
+        pool.apply_async(systematics, args=jobs[i])
+    pool.close()
+    pool.join()
     
-    # Create reduced lightcurves.
-    f = CorrectLC(LBfile, 0)
-    redfile = f.make_redfile()
-
+    return
+    
+def correct_mp(jobs, nprocs):
+    
+    pool = mp.Pool(nprocs)
+    for i in range(len(jobs)):
+        pool.apply_async(correct, args=jobs[i])
+    pool.close()
+    pool.join()
+    
     return
 
-filename = '/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5'
-sysfile = '/data2/talens/2015Q2/LPE/sys0_201506ALPE_nosigmas.hdf5'
+def main(filelist, aper, mode, nprocs):
 
-CoarseDecorrelation(filename, 0, sysfile=sysfile, sigmas=False)
+    jobs = []
+    for filename in filelist:
+        jobs.append((filename, aper))
 
-#data = ['/data2/talens/2015Q2/LPN/fLC_201504ALPN.hdf5',
-        #'/data2/talens/2015Q2/LPN/fLC_201504BLPN.hdf5',
-        #'/data2/talens/2015Q2/LPN/fLC_201505ALPN.hdf5',
-        #'/data2/talens/2015Q2/LPN/fLC_201505BLPN.hdf5',
-        #'/data2/talens/2015Q2/LPN/fLC_201506ALPN.hdf5',
-        #'/data2/talens/2015Q2/LPN/fLC_201506BLPN.hdf5']
+    if (len(jobs) == 1):
+        if (mode == 0):
+            systematics(*jobs[0])
+        else:
+            correct(*jobs[0])
+    elif (nprocs == 1):
+        for i in range(len(jobs)):
+            if (mode == 0):
+                systematics(*jobs[i])
+            else:
+                correct(*jobs[i])
+    else:
+        if (mode == 0):
+            systematics_mp(jobs, nprocs)
+        else:
+            correct_mp(jobs, nprocs)
+            
+    return
 
-#pool = mp.Pool(processes = 6)
-#for i in range(6):
-    #pool.apply_async(correct, args = (data[i],))
-#pool.close()
-#pool.join()
+if __name__ == '__main__':
+    
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Perform the coarse decorrelation on a baseline.')
+    parser.add_argument('files', type=str, nargs='+',
+                        help='the file(s) to perform the coarse decorrelation on')
+    parser.add_argument('-a', '--aper', type=int, choices=[0,1], default=0,
+                        help ='the aperture to perform the coarse decorrelation on', dest='aper')
+    parser.add_argument('-m', '--mode', type=int, choices=[0,1], default=0,
+                        help ='compute or apply the coarse decorrelation', dest='mode')
+    parser.add_argument('-n', '--nprocs', type=int, default=6,
+                        help='the number of processes to use', dest='nprocs')
+    args = parser.parse_args()
+    
+    main(args.files, args.aper, args.mode, args.nprocs)
