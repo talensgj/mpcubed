@@ -100,7 +100,7 @@ def coverage_nobs(filelist):
     
 def coverage_baseline(filename):
     
-    from pckage.plotting import viridis
+    from package.plotting import viridis
     
     with h5py.File(filename, 'r') as f:
         
@@ -140,6 +140,8 @@ def sigma_fraction(filename):
 def clouds(filename):
     
     from package import IO
+    from package.plotting import viridis
+    from matplotlib import colors
     
     f = IO.SysFile(filename)
     hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
@@ -159,7 +161,7 @@ def clouds(filename):
     plt.tight_layout()
     plt.show()
 
-    plt.hist2d(clouds[select], sigma[select], bins=[np.linspace(-5,5,1001), np.linspace(0,2,1001)], norm=colors.LogNorm())
+    plt.hist2d(clouds[select], sigma[select], bins=[np.linspace(-5,5,1001), np.linspace(0,2,1001)], norm=colors.LogNorm(), cmap=viridis)
     cb = plt.colorbar()
 
     plt.xlim(-5,5)
@@ -210,7 +212,120 @@ def astrometry(tablename='LPEastrometry'):
 
     return
     
+def std_dec(filename):
+    
+    import detrend
+    
+    with h5py.File(filename, 'r') as f:
+        
+        grp = f['header']
+        ascc = grp['ascc'].value
+        dec = grp['dec'].value
+        Nobs = grp['nobs'].value
+        
+        grp = f['data']
+        
+        std0 = np.zeros(len(ascc))
+        std = np.zeros(len(ascc))
+        
+        X = np.array([])
+        Y = np.array([])
+        M = np.array([])
+        
+        for i in range(len(ascc)):
+            
+            lstseq = grp[ascc[i] + '/lstseq'].value
+            jdmid = grp[ascc[i] + '/jdmid'].value
+            lst = grp[ascc[i] + '/lst'].value
+            mag = grp[ascc[i] + '/mag0'].value
+            emag = grp[ascc[i] + '/emag0'].value
+            nobs = grp[ascc[i] + '/nobs'].value
+            x = grp[ascc[i] + '/x'].value
+            y = grp[ascc[i] + '/y'].value
+
+            sel = (nobs == 50)
+            x = x[sel]
+            y = y[sel]
+            lstseq = lstseq[sel]
+            jdmid = jdmid[sel]
+            lst = lst[sel]
+            mag = mag[sel]
+            emag = emag[sel]/np.sqrt(50.)
+            
+            if len(jdmid) == 0:
+                continue
+                
+            weights = 1/emag**2
+            
+            n1 = np.ptp(lstseq) + 1
+            n2 = np.ptp(lstseq%270) + 1
+            
+            n1 = np.maximum(n1, 2)
+            n2 = np.maximum(n2, 2)
+            
+            pars, fit, chisq = detrend.new_harmonic(jdmid, lst, mag, weights, [n1, n2])
+            
+            std0[i] = np.std(mag)
+            std[i] = np.std(mag - fit)
+            
+            X = np.append(X, x)
+            Y = np.append(Y, y)
+            M = np.append(M, mag - fit)
+    
+    xedges = np.linspace(0, 4008, 3*167+1)
+    yedges = np.linspace(0, 2672, 2*167+1)
+    bins = [xedges, yedges]
+    m0, xedges, yedges = np.histogram2d(X, Y, bins=bins)
+    m1, xedges, yedges = np.histogram2d(X, Y, bins=bins, weights=M)
+    m2, xedges, yedges = np.histogram2d(X, Y, bins=bins, weights=M**2)
+    
+    std = np.sqrt(m2/m0 - (m1/m0)**2)
+    
+    plt.subplot(111, aspect='equal')
+    plt.pcolormesh(xedges, yedges, std.T, vmin=0, vmax=.2)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.savefig('/home/talens/stdmap_2015Q2LPS.png')
+    #plt.show()
+    
+    #sel = (Nobs > 270)
+            
+    #plt.plot(dec[sel], std0[sel], '.', c='r', alpha=.5)
+    #plt.plot(dec[sel], std[sel], '.', c='k', alpha=.5)
+    #plt.ylim(0, .2)
+    #plt.xlabel('Declination [deg]')
+    #plt.ylabel('STD')
+    #plt.show()
+    
+    return
+    
 def main(args):
+    
+    import glob
+    
+    #filelist = glob.glob('/data3/talens/2015Q2/*/red0_vmag_2015Q2LP?.hdf5')
+    #reduced_lc(filelist, '807144')
+    
+    #filename = '/data3/talens/2015Q2/LPE/sys0_vmag_201506ALPE.hdf5'
+    #systematics(filename)
+    
+    #filelist = glob.glob('/data2/mascara/LaPalma/201506??LPE/fLC/fLC_*.hdf5')
+    #coverage_nobs(filelist)
+    
+    #filename = '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5'
+    #coverage_baseline(filename)
+    
+    #filename = '/data3/talens/2015Q2/LPE/sys0_vmag_201506ALPE.hdf5'
+    #sigma_fraction(filename)
+    
+    #filename = '/data3/talens/2015Q2/LPE/sys0_vmag_201506ALPE.hdf5'
+    #clouds(filename)
+    
+    filename = '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5'
+    std_dec(filename)
+    
     return 0
 
 if __name__ == '__main__':

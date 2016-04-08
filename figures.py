@@ -49,9 +49,54 @@ def transit_duration():
     return
     
     
+def magnitude_parallax():
+    
+    m = np.linspace(2, 8.5, 500)
+    p = np.linspace(0, 30, 500)
+    
+    m, p = np.meshgrid(m, p)
+    d = 1/(.001*p)
+    
+    tmp = m - 4.83 - 5.*np.log10(d/10.)
+    logL = -tmp/2.5
+    
+    ax = plt.subplot(111)
+    ax.invert_xaxis()
+    cs = plt.contour(m, p, logL, [-2, -1, 0, 1, 2, 3], colors='k')
+    plt.clabel(cs, manual=True)
+    plt.xlim(8.4, 2)
+    plt.ylim(0, 30)
+    plt.xlabel('V')
+    plt.ylabel('Parallax [mas]')
+        
+    plt.show()
+        
+    return
+
+def depth_radiusstar():
+    
+    delta = np.linspace(0, .05, 250)
+    Rstar = np.linspace(0, 5, 500)
+    
+    delta, Rstar = np.meshgrid(delta, Rstar)
+    
+    Rplanet = np.sqrt(delta)*Rstar*10.05
+    
+    ax = plt.subplot(111)
+    cs = plt.contour(Rstar, delta*100, Rplanet, [1, 2, 3, 4, 5], colors='k')
+    plt.clabel(cs, manual=True)
+    plt.xlim(0, 5)
+    plt.ylim(0, 5)
+    plt.xlabel(r'$R_*$ [$R_\odot$]')
+    plt.ylabel(r'$\delta$ [%]')
+    
+    plt.show()
+    
 def main():
     
-    transit_duration()
+    #transit_duration()
+    magnitude_parallax()
+    #depth_radiusstar()
     
     return
 
