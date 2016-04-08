@@ -302,65 +302,136 @@ def main():
     jdmid, lst, mag, emag, lstseq = read_data(filename, '807144')
     jdmid = jdmid - np.amin(jdmid)
     
-    step = [np.amin(np.diff(jdmid)), 320./3600.]
     ns = [np.ptp(lstseq) + 1, np.ptp(lstseq%270) + 1]
     
     # The current model.
     pars1, fit1, chisq1 = detrend.masc_harmonic(jdmid, lst, mag, 1/emag**2, 180., 21, 24., 6)
     print chisq1, len(pars1)
     
-    pars2, fit2, chisq2 = detrend.new_harmonic(jdmid, lst, mag, 1/emag**2, step, ns, True)
+    pars2, fit2, chisq2 = detrend.new_harmonic(jdmid, lst, mag, 1/emag**2, ns)
     print chisq2, len(pars2)
     
-    pars3, fit3, chisq3 = detrend.hybrid(jdmid, lstseq%270, mag, 1/emag**2, step[0], ns[0])
-    print chisq3, len(pars3)
+    #pars3, fit3, chisq3 = detrend.hybrid(jdmid, lstseq%270, mag, 1/emag**2, step[0], ns[0])
+    #print chisq3, len(pars3)
     
     arg = np.argsort(lst)
 
     fig = plt.figure()
-    
-    ax1 = plt.subplot(211)
-    #plt.title(ascc[i])
+
+    gs = gridspec.GridSpec(3, 2)
+
+    ax1 = plt.subplot(gs[0,:])
     ax1.invert_yaxis()
     plt.errorbar(jdmid, mag, emag, fmt='.', c='k')
     plt.plot(jdmid, fit1, c='r')
-    plt.plot(jdmid, fit2, c='g')
-    plt.plot(jdmid, fit3, c='y')
     plt.xlabel('Time [JD]')
     plt.ylabel(r'$\Delta m$')
     
-    ax2 = plt.subplot(212, sharex=ax1, sharey=ax1)
-    #ax2.invert_yaxis()
-    plt.errorbar(jdmid, mag - fit1, emag, fmt='.', c='r')
-    plt.errorbar(jdmid, mag - fit2, emag, fmt='.', c='g')
-    plt.errorbar(jdmid, mag - fit3, emag, fmt='.', c='y')
+    #ax2 = plt.subplot(gs[1,0])
+    #plt.errorbar(jdmid, mag-st1, emag, fmt='.', c='k')
+    #plt.plot(jdmid, lt1, c='r')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax3 = plt.subplot(gs[1,1])
+    #plt.errorbar(lst[arg], mag[arg]-lt1[arg], emag, fmt='.', c='k')
+    #plt.plot(lst[arg], st1[arg], c='r')
+    #plt.xlabel('Time [LST]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax4 = plt.subplot(gs[2,0])
+    #plt.errorbar(jdmid, mag-fit1, emag, fmt='.', c='k')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax5 = plt.subplot(gs[2,1])
+    #plt.errorbar(lst[arg], mag[arg]-fit1[arg], emag, fmt='.', c='k')
+    #plt.xlabel('Time [LST]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    plt.tight_layout()
+    plt.show()
+
+    fig = plt.figure()
+
+    gs = gridspec.GridSpec(3, 2)
+
+    ax1 = plt.subplot(gs[0,:])
+    ax1.invert_yaxis()
+    plt.errorbar(jdmid, mag, emag, fmt='.', c='k')
+    plt.plot(jdmid, fit2, c='r')
     plt.xlabel('Time [JD]')
     plt.ylabel(r'$\Delta m$')
     
+    #ax2 = plt.subplot(gs[1,0])
+    #plt.errorbar(jdmid, mag-st2, emag, fmt='.', c='k')
+    #plt.plot(jdmid, lt2, c='r')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax3 = plt.subplot(gs[1,1])
+    #plt.errorbar(lst[arg], mag[arg]-lt2[arg], emag, fmt='.', c='k')
+    #plt.plot(lst[arg], st2[arg], c='r')
+    #plt.xlabel('Time [LST]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax4 = plt.subplot(gs[2,0])
+    #plt.errorbar(jdmid, mag-fit2, emag, fmt='.', c='k')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    #ax5 = plt.subplot(gs[2,1])
+    #plt.errorbar(lst[arg], mag[arg]-fit2[arg], emag, fmt='.', c='k')
+    #plt.xlabel('Time [LST]')
+    #plt.ylabel(r'$\Delta m$')
+    
+    plt.tight_layout()
     plt.show()
+
+    #fig = plt.figure()
     
-    freq1, chisq0, dchisq1 = boxlstsq.boxlstsq(jdmid, mag - fit1, 1/emag**2)[:3]
-    freq2, chisq0, dchisq2 = boxlstsq.boxlstsq(jdmid, mag - fit2, 1/emag**2)[:3]
+    #ax1 = plt.subplot(211)
+    ##plt.title(ascc[i])
+    #ax1.invert_yaxis()
+    #plt.errorbar(jdmid, mag, emag, fmt='.', c='k')
+    #plt.plot(jdmid, fit1, c='r')
+    #plt.plot(jdmid, fit2, c='g')
+    #plt.plot(jdmid, fit3, c='y')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
     
-    phase = np.mod(jdmid/2.21857, 1)
+    #ax2 = plt.subplot(212, sharex=ax1, sharey=ax1)
+    ##ax2.invert_yaxis()
+    #plt.errorbar(jdmid, mag - fit1, emag, fmt='.', c='r')
+    #plt.errorbar(jdmid, mag - fit2, emag, fmt='.', c='g')
+    #plt.errorbar(jdmid, mag - fit3, emag, fmt='.', c='y')
+    #plt.xlabel('Time [JD]')
+    #plt.ylabel(r'$\Delta m$')
     
-    plt.subplot(211)
-    plt.plot(freq1, dchisq1)
+    #plt.show()
     
-    plt.subplot(212)
-    plt.errorbar(phase, mag - fit1, emag, fmt='.')
-    plt.ylim(.1, -.1)
+    #freq1, chisq0, dchisq1 = boxlstsq.boxlstsq(jdmid, mag - fit1, 1/emag**2)[:3]
+    #freq2, chisq0, dchisq2 = boxlstsq.boxlstsq(jdmid, mag - fit2, 1/emag**2)[:3]
     
-    plt.show()
+    #phase = np.mod(jdmid/2.21857, 1)
     
-    plt.subplot(211)
-    plt.plot(freq1, dchisq2)
+    #plt.subplot(211)
+    #plt.plot(freq1, dchisq1)
     
-    plt.subplot(212)
-    plt.errorbar(phase, mag - fit2, emag, fmt='.')
-    plt.ylim(.1, -.1)
+    #plt.subplot(212)
+    #plt.errorbar(phase, mag - fit1, emag, fmt='.')
+    #plt.ylim(.1, -.1)
     
-    plt.show()
+    #plt.show()
+    
+    #plt.subplot(211)
+    #plt.plot(freq1, dchisq2)
+    
+    #plt.subplot(212)
+    #plt.errorbar(phase, mag - fit2, emag, fmt='.')
+    #plt.ylim(.1, -.1)
+    
+    #plt.show()
     
     return
 
