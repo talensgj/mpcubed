@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
 import h5py
 import numpy as np
 from scipy import linalg
@@ -16,7 +18,7 @@ from package import IO
 from package.coordinates import grids
 from package.plotting import viridis
 
-from pea_grid import polar_eqarea_caps
+from pea_grid import polar_eqarea_caps, PolarEAGrid
 
 def _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err):
     
@@ -227,33 +229,36 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
 
     par1 = np.zeros(npars1)
     err1 = np.zeros(npars1)
+    par2 = np.zeros(npars2)
     par3 = np.zeros(npars3)
     err3 = np.zeros(npars3)
     par4 = np.zeros((npars4/4, 4))
     
+    sky = False
     for niter in range(maxiter):
         
         if verbose:
             print 'niter = {}'.format(niter)
         
         # Compute the parameters.
-        par2 = np.bincount(idx2, weights*(mag - par3[idx3] - ipx))/np.bincount(idx2, weights)
-        par3 = np.bincount(idx3, weights*(mag - par2[idx2] - ipx))/np.bincount(idx3, weights)
-    
-        err1 = _find_sigma_vmag(idx3, idx1, mag - par2[idx2] - ipx, error, par3, err3)
-        par3, err3 = _find_sigma(idx1, idx3, mag - par2[idx2] - ipx, error, par1, err1)
-        weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
-    
-        sol1 = par2[idx2] + par3[idx3]
         
-        res = mag - sol1
-        for i in range(npars4/4):
-            par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:], res[strides[i]:strides[i+1]])[0]
-            ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
-        
-        #err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + err3[idx3]**2))
-        #err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + err1[idx1]**2))
-        #weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
+        for i in range(5):
+            #par1 = np.bincount(idx1, weights*(mag - par2[idx2] - par3[idx3] - ipx))/np.bincount(idx1, weights)
+            par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
+            par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+            
+            sol1 = par1[idx1] + par2[idx2] + par3[idx3]
+            
+            #res = mag - sol1
+            #for i in range(npars4/4):
+                #par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:], res[strides[i]:strides[i+1]])[0]
+                #ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
+                
+        for i in range(5):
+    
+            err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + err3[idx3]**2))
+            err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + err1[idx1]**2))
+            weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -275,27 +280,6 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
                 print 'Solution has converged, ending the iterations.'
                 break
         
-        # Check if the solution is oscillating?
-        if (niter > 1):
-            
-            tmp2 = np.abs(par2 - par2_older)
-            tmp3 = np.abs(par3 - par3_older)
-            tmp4 = np.abs(par4 - par4_older) 
-            
-            dcrit2 = np.nanmax(tmp2)
-            dcrit3 = np.nanmax(tmp3)
-            dcrit4 = np.nanmax(tmp4)
-            
-            if (dcrit2 < dtol) & (dcrit3 < dtol) & (dcrit4 < dtol):
-                print 'Solution is oscillating, ending the iterations.'
-                break
-        
-        if (niter > 0):
-
-            par2_older = np.copy(par2_old)
-            par3_older = np.copy(par3_old)
-            par4_older = np.copy(par4_old)
-        
         par2_old = np.copy(par2)
         par3_old = np.copy(par3)
         par4_old = np.copy(par4)
@@ -304,242 +288,297 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
     chisq = weights*(mag - sol1 - ipx)**2        
     chisq = np.sum(chisq)
     
-    return par2, par3, par4, err1, err3, Quality(niter, chisq, npoints, npars)
+    lnL = np.sum(np.log(1/weights)) + chisq
+    
+    return par2, par3, par4, err1, err3, Quality(niter, chisq, npoints, npars), lnL
+    
+
+class CoarseDecorrelation(object):
+    
+    def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
+        """ Perform a coarse decorrelation on all data in a given file."""
+        
+        # fLC file and aperture to work on.
+        self.LBfile = LBfile
+        self.aper = aperture
+        
+        if not os.path.isfile(self.LBfile):
+            print 'File not found:', self.LBfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Calculating corrections for aperture %i of file:'%self.aper, self.LBfile
+        
+        # The systematics file.
+        if sysfile is None:
+            head, tail = os.path.split(self.LBfile)
+            prefix = 'sys%i_vmag_'%self.aper
+            tail = prefix + tail.rsplit('_')[-1]
+            sysfile = os.path.join(head, tail)
+        
+        self.sysfile = sysfile
+        
+        if os.path.isfile(self.sysfile):
+            print 'Systematics file already exists:', self.sysfile
+            print 'exiting...'
+            exit()
+        else:
+            print 'Writing results to:', self.sysfile
+        
+        # Initialize with defualt parameters unless arguments were given.
+        self.sigmas = kwargs.pop('sigmas', True)
+        
+        self.camgrid = 'polar'
+        self.camnx = kwargs.pop('camnx', 13500)
+        self.camny = kwargs.pop('camny', 720)
+        
+        self.ipxgrid = 'polar'
+        self.ipxnx = kwargs.pop('ipxnx', 270)
+        self.ipxny = self.camny
+        
+        self.skygrid = 'polar_eqarea'
+        self.skynx = kwargs.pop('skynx', 23)
+    
+        # Options to coarse_decor functions.
+        self.maxiter = kwargs.pop('inner_maxiter', 50)
+        self.dtol = kwargs.pop('dtol', 1e-3)
+        self.verbose = kwargs.pop('verbose', False)
+    
+        # Perform the coarse decorrelation.
+        self._calculate()
+    
+        return
+    
+    def _read_data(self, here): # Clean up the funcion call.
+        """ Read a portion of the data, create indices and remove flagged
+        datapoints."""
+        
+        ascc = self.ascc[here]
+        ra = self.ra[here]
+        dec = self.dec[here]
+        nobs = self.nobs[here]
+        
+        staridx = self.staridx[here]
+        skyidx = self.skyidx[here]
+        
+        # Read data.
+        fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag']
+        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(fields, ascc, nobs)
+        lstseq = lstseq.astype('int') - self.lstmin
+        
+        ra = np.repeat(ra, nobs)
+        dec = np.repeat(dec, nobs)
+        ha = np.mod(lst*15. - ra, 360.)
+        
+        # Create indices.
+        staridx = np.repeat(staridx, nobs)
+        camtransidx, decidx = self.camgrid.radec2idx(ha, dec)
+        intrapixidx, decidx = self.ipxgrid.radec2idx(ha, dec)
+        _, _, skyidx = self.skygrid.radec2idx(ha, dec)
+        
+        # Remove bad data.
+        here = (flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1)
+        
+        flux = flux[here]
+        eflux = eflux[here]
+        x = x[here]
+        y = y[here]
+        lstseq = lstseq[here]
+        
+        staridx = staridx[here]
+        decidx = decidx[here]
+        camtransidx = camtransidx[here]
+        intrapixidx = intrapixidx[here]
+        skyidx = skyidx[here]
+        
+        # Convert flux to magnitudes:
+        mag, emag = misc.flux2mag(flux, eflux)
+        
+        ### FIXED V
+        mag = mag - self.vmag[staridx]
+        
+        return mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, skyidx, lstseq
+    
+    def _calculate(self):
+        """ Perform the coarse decorrelation."""
+
+        # Set up the IO and coordinate grids.
+        self.f = IO.fLCfile(self.LBfile)
+        self.camgrid = grids.PolarGrid(self.camnx, self.camny)
+        self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
+        self.skygrid = PolarEAGrid(self.skynx)
+        
+        # Read the required header data.
+        self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
+        self.nobs = self.nobs.astype('int')
+        
+        # Create indices.
+        self.staridx = np.arange(len(self.ascc))
+        _, self.decidx = self.camgrid.radec2idx(self.ra, self.dec)
+        ring, cell, self.skyidx = self.skygrid.radec2idx(self.ra, self.dec)
+        
+        # Read global information.
+        with h5py.File(self.LBfile, 'r') as f:
+            
+            station = f['global'].attrs['station']
+            camera = f['global'].attrs['camera']
+            
+            alt0 = f['global/alt0'].value
+            az0 = f['global/az0'].value
+            th0 = f['global/th0'].value
+            x0 = f['global/x0'].value
+            y0 = f['global/y0'].value
+            
+            lstmin = f['global'].attrs['lstmin'].astype('int')
+            lstmax = f['global'].attrs['lstmax'].astype('int')
+        
+        self.lstmin = lstmin
+        lstlen = lstmax - lstmin + 1
+        
+        # Create arrays to hold the results.
+        self.m = np.copy(self.vmag)
+        self.z = np.full((self.camgrid.npix,), fill_value=np.nan)
+        self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
+        self.s = np.full((self.skygrid.npix*lstlen,), fill_value=np.nan)
+        
+        if self.sigmas:
+            self.sigma1 = np.full(len(self.ascc), fill_value=0)
+            self.sigma2 = np.full((self.skygrid.npix*lstlen,), fill_value=0)
+        
+        self.nobs_m = np.full(len(self.ascc), fill_value=np.nan)
+        self.nobs_z = np.full((self.camgrid.npix,), fill_value=np.nan)
+        self.nobs_A = np.full((self.ipxgrid.npix,), fill_value=np.nan)
+        self.nobs_s = np.full((self.skygrid.npix*lstlen), fill_value=np.nan)
+        
+        niter = np.zeros(self.skynx + 2)
+        chisq = np.zeros(self.skynx + 2)
+        npoints = np.zeros(self.skynx + 2)
+        npars = np.zeros(self.skynx + 2)
+        
+        # Perform the coarse decorrelation.
+        print 'Performing coarse decorrelation for:', self.LBfile
+        for i in range(self.skynx + 2):
+        
+            here = (ring == i)
+            if np.sum(here) == 0:
+                continue
+        
+            mag, emag, x, y, staridx, decidx, haidx1, haidx2, skyidx, lstseq = self._read_data(here)
+        
+            camidx = np.ravel_multi_index((haidx1, decidx), (self.camgrid.nx+2, self.camgrid.ny+2))
+            skyidx = np.ravel_multi_index((skyidx, lstseq), (self.skygrid.npix, lstlen)) 
+            ipxidx = np.ravel_multi_index((haidx2, decidx), (self.ipxgrid.nx+2, self.ipxgrid.ny+2))
+
+            staridx, idx1 = np.unique(staridx, return_inverse=True)
+            camidx, idx2 = np.unique(camidx, return_inverse=True)
+            skyidx, idx3 = np.unique(skyidx, return_inverse=True)
+            ipxidx, idx4 = np.unique(ipxidx, return_inverse=True)
+
+            self.nobs_m[staridx] = np.bincount(idx1)
+            self.nobs_z[camidx] = np.bincount(idx2)
+            self.nobs_A[ipxidx] = np.bincount(idx4)
+            self.nobs_s[skyidx] = np.bincount(idx3)
+
+            print 'Computing solution for ring', i
+
+            self.z[camidx], self.s[skyidx], self.A[ipxidx], self.sigma1[staridx], self.sigma2[skyidx], quality, lnL = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=25)
+        
+            print quality.niter, quality.chisq/(quality.npoints - quality.npars), lnL
+        
+        self.z = self.z.reshape((self.camgrid.nx+2, self.camgrid.ny+2))
+        self.A = self.A.reshape((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4))
+        self.s = self.s.reshape((self.skygrid.npix, lstlen))
+        
+        if self.sigmas:
+            self.sigma2 = self.sigma2.reshape((self.skygrid.npix, lstlen))
+        
+        self.nobs_z = self.nobs_z.reshape((self.camgrid.nx+2, self.camgrid.ny+2))
+        self.nobs_A = self.nobs_A.reshape((self.ipxgrid.nx+2, self.ipxgrid.ny+2))
+        self.nobs_s = self.nobs_s.reshape((self.skygrid.npix, lstlen))
+        
+        # Write the results to file.
+        with h5py.File(self.sysfile) as f:
+    
+            # Write the header.
+            hdr = f.create_group('header')
+            
+            hdr.attrs['station'] = station
+            hdr.attrs['camera'] = camera
+            
+            hdr.attrs['alt0'] = np.mean(alt0)
+            hdr.attrs['az0'] = np.mean(az0)
+            hdr.attrs['th0'] = np.mean(th0)
+            hdr.attrs['x0'] = np.mean(x0)
+            hdr.attrs['y0'] = np.mean(y0)
+            
+            #hdr.attrs['outer_maxiter'] = self.outer_maxiter
+            hdr.attrs['maxiter'] = self.maxiter
+            hdr.attrs['sigmas'] = self.sigmas
+            hdr.attrs['dtol'] = self.dtol
+            
+            hdr.create_dataset('niter', data = niter, dtype = 'uint32')
+            hdr.create_dataset('chisq', data = chisq, dtype = 'float64')
+            hdr.create_dataset('npoints', data = npoints, dtype = 'uint32')
+            hdr.create_dataset('npars', data = npars, dtype = 'uint32')
+            
+            # Write the data.
+            grp = f.create_group('data')
+            
+            # Write the magnitudes.
+            grp.create_dataset('magnitudes/ascc', data = self.ascc)
+            grp.create_dataset('magnitudes/vmag', data = self.vmag, dtype = 'float32')
+            grp.create_dataset('magnitudes/nobs', data = self.nobs_m, dtype = 'uint32')
+            grp.create_dataset('magnitudes/mag', data = self.m, dtype = 'float32')
+            if self.sigmas:
+                grp.create_dataset('magnitudes/sigma', data = self.sigma1, dtype = 'float32')
+            
+            # Write the camera transmission.
+            idx1, idx2 = np.where(~np.isnan(self.z))
+            grp.create_dataset('trans/idx1', data = idx1, dtype = 'uint32')
+            grp.create_dataset('trans/idx2', data = idx2, dtype = 'uint32')
+            grp.create_dataset('trans/nobs', data = self.nobs_z[idx1, idx2], dtype = 'uint32')
+            grp.create_dataset('trans/trans', data = self.z[idx1, idx2], dtype = 'float32')
+            
+            grp['trans'].attrs['grid'] = 'polar'
+            grp['trans'].attrs['nx'] = self.camnx
+            grp['trans'].attrs['ny'] = self.camny
+            
+            # Write the intrapixel variations.
+            idx1, idx2 = np.where(~np.isnan(self.A[:,:,0]))
+            grp.create_dataset('intrapix/idx1', data = idx1, dtype = 'uint32')
+            grp.create_dataset('intrapix/idx2', data = idx2, dtype = 'uint32')
+            grp.create_dataset('intrapix/nobs', data = self.nobs_A[idx1, idx2], dtype = 'uint32')
+            grp.create_dataset('intrapix/sinx', data = self.A[idx1, idx2, 0], dtype = 'float32')
+            grp.create_dataset('intrapix/cosx', data = self.A[idx1, idx2, 1], dtype = 'float32')
+            grp.create_dataset('intrapix/siny', data = self.A[idx1, idx2, 2], dtype = 'float32')
+            grp.create_dataset('intrapix/cosy', data = self.A[idx1, idx2, 3], dtype = 'float32')
+            
+            grp['intrapix'].attrs['grid'] = 'polar'
+            grp['intrapix'].attrs['nx'] = self.ipxnx
+            grp['intrapix'].attrs['ny'] = self.ipxny
+            
+            # Write the sky transmission.
+            idx, lstseq = np.where(~np.isnan(self.s))
+            grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
+            grp.create_dataset('clouds/lstseq', data = lstseq + self.lstmin, dtype = 'uint32')
+            grp.create_dataset('clouds/nobs', data = self.nobs_s[idx, lstseq], dtype = 'uint32')
+            grp.create_dataset('clouds/clouds', data = self.s[idx, lstseq], dtype = 'float32')
+            if self.sigmas:
+                grp.create_dataset('clouds/sigma', data = self.sigma2[idx, lstseq], dtype = 'float32')
+            
+            grp['clouds'].attrs['grid'] = 'healpix'
+            grp['clouds'].attrs['nx'] = self.skynx
+            grp['clouds'].attrs['lstmin'] = self.lstmin
+            grp['clouds'].attrs['lstmax'] = lstmax
+            grp['clouds'].attrs['lstlen'] = lstlen
+        
+        return
+
     
 def main():
     
-    filename = '/data2/talens/2015Q2/LPN/fLC_201506ALPN.hdf5'
-    
-    with h5py.File(filename, 'r') as f:
-        
-        lstmin = f['global'].attrs['lstmin'].astype('int')
-        lstmax = f['global'].attrs['lstmax'].astype('int')
-        
-    f = IO.fLCfile(filename)
-    ascc, ra, dec, vmag, nobs = f.read_header(['ascc', 'ra', 'dec', 'vmag', 'nobs'])
-    nobs = nobs.astype('int')
-    staridx = np.arange(len(ascc))
-    
-    lstlen = lstmax - lstmin + 1
-    
-    camgrid = grids.PolarGrid(13500, 720)
-    ipxgrid = grids.PolarGrid(270, 720)
-    ring, cell, N = polar_eqarea_caps(ra, dec, 23)
-    
-    skypatch = (np.cumsum(N) - N)[ring] + cell 
-    Ntot = np.sum(N)
-    
-    err1 = np.full((len(ascc),), fill_value=np.nan)
-    cam = np.full((13502*722,), fill_value=np.nan) 
-    clouds = np.full((Ntot*lstlen,), fill_value=np.nan)
-    err3 = np.full((Ntot*lstlen,), fill_value=np.nan)
-    A = np.full((272*722, 4), fill_value=np.nan)
-    
-    nobs_cam = np.full((13502*722,), fill_value=np.nan) 
-    nobs_A = np.full((272*722,), fill_value=np.nan) 
-    nobs_clouds = np.full((Ntot*lstlen,), fill_value=np.nan)
-    
-    for i in range(25):
-
-        # Select stars in this ring.
-        select = (ring == i)
-        ascc_ = ascc[select]
-        
-        if (len(ascc_) == 0):
-            continue
-        
-        ra_ = ra[select]
-        dec_ = dec[select]
-        vmag_ = vmag[select]
-        nobs_ = nobs[select]
-        staridx_ = staridx[select]
-        skypatch_ = skypatch[select]
-
-        # Raed the data.
-        lstseq, lst, flux, eflux, sky, flag, x, y = f.read_data(['lstseq', 'lst', 'flux0', 'eflux0', 'sky', 'flag', 'x', 'y'], ascc_, nobs_)
-        lstseq = lstseq.astype('int') - lstmin
-        
-        ra_ = np.repeat(ra_, nobs_)
-        dec_ = np.repeat(dec_, nobs_)
-        vmag_ = np.repeat(vmag_, nobs_)
-        staridx_ = np.repeat(staridx_, nobs_)
-        skypatch_ = np.repeat(skypatch_, nobs_)  
-        
-        ha = np.mod(lst*15. - ra_, 360.)
-        haidx1, decidx = camgrid.radec2idx(ha, dec_)
-        haidx2, decidx = ipxgrid.radec2idx(ha, dec_)
-        
-        # Remove bad data points.
-        select = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1)
-        lstseq = lstseq[select]
-        lst = lst[select]
-        flux = flux[select]
-        eflux = eflux[select]
-        x = x[select]
-        y = y[select]
-        vmag_ = vmag_[select]
-        staridx_ = staridx_[select]
-        skypatch_ = skypatch_[select]
-        haidx1 = haidx1[select]
-        haidx2 = haidx2[select]
-        decidx = decidx[select]
-
-        # Convert flux to magnitudes.
-        mag, emag = misc.flux2mag(flux, eflux)
-        mag = mag - vmag_
-        
-        camidx = np.ravel_multi_index((haidx1, decidx), (13502, 722))
-        skyidx = np.ravel_multi_index((skypatch_, lstseq), (Ntot, lstlen)) 
-        ipxidx = np.ravel_multi_index((haidx2, decidx), (272, 722))
-
-        staridx_, idx1 = np.unique(staridx_, return_inverse=True)
-        camidx, idx2 = np.unique(camidx, return_inverse=True)
-        skyidx, idx3 = np.unique(skyidx, return_inverse=True)
-        ipxidx, idx4 = np.unique(ipxidx, return_inverse=True)
-
-        nobs_cam[camidx] = np.bincount(idx2)
-        nobs_A[ipxidx] = np.bincount(idx4)
-        nobs_clouds[skyidx] = np.bincount(idx3)
-
-        print 'Computing solution for ring', i
-
-        print len(mag)
-        cam[camidx], clouds[skyidx], A[ipxidx], err1[staridx_], err3[skyidx], quality = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=50, verbose=False)
-    
-        print quality.niter, quality.chisq/(quality.npoints - quality.npars)
-    
-    nobs_cam = nobs_cam.reshape((13502, 722))
-    cam = cam.reshape((13502, 722))
-    nobs_clouds = nobs_clouds.reshape((Ntot, lstlen))
-    clouds = clouds.reshape((Ntot, lstlen))
-    err3 = err3.reshape((Ntot, lstlen))
-    nobs_A = nobs_A.reshape((272, 722))
-    A = A.reshape((272, 722, 4))
-    
-    with h5py.File('/data2/talens/pea4.hdf5') as f:
-
-        # Write the header.
-        hdr = f.create_group('header')
-        
-        #hdr.attrs['station'] = station
-        #hdr.attrs['camera'] = camera
-        
-        #hdr.attrs['alt0'] = np.mean(alt0)
-        #hdr.attrs['az0'] = np.mean(az0)
-        #hdr.attrs['th0'] = np.mean(th0)
-        #hdr.attrs['x0'] = np.mean(x0)
-        #hdr.attrs['y0'] = np.mean(y0)
-        
-        #hdr.attrs['outer_maxiter'] = self.outer_maxiter
-        #hdr.attrs['inner_maxiter'] = self.inner_maxiter
-        #hdr.attrs['sigmas'] = self.sigmas
-        #hdr.attrs['dtol'] = self.dtol
-       
-        #hdr.create_dataset('spatial/niter', data = self.spatial_niter, dtype = 'uint32')
-        #hdr.create_dataset('spatial/chisq', data = self.spatial_chisq, dtype = 'float64')
-        #hdr.create_dataset('spatial/npoints', data = self.spatial_npoints, dtype = 'uint32')
-        #hdr.create_dataset('spatial/npars', data = self.spatial_npars, dtype = 'uint32')
-        
-        #hdr.create_dataset('temporal/niter', data = self.temporal_niter, dtype = 'uint32')
-        #hdr.create_dataset('temporal/chisq', data = self.temporal_chisq, dtype = 'float64')
-        #hdr.create_dataset('temporal/npoints', data = self.temporal_npoints, dtype = 'uint32')
-        #hdr.create_dataset('temporal/npars', data = self.temporal_npars, dtype = 'uint32')
-        
-        # Write the data.
-        grp = f.create_group('data')
-        
-        # Write the magnitudes.
-        grp.create_dataset('magnitudes/ascc', data = ascc)
-        grp.create_dataset('magnitudes/vmag', data = vmag, dtype = 'float32')
-        #grp.create_dataset('magnitudes/nobs', data = self.nobs_m, dtype = 'uint32')
-        grp.create_dataset('magnitudes/mag', data = vmag, dtype = 'float32')
-        grp.create_dataset('magnitudes/sigma', data = err1, dtype = 'float32')
-        
-        # Write the camera transmission.
-        idx1, idx2 = np.where(~np.isnan(cam))
-        grp.create_dataset('trans/idx1', data = idx1, dtype = 'uint32')
-        grp.create_dataset('trans/idx2', data = idx2, dtype = 'uint32')
-        grp.create_dataset('trans/nobs', data = nobs_cam[idx1, idx2], dtype = 'uint32')
-        grp.create_dataset('trans/trans', data = cam[idx1, idx2], dtype = 'float32')
-        
-        grp['trans'].attrs['grid'] = 'polar'
-        grp['trans'].attrs['nx'] = 13500
-        grp['trans'].attrs['ny'] = 722
-        
-        # Write the intrapixel variations.
-        idx1, idx2 = np.where(~np.isnan(A[:,:,0]))
-        grp.create_dataset('intrapix/idx1', data = idx1, dtype = 'uint32')
-        grp.create_dataset('intrapix/idx2', data = idx2, dtype = 'uint32')
-        grp.create_dataset('intrapix/nobs', data = nobs_A[idx1, idx2], dtype = 'uint32')
-        grp.create_dataset('intrapix/sinx', data = A[idx1, idx2, 0], dtype = 'float32')
-        grp.create_dataset('intrapix/cosx', data = A[idx1, idx2, 1], dtype = 'float32')
-        grp.create_dataset('intrapix/siny', data = A[idx1, idx2, 2], dtype = 'float32')
-        grp.create_dataset('intrapix/cosy', data = A[idx1, idx2, 3], dtype = 'float32')
-        
-        grp['intrapix'].attrs['grid'] = 'polar'
-        grp['intrapix'].attrs['nx'] = 270
-        grp['intrapix'].attrs['ny'] = 722
-        
-        # Write the sky transmission.
-        idx, lstseq = np.where(~np.isnan(clouds))
-        grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
-        grp.create_dataset('clouds/lstseq', data = lstseq + lstmin, dtype = 'uint32')
-        grp.create_dataset('clouds/nobs', data = nobs_clouds[idx, lstseq], dtype = 'uint32')
-        grp.create_dataset('clouds/clouds', data = clouds[idx, lstseq], dtype = 'float32')
-        grp.create_dataset('clouds/sigma', data = err3[idx, lstseq], dtype = 'float32')
-        
-        grp['clouds'].attrs['grid'] = 'healpix'
-        grp['clouds'].attrs['nx'] = 23
-        grp['clouds'].attrs['lstmin'] = lstmin
-        grp['clouds'].attrs['lstmax'] = lstmax
-        grp['clouds'].attrs['lstlen'] = lstlen
-    
-    #cam = cam.reshape((722, 13502))
-    #cam = np.roll(cam, 13502/2, axis=1)
-    #clouds = clouds.reshape((Ntot, lstlen))
-    #err3 = err3.reshape((Ntot, lstlen))
-    #A = A.reshape((272, 722, 4))
-
-    #for i in range(722):
-    
-        #if np.any(np.isfinite(cam[i])):
-    
-            #plt.plot(cam[i], '.', c='k')
-            #plt.show()
-
-    #vmin = np.nanpercentile(cam, 1)
-    #vmax = np.nanpercentile(cam, 99)
-
-    #plt.imshow(cam, aspect='auto', interpolation='nearest', cmap=viridis, vmin=vmin, vmax=vmax)
-    #plt.colorbar()
-    #plt.show()
-    
-    #ax = plt.subplot(221)
-    #plt.imshow(A[:,:,0].T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1, cmap=viridis)
-    #plt.colorbar()
-    
-    #plt.subplot(222, sharex=ax, sharey=ax)
-    #plt.imshow(A[:,:,1].T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1, cmap=viridis)
-    #plt.colorbar()
-    
-    #plt.subplot(223, sharex=ax, sharey=ax)
-    #plt.imshow(A[:,:,2].T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1, cmap=viridis)
-    #plt.colorbar()
-    
-    #plt.subplot(224, sharex=ax, sharey=ax)
-    #plt.imshow(A[:,:,3].T, aspect='auto', interpolation='nearest', vmin=-.1, vmax=.1, cmap=viridis)
-    #plt.colorbar()
-    
-    #plt.show()
-    
-    #ax = plt.subplot(211)
-    #plt.imshow(clouds, aspect='auto', interpolation='nearest', vmin=-.5, vmax=.5, cmap=viridis)
-    #plt.colorbar()
-
-    #plt.subplot(212, sharex=ax, sharey=ax)
-    #plt.imshow(err3, aspect='auto', interpolation='nearest', vmin=0, vmax=.2, cmap=viridis)
-    #plt.colorbar()
-    #plt.show()
+    filename = '/data2/talens/2015Q2/LPW/fLC_201506ALPW.hdf5'
+    CoarseDecorrelation(filename, 0, '/data2/talens/sys0_201506ALPW_12.hdf5')
 
     return
 

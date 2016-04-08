@@ -7,29 +7,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from package import plotting
+from package import IO
 
-def plot_trans():
+def plot_trans(filename):
     
-    systematics = plotting.SysPlot('/data2/talens/pea3.hdf5')
+    systematics = plotting.SysPlot(filename)
     systematics.plot_trans()
     
     return
     
 def plot_intrapix():
     
-    systematics = plotting.SysPlot('/data2/talens/pea.hdf5')
+    systematics = plotting.SysPlot('/data2/talens/sys0_201506ALPW_2.hdf5')
     systematics.plot_intrapix()
 
     return
 
 def plot_clouds():
     
-    with h5py.File('/data2/talens/pea3.hdf5', 'r') as f:
+    with h5py.File('/data2/talens/201506ALPS.hdf5', 'r') as f:
         
         grp = f['data/clouds']
         idx1 = grp['idx'].value
         lstseq = grp['lstseq'].value
-        clouds = grp['sigma'].value
+        clouds = grp['clouds'].value
         
     lstseq, idx2 = np.unique(lstseq, return_inverse=True)
     N = np.amax(idx1) + 1
@@ -40,7 +41,7 @@ def plot_clouds():
     tmp[idx2, idx1] = clouds
 
     plt.figure(figsize=(16,6))
-    plt.imshow(tmp.T, aspect='auto', interpolation='nearest', vmin=0, vmax=.5)
+    plt.imshow(tmp.T, aspect='auto', interpolation='nearest', vmin=-.5, vmax=.5)
     plt.colorbar()
     plt.show()
     
@@ -126,11 +127,30 @@ def plot_clouds2():
         #plt.show()
         plt.close()
 
+    return
+    
+def compare():
+
+    f = IO.SysFile('/data2/talens/polar_eqarea/201506ALPW.hdf5')
+    pg, trans0, nosb = f.read_trans()
+
+    f = IO.SysFile('/data2/talens/2015Q2_vmag/LPW/sys0_vmag_201506ALPW.hdf5')
+    pg, trans1, nosb = f.read_trans()
+
+
+    plt.imshow(trans0 - trans1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
+    plt.colorbar()
+    plt.show()
+    
+    return
+    
 def main(args):
     
-    plot_trans()
+    #compare()
+    
+    plot_trans('/data2/talens/sys0_201506ALPW_23e13f.hdf5')
     #plot_intrapix()
-    plot_clouds()
+    #plot_clouds()
     #plot_clouds2()
     
     return 0

@@ -43,6 +43,52 @@ def polar_eqarea(ra, dec, n, N1=1):
         
     return ring, cell, N      
 
+class PolarEAGrid(object):
+    
+    def __init__(self, nrings):
+        
+        self.nrings = nrings
+        
+        yedges = np.linspace(-90.+90./(self.nrings+1), 90.-90./(self.nrings+1), self.nrings+1)
+        self.yedges = np.hstack([-90., yedges, 90.])
+        
+        rid = np.arange(self.nrings)
+        N = (np.cos(np.pi*(rid+.5)/(self.nrings+1)) - np.cos(np.pi*(rid + 1.5)/(self.nrings+1)))/(1 - np.cos(np.pi*.5/(self.nrings+1)))
+        N = np.rint(N).astype('int')
+        self.N = np.hstack([1, N, 1])
+        
+        self.npix = np.sum(self.N)
+        
+        return
+        
+    def radec2idx(self, ra, dec):
+        
+        ring = np.searchsorted(self.yedges, dec, 'right')
+        
+        ring[ring == 0] = 1
+        ring[ring == (self.nrings+3)] = self.nrings + 2
+        ring = ring - 1 
+
+        cell = np.zeros(len(ra), dtype='int')
+        for i in range(self.nrings+2):
+
+            select = (ring == i)
+            
+            # Find the cells.
+            xedges = np.linspace(0, 360, self.N[i]+1)
+            cell_ = np.searchsorted(xedges, ra[select], 'right')
+
+            # Clean up the out-of-bounds indices.
+            cell_[cell_ == 0] = 1
+            cell_[cell_ == (self.N[i]+1)] = self.N[i]
+            cell_ = cell_ - 1        
+            
+            cell[select] = cell_  
+            
+        idx = (np.cumsum(self.N) - self.N)[ring] + cell
+        
+        return ring, cell, idx
+
 def polar_eqarea_caps(ra, dec, n, N1=1):
     
     # Find the rings.
@@ -77,7 +123,9 @@ def polar_eqarea_caps(ra, dec, n, N1=1):
         
         cell[select] = cell_  
         
-    return ring, cell, N  
+    idx = (np.cumsum(self.N) - self.N)[ring] + cell
+        
+    return ring, cell, idx
 
 def test():
 
