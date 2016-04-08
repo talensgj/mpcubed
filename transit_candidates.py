@@ -124,8 +124,9 @@ def plot_candidates(data, filelist, outdir):
     ascc = ascc[select]
     
     #plot_periodogram(data, filelist, ascc, outdir)
-    new_periodogram(data, filelist, ascc, outdir)
+    #new_periodogram(data, filelist, ascc, outdir)
     #plot_lightcurve(data, filelist, ascc, outdir)
+    phase_lst(data, filelist, ascc, outdir)
     
     return
 
@@ -565,6 +566,134 @@ def new_periodogram(data, filelist, ascc, outdir=None):
 
     return
 
+def phase_lst(data, filelist, ascc, outdir=None):
+    
+    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
+    
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f['header']
+            sID = grp['ascc'].value
+            period = grp['period'].value
+            best_depth = grp['depth'].value
+            best_epoch = grp['epoch'].value
+            best_duration = grp['duration'].value
+            best_nt = grp['nt'].value
+            flag = grp['flag'].value
+            
+            grp = f['data']
+            freq = grp['freq'].value
+            dchisq = grp['dchisq'].value
+
+        select = np.in1d(sID, ascc)
+        args, = np.where(select)
+        if (len(args) == 0):
+            continue 
+    
+        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
+                
+        # Read the data.
+        jdmid, lst, mag, emag, mask, trend = read_data(data, sID)
+        jdmid = jdmid - np.amin(jdmid)
+            
+        weights = np.where(mask, 0, 1/emag**2)
+        
+        for i in args:
+            
+            if (best_duration[i]/period[i] > .15):
+                print 'eta/P > .15'
+                continue
+                
+            phase = (jdmid - best_epoch[i])/period[i]
+            phase = np.mod(phase + .5, 1) -.5
+            
+            fig = plt.figure(figsize=(8.27, 4))
+            plt.title(r'ASCC {}, $P={:.4f}$ days'.format(sID[i], period[i]))
+            plt.plot(phase[~mask[i]], lst[~mask[i]], '.', c='k', alpha=.5)
+            plt.xlim(-.5, .5)
+            plt.ylim(0, 24)
+            plt.xlabel('Phase')
+            plt.ylabel('Time [LST]')
+            
+            plt.tight_layout()
+            
+            if outdir is None:
+                plt.show()
+            elif (np.amax(dchisq[:,i]) < 400):
+                plt.savefig(os.path.join(outdir, 'maybe_candidate_ASCC{}_p2.png'.format(sID[i])))
+            elif (np.amax(dchisq[:,i]) >= 900):
+                plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}_p2.png'.format(sID[i])))
+            else:
+                plt.savefig(os.path.join(outdir, 'candidate_ASCC{}_p2.png'.format(sID[i])))
+    
+    return
+
+def phase_sigma(data, filelist, ascc, outdir=None):
+    
+    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
+    
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f['header']
+            sID = grp['ascc'].value
+            period = grp['period'].value
+            best_depth = grp['depth'].value
+            best_epoch = grp['epoch'].value
+            best_duration = grp['duration'].value
+            best_nt = grp['nt'].value
+            flag = grp['flag'].value
+            
+            grp = f['data']
+            freq = grp['freq'].value
+            dchisq = grp['dchisq'].value
+
+        select = np.in1d(sID, ascc)
+        args, = np.where(select)
+        if (len(args) == 0):
+            continue 
+    
+        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
+                
+        # Read the data.
+        jdmid, lst, mag, emag, mask, trend = read_data(data, sID)
+        jdmid = jdmid - np.amin(jdmid)
+            
+        weights = np.where(mask, 0, 1/emag**2)
+        
+        for i in args:
+            
+            if (best_duration[i]/period[i] > .15):
+                print 'eta/P > .15'
+                continue
+                
+            phase = (jdmid - best_epoch[i])/period[i]
+            phase = np.mod(phase + .5, 1) -.5
+            
+            fig = plt.figure(figsize=(8.27, 4))
+            plt.title(r'ASCC {}, $P={:.4f}$ days'.format(sID[i], period[i]))
+            plt.plot(phase[~mask[i]], emag[i,~mask[i]], '.', c='k', alpha=.5)
+            plt.xlim(-.5, .5)
+            plt.ylim(0, .05)
+            plt.xlabel('Phase')
+            plt.ylabel(r'$\sigma$')
+            
+            plt.tight_layout()
+            
+            if outdir is None:
+                plt.show()
+            elif (np.amax(dchisq[:,i]) < 400):
+                plt.savefig(os.path.join(outdir, 'maybe_candidate_ASCC{}_p2.png'.format(sID[i])))
+            elif (np.amax(dchisq[:,i]) >= 900):
+                plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}_p2.png'.format(sID[i])))
+            else:
+                plt.savefig(os.path.join(outdir, 'candidate_ASCC{}_p2.png'.format(sID[i])))
+
+    return
+
 def plot_lightcurve(data, filelist, ascc, outdir=None):
     
     ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
@@ -742,8 +871,8 @@ def main():
     
     filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls0*.hdf5')
     
-    plot_candidates(data, filelist, '/data3/talens/boxlstsq/2015Q1234/new_figures')
-
+    #plot_candidates(data, filelist, '/data3/talens/boxlstsq/2015Q1234/new_figures')
+    phase_sigma(data, filelist, ['8763', '23353', '49834', '54305', '82459', '273664'])
     
     
     #data = ['/data3/talens/2015Q1/LPN/red0_vmag_2015Q1LPN.hdf5',

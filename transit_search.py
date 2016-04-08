@@ -335,7 +335,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
             jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
         
         # Compute the periodgrams in the joblist.
-        if (len(jobs) == 2*nprocs):
+        if (len(jobs) == 5*nprocs):
             search_skypatch_mp(jobs, nprocs)
             jobs = []
     
@@ -363,15 +363,41 @@ def ensure_dir(path):
 
 def main():
     
-    data = ['/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
+    data = ['/data3/talens/2015Q1/LPN/red0_vmag_2015Q1LPN.hdf5',
+            '/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
+            '/data3/talens/2015Q1/LPS/red0_vmag_2015Q1LPS.hdf5',
+            '/data3/talens/2015Q1/LPW/red0_vmag_2015Q1LPW.hdf5',
+            '/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
+            '/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
+            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
+            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
+            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
             '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
+            '/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
+            '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
+            '/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
+            '/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
             '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5',
+            '/data3/talens/2015Q4/LPN/red0_vmag_2015Q4LPN.hdf5',
+            '/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5',
+            '/data3/talens/2015Q4/LPS/red0_vmag_2015Q4LPS.hdf5',
+            '/data3/talens/2015Q4/LPW/red0_vmag_2015Q4LPW.hdf5',
             '/data3/talens/2015Q4/LPC/red0_vmag_2015Q4LPC.hdf5']
     
-    outdir = '/data3/talens/boxlstsq'
+    outdir = '/data3/talens/boxlstsq/2015Q1234'
     ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015LPC', nprocs=8)
+    transit_search(data, outdir, 'vmag_2015Q1234', nprocs=16)
+    
+    #data = ['/data2/talens/2015data/red0_vmag_2015Q1LPN.hdf5',
+            #'/data2/talens/2015data/red0_vmag_2015Q2LPN.hdf5',
+            #'/data2/talens/2015data/red0_vmag_2015Q3LPN.hdf5',
+            #'/data2/talens/2015data/red0_vmag_2015Q4LPN.hdf5']
+    
+    #outdir = '/data2/talens/2015data/boxlstsq/2015LPN'
+    #ensure_dir(outdir)
+    
+    #transit_search(data, outdir, 'vmag_2015LPN', nprocs=6)
     
     return
 
