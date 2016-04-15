@@ -17,7 +17,7 @@ def systematics(filename, aper):
 def correct(filename, aper):
     
     # Create reduced lightcurves.
-    f = CorrectLC(LBfile, aper)
+    f = CorrectLC(filename, aper)
     redfile = f.make_redfile()
 
     return
