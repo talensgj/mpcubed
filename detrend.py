@@ -103,6 +103,51 @@ def new_harmonic(jdmid, lst, value, weights, ns, step=(.003693591 ,320./3600.), 
     
     return pars, fit, chisq
 
+def new_harmonic2(jdmid, lst, value, weights, ns, step=(.003693591 ,320./3600.), cnst=False):
+    
+    # Compute the frequencies and matrix for the JD times.
+    freq1 = fourier.fftfreq(step[0], ns[0], False)
+    freq1 = np.append(np.amin(freq1)/2, freq1)
+    freq1 = freq1[freq1 < 1/6.]
+    if (len(freq1) != 0):
+        mat1 = fourier.fourier_mat(jdmid, freq1)
+    else:
+        mat1 = np.array([[]]*len(jdmid))
+        
+    # Compute the frequencies and matrix for the LST times.
+    freq2 = fourier.fftfreq(step[1], ns[1], False)
+    freq2 = np.append(np.amin(freq2)/2, freq2)
+    freq2 = freq2[freq2 < 1/.5]
+    if (len(freq2) != 0):
+        mat2 = fourier.fourier_mat(lst, freq2)
+    else:
+        mat2 = np.array([[]]*len(jdmid))
+        
+    # Compute the full matrix of basis functions.
+    if cnst: 
+        ones = np.ones((len(value),1))
+        mat = np.hstack([ones, mat1, mat2])
+    else:
+        mat = np.hstack([mat1, mat2])
+    
+    if (mat.shape[1] == 0):
+        return [], np.zeros(len(jdmid)), np.zeros(len(jdmid)), np.sum(weights*value**2)
+    
+    # Calculate the best fit.
+    pars = fourier.fit_mat(value, weights, mat)
+    fit = np.dot(mat, pars)
+    
+    n = 2*len(freq1)
+    fit1 = np.dot(mat[:,:n], pars[:n])
+    fit2 = np.dot(mat[:,n:], pars[n:])
+    
+    # Calculate the chi-square value of the fit.
+    chisq = weights*(value - fit)**2
+    chisq = np.sum(chisq)
+    
+    return pars, fit1, fit2, chisq
+
+
 def iterative_detrending(jdmid, mag, weights, step, ns, maxiter=10):
     
     from scipy.signal import lombscargle
