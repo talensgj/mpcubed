@@ -12,6 +12,8 @@ from matplotlib import cm
 import matplotlib.gridspec as gridspec
 from matplotlib import rcParams
 
+import pandas as pd
+
 # For A4 paper.
 rcParams['figure.figsize'] = (11.69,8.27)
 rcParams['xtick.labelsize'] = 'medium'
@@ -23,10 +25,26 @@ rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
 
-from boxlstsq import phase_duration
+import boxlstsq
 from transit_search import read_header, read_data
 
 from scipy import optimize
+
+sptype_OC = {'O5':(13.4, -5.1), 'O6':(12.2, -5.1), 'O7':(11., -4.9), 'O8':(10., -4.6),
+             'B0':(6.7, -3.4), 'B1':(5.2, -2.6), 'B2':(4.1, -1.6), 'B3':(3.8, -1.3), 'B5':(3.2, -.5), 'B6':(2.9, -.1), 'B7':(2.7, .3), 'B8':(2.5, .6), 'B9':(2.3, .8),
+             'A0':(2.2, 1.1), 'A1':(2.1, 1.3), 'A2':(2., 1.5), 'A5':(1.8, 2.2), 'A8':(1.5, 2.7),
+             'F0':(1.4, 3.), 'F2':(1.3, 3.4), 'F5':(1.2, 3.9), 'F8':(1.1, 4.3),
+             'G0':(1.06, 4.7), 'G2':(1.03, 4.9), 'G8':(.96, 5.6),
+             'K0':(.93, 5.7), 'K1':(.91, 6.), 'K3':(.86, 6.5), 'K4':(.83, 6.7), 'K5':(.8, 7.1), 'K7':(.74, 7.8),
+             'M0':(.63, 8.9), 'M1':(.56, 9.6), 'M2':(.48, 10.4), 'M3':(.41, 11.1), 'M4':(.35, 11.9), 'M5':(.29, 12.8), 'M6':(.24, 13.8), 'M7':(.20, 14.7)}
+
+sptype_OCinp = {'O5':(13.4, -5.1), 'O6':(12.2, -5.1), 'O7':(11., -4.9), 'O8':(10., -4.6),
+                'B0':(6.7, -3.4), 'B1':(5.2, -2.6), 'B2':(4.1, -1.6), 'B3':(3.8, -1.3), 'B4':(3.5, -.9), 'B5':(3.2, -.5), 'B6':(2.9, -.1), 'B7':(2.7, .3), 'B8':(2.5, .6), 'B9':(2.3, .8),
+                'A0':(2.2, 1.1), 'A1':(2.1, 1.3), 'A2':(2., 1.5), 'A3':(1.9, 1.7), 'A4':(1.9, 1.9), 'A5':(1.8, 2.2), 'A6':(1.7, 2.4), 'A7':(1.6, 2.6), 'A8':(1.5, 2.7),
+                'F0':(1.4, 3.), 'F1':(1.35, 3.2), 'F2':(1.3, 3.4),  'F3':(1.3, 3.6), 'F4':(1.2, 3.8), 'F5':(1.2, 3.9), 'F6':(1.2, 4.0), 'F7':(1.1, 4.2), 'F8':(1.1, 4.3),
+                'G0':(1.06, 4.7), 'G1':(1.04, 4.8), 'G2':(1.03, 4.9), 'G3':(1.02, 5.), 'G4':(1.01, 5.1), 'G5':(1., 5.2), 'G6':(.99, 5.3), 'G7':(.98, 5.4), 'G8':(.96, 5.6),
+                'K0':(.93, 5.7), 'K1':(.91, 6.), 'K2':(.88, 6.3), 'K3':(.86, 6.5), 'K4':(.83, 6.7), 'K5':(.8, 7.1), 'K6':(.77, 7.4), 'K7':(.74, 7.8),
+                'M0':(.63, 8.9), 'M1':(.56, 9.6), 'M2':(.48, 10.4), 'M3':(.41, 11.1), 'M4':(.35, 11.9), 'M5':(.29, 12.8), 'M6':(.24, 13.8), 'M7':(.20, 14.7)}
 
 def boxlstsq_header(filelist):
     
@@ -57,10 +75,243 @@ def boxlstsq_header(filelist):
             
     return ascc, flag, period, depth, duration, nt
 
+class StarCatalogue(object):
+    
+    def __init__(self, catalogue='/data3/talens/Catalogue/I_280B.hdf5'):
+        
+        cat = dict()
+        
+        with h5py.File(catalogue, 'r') as f:
+        
+            grp = f['data']
+            
+            ascc = grp['ASCC'].value 
+            cat['ra'] = grp['RAhour'].value
+            cat['dec'] = grp['DEdeg'].value
+            cat['plx'] = grp['Plx'].value
+            cat['sptype'] = grp['SpType'].value
+            cat['vmag'] = grp['Vmag'].value
+            cat['bmag'] = grp['Bmag'].value
+            cat['tyc1'] = grp['TYC1'].value
+            cat['tyc2'] = grp['TYC2'].value
+            cat['tyc3'] = grp['TYC3'].value
+            cat['hd'] = grp['HD'].value
+    
+        cat['plx'] = cat['plx']/1e2 # [mas]
+        cat['vmag'] = cat['vmag']/1e3 # [mag]
+        cat['bmag'] = cat['bmag']/1e3 # [mag]
+    
+        ascc = ascc.astype('|S32')
+        self.cat = pd.DataFrame(cat, index=ascc)
+    
+        return
+        
+    def get_star(self, ascc0):
+        
+        return self.cat.loc[ascc0]
+
+class RedFile(object):
+    
+    def __init__(self, redfile):
+        
+        self.redfile = redfile
+        
+        return
+        
+    def read_lightcurve(self, ascc, fields):
+        
+        lc = dict()
+        
+        with h5py.File(self.redfile, 'r') as f:
+            grp = f['data/'+ascc]
+            for field in fields:
+                lc[field] = grp[field].value
+                
+        return lc
+
+class BlsFiles(object):
+    
+    def __init__(self, filelist):
+        
+        filenames = np.sort(filelist)
+        
+        self._read_header(filelist)
+        
+        return
+        
+    def _read_header(self, filelist):
+    
+        ascc = np.array([])
+        flag = np.array([], dtype='int')
+        period = np.array([])
+        epoch = np.array([])
+        depth = np.array([])
+        duration = np.array([])
+        nt = np.array([])
+        
+        for filename in filelist:
+            
+            with h5py.File(filename, 'r') as f:
+                
+                grp = f['header']
+                ascc_ = grp['ascc'].value
+                flag_ = grp['flag'].value
+                period_ = grp['period'].value
+                epoch_ = grp['epoch'].value
+                depth_ = grp['depth'].value
+                duration_ = grp['duration'].value
+                nt_ = grp['nt'].value
+                
+                ascc = np.append(ascc, ascc_)
+                flag = np.append(flag, flag_)
+                period = np.append(period, period_)
+                epoch = np.append(epoch, epoch_)
+                depth = np.append(depth, depth_)
+                duration = np.append(duration, duration_)
+                nt = np.append(nt, nt_)
+            
+        dic = dict()
+        dic['flag'] = flag
+        dic['period'] = period
+        dic['epoch'] = epoch
+        dic['depth'] = depth
+        dic['duration'] = duration
+        dic['nt'] = nt
+        
+        self.header = pd.DataFrame(dic, index=ascc)
+        
+        return
+    
+    def get_header(self):
+        
+        return self.header
+    
+    def get_candidates(self):
+        
+        ascc = self.header[self.header['flag'] == 0].index.tolist()
+        
+        return ascc
+        
+    def get_star(self, ascc0):
+        
+        return self.header.loc[ascc0]
+        
+    #def get_data(self, ascc0):
+        
+        #si = self.get_star(ascc0)
+        #filename = si.filename
+
+        #with h5py.File(filename, 'r') as f:
+            
+            #grp = f['data']
+            #freq = grp['freq'].value
+            #dchisq = grp['dchisq'].value
+            
+        #return freq, dchisq
+   
+def get_absmag(mag, d):
+    
+    Mag = mag - 5.*np.log10(d/10.)
+    
+    return Mag
+    
+def get_rstar(Mag, Mag0, R0):
+    
+    Rstar = R0*10**(-(Mag - Mag0)/5.)
+    
+    return Rstar
+    
+def get_rplanet(delta, Rstar):
+    
+    Rplanet = np.sqrt(delta/.01)*Rstar
+    
+    return Rplanet
+    
+def verify_candidates(filelist, outfile=None, verbose=True):
+    
+    import csv
+    from astropy.coordinates import ICRS
+    from astropy import units as u
+    
+    cat = StarCatalogue()
+    bls = BlsFiles(filelist)
+    ascc = bls.get_candidates()
+    
+    for ascc0 in ascc:
+    
+        # Get catalogue entry.
+        cat_res = cat.get_star(ascc0)
+        ra, dec, plx, sptype, vmag, bmag, tyc, hd = cat_res['ra'], cat_res['dec'], cat_res['plx'], cat_res['sptype'], cat_res['vmag'], cat_res['bmag'], (cat_res['tyc1'], cat_res['tyc2'], cat_res['tyc3']), cat_res['hd']
+        
+        # Get header bls result.
+        bls_res = bls.get_star(ascc0)
+        flag, period, epoch, depth, duration = bls_res['flag'], bls_res['period'], bls_res['epoch'], bls_res['depth'], bls_res['duration']
+        
+        new_flag = 0
+        
+        q = duration/period
+        if (q > .15):
+            new_flag += 1 
+        
+        # Try to get radius and absolute magnitude.
+        try:
+            R, Mv = sptype_OCinp[sptype[:2]]
+        except:
+            print 'Unknown type:', sptype
+            Rstar = -1
+            Rplanet = -1
+        else:
+            
+            if (plx > 0):
+                # Compute derived quantities.
+                d = 1/(plx*1e-3) # [pc]
+                Vmag = get_absmag(vmag, d)
+                Rstar = get_rstar(Vmag, Mv, R)
+                Rplanet = get_rplanet(depth, Rstar)
+                
+                if (Rplanet > 10.):
+                    new_flag += 2
+                
+            else:
+                Rstar = -1
+                Rplanet = -1 
+                new_flag += 4
+        
+        # Format the coordinates.
+        c = ICRS(ra*u.hour, dec*u.degree)
+        dec = c.dec.to_string(u.degree, alwayssign=True, precision=0)
+        ra = c.ra.to_string(u.hour, precision=0)
+        
+        # Display the results.
+        if verbose:
+            print 'ASCC {}:'.format(ascc0) 
+            print '  RA = {}, Dec = {}, Plx={} mas'.format(ra, dec, plx)
+            print '  {}, V = {}, B = {}'.format(sptype, vmag, bmag)
+            print '  HD {}'.format(hd)
+            print '  TYC {}'.format(tyc)
+            print
+            print '  flag     = {}'.format(flag)
+            print '  period   = {:.4f} days'.format(period)
+            print '  epoch    = {:.4f}'.format(epoch)
+            print '  depth    = {:.1f} %'.format(depth*100)
+            print '  duration = {:.4f} days'.format(duration)    
+            print 
+            print '  flag = {}'.format(new_flag)
+            print '  Rs = {:.2f} Rsun, Rp = {:.2f} Rjup'.format(Rstar, Rplanet)
+            print '  eta/P = {:.2f}'.format(q)
+            print
+            
+        if outfile is not None:   
+            with open(outfile, 'a') as csvfile:
+                w = csv.writer(csvfile)
+                w.writerow([ascc0, ra, dec, plx, sptype, vmag, bmag, hd, tyc, flag, period, epoch, depth, duration, new_flag, Rstar, Rplanet])
+    
+    return
+
 def plot_diagnostics(filelist):
     
     ascc, flag, period, depth, duration, nt = boxlstsq_header(filelist)
-    q = phase_duration(1/period, 1., 1.)
+    q = boxlstsq.phase_duration(1/period, 1., 1.)
     select = (flag < 1)
     
     ax = plt.subplot(311)
@@ -123,247 +374,10 @@ def plot_candidates(data, filelist, outdir):
     select = (flag == 0)
     ascc = ascc[select]
     
-    #plot_periodogram(data, filelist, ascc, outdir)
     #new_periodogram(data, filelist, ascc, outdir)
     #plot_lightcurve(data, filelist, ascc, outdir)
-    phase_lst(data, filelist, ascc, outdir)
+    #phase_lst(data, filelist, ascc, outdir)
     
-    return
-
-def plot_periodogram(data, filelist, ascc, outdir=None):
-    
-    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
-    
-    for filename in filelist:
-        
-        with h5py.File(filename, 'r') as f:
-            
-            grp = f['header']
-            sID = grp['ascc'].value
-            period = grp['period'].value
-            best_depth = grp['depth'].value
-            best_epoch = grp['epoch'].value
-            best_duration = grp['duration'].value
-            best_nt = grp['nt'].value
-            flag = grp['flag'].value
-            
-            grp = f['data']
-            freq = grp['freq'].value
-            dchisq = grp['dchisq'].value
-
-        select = np.in1d(sID, ascc)
-        args, = np.where(select)
-        if (len(args) == 0):
-            continue 
-            
-        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-            
-        # Read the data.
-        jdmid, lst, mag, emag, mask, trend = read_data(data, sID)
-        jdmid = jdmid - np.amin(jdmid)
-            
-        for i in args:
-            
-            if (best_duration[i]/period[i] > .15):
-                continue
-                
-            if (np.amax(dchisq[:,i]) < 400):
-                continue
-            
-            phase = np.mod((jdmid - best_epoch[i])/period[i] + .5, 1.) - .5
-    
-            # The best fit box-model.
-            model = transit.box_model(jdmid, period[i], best_epoch[i], -best_depth[i], best_duration[i])
-            weights = np.where(mask, 0., 1./emag**2)
-            mean = np.sum(weights[i]*(mag[i] - model))/np.sum(weights[i])
-            model = model + mean
-            
-            sort = np.argsort(phase)
-            mphase = phase[sort]
-            model = model[sort]
-            
-            # Plot the periodogram.
-            fig = plt.figure()
-    
-            gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
-        
-            plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}$, flag={:d}'.format(sID[i], sptype[ASCC==sID[i]][0], vmag[ASCC==sID[i]][0], best_depth[i]*100, period[i], best_duration[i], ntransit[i], flag[i]), size='xx-large')
-            
-            ax = plt.subplot(gs[1,:])
-            plt.plot(freq, dchisq[:,i], c='k')
-            
-            plt.axvline(1/period[i], c='g', ls='--')
-            for n in range(2, 5):
-                plt.axvline(n/period[i], c='g', ls='--')
-                plt.axvline(1/(n*period[i]), c='g', ls='--')
-            #for n in range(1, 5):
-                #plt.axvline(n/(period[i]*(n+1.)), c='g', ls='--', ymax=.4)
-                #plt.axvline((n+1.)/(n*period[i]), c='g', ls='--', ymax=.4)
-            
-            plt.axvline(1/.9972, c='r', ymax=.1, lw=2)
-            for n in range(2, 5):
-                plt.axvline(n/.9972, c='r', ymax=.1, lw=2)
-                plt.axvline(1/(n*.9972), c='r', ymax=.1, lw=2)
-            for n in range(1, 5):
-                plt.axvline(n/(.9972*(n+1.)), c='r', ymax=.1, lw=2)
-                plt.axvline((n+1.)/(n*.9972), c='r', ymax=.1, lw=2)
-            
-            plt.xlim(0, 1.8)
-            plt.xlabel('Frequency [day$^{-1}$]')
-            plt.ylabel(r'$\Delta\chi^2$')
-            
-            plt.subplot(gs[2,:])
-            plt.errorbar(phase[~mask[i]], mag[i,~mask[i]], emag[i,~mask[i]], fmt='.', c='k')
-            plt.plot(mphase, model, c='r', lw=2)
-            plt.xlim(-.5, .5)
-            plt.ylim(.1, -.1)
-            plt.xlabel('Phase')
-            plt.ylabel(r'$\Delta m$')
-            
-            plt.tight_layout()
-            
-            if outdir is None:
-                plt.show()
-            elif (np.amax(dchisq[:,i]) >= 900):
-                plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}.png'.format(sID[i])))
-            else:
-                plt.savefig(os.path.join(outdir, 'candidate_ASCC{}.png'.format(sID[i])))
-            
-            plt.close()
-
-    return
-
-
-def minfunc(pars, jdmid, mag, weights):
-    
-    model = transit.softened_box_model(jdmid, *pars)
-    chisq = weights*(mag - model)**2
-
-    return np.sum(chisq)
-
-def plot_periodogram_refined(data, filelist, ascc, outdir=None):
-    
-    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
-    
-    for filename in filelist:
-        
-        with h5py.File(filename, 'r') as f:
-            
-            grp = f['header']
-            sID = grp['ascc'].value
-            period = grp['period'].value
-            best_depth = grp['depth'].value
-            best_epoch = grp['epoch'].value
-            best_duration = grp['duration'].value
-            best_nt = grp['nt'].value
-            flag = grp['flag'].value
-            
-            grp = f['data']
-            freq = grp['freq'].value
-            dchisq = grp['dchisq'].value
-
-        select = np.in1d(sID, ascc)
-        args, = np.where(select)
-        if (len(args) == 0):
-            continue 
-            
-        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-            
-        # Read the data.
-        jdmid, lst, mag, emag, mask, trend = read_data(data, sID)
-        jdmid = jdmid - np.amin(jdmid)
-            
-        weights = np.where(mask, 0, 1/emag**2)
-            
-        for i in args:
-            
-            if (best_duration[i]/period[i] > .15):
-                continue
-                
-            if (np.amax(dchisq[:,i]) < 400):
-                continue
-            
-            p_bls = [period[i], best_epoch[i], -best_depth[i], best_duration[i], 10.] 
-            #res = optimize.minimize(minfunc, p_bls, args=(jdmid, mag[i], weights[i]), jac=False)
-            #res = optimize.minimize(minfunc, p_bls, method='SLSQP', args=(jdmid, mag[i], weights[i]), bounds=[(period[i]-.1, period[i]+.1), (best_epoch[i]-.1, best_epoch[i]+.1), (.005, .03), (0, .2), (1., 50.)])
-            #p_opt = res.x
-            
-            try:
-                p_opt, pcov = optimize.curve_fit(transit.softened_box_model, jdmid[~mask[i]], mag[i, ~mask[i]], p_bls, sigma=emag[i,~mask[i]], absolute_sigma=True)
-            except:
-                p_opt = p_bls
-            
-            
-            phase = np.mod((jdmid - p_opt[1])/p_opt[0] + .5, 1.) - .5
-    
-            # Bin the data.
-            nbins = 9*np.ceil(p_opt[0]/p_opt[3])
-            bins = np.linspace(-.5, .5, nbins)
-            m0, bins = np.histogram(phase, bins=bins, weights=weights[i])
-            m1, bins = np.histogram(phase, bins=bins, weights=weights[i]*mag[i])
-            m2, bins = np.histogram(phase, bins=bins, weights=weights[i]*mag[i]**2)
-            
-            phase_bin = (bins[:-1] + bins[1:])/2.
-            mag_bin = m1/m0
-            emag_bin = np.sqrt(1./m0)
-    
-            # The best fit box-model.
-            model = transit.softened_box_model(jdmid, *p_opt)
-            
-            sort = np.argsort(phase)
-            mphase = phase[sort]
-            mmodel = model[sort]
-            
-            # Plot the periodogram.
-            fig = plt.figure()
-    
-            gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
-        
-            plt.suptitle('ASCC {}, {}, $V={:.1f}$\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}$, flag={:d}'.format(sID[i], sptype[ASCC==sID[i]][0], vmag[ASCC==sID[i]][0], best_depth[i]*100, period[i], best_duration[i], ntransit[i], flag[i]), size='xx-large')
-            
-            ax = plt.subplot(gs[1,:])
-            plt.plot(freq, dchisq[:,i], c='k')
-            
-            plt.axvline(1/period[i], c='g', ls='--')
-            for n in range(2, 5):
-                plt.axvline(n/period[i], c='g', ls='--')
-                plt.axvline(1/(n*period[i]), c='g', ls='--')
-            #for n in range(1, 5):
-                #plt.axvline(n/(period[i]*(n+1.)), c='g', ls='--', ymax=.4)
-                #plt.axvline((n+1.)/(n*period[i]), c='g', ls='--', ymax=.4)
-            
-            plt.axvline(1/.9972, c='r', ymax=.1, lw=2)
-            for n in range(2, 5):
-                plt.axvline(n/.9972, c='r', ymax=.1, lw=2)
-                plt.axvline(1/(n*.9972), c='r', ymax=.1, lw=2)
-            for n in range(1, 5):
-                plt.axvline(n/(.9972*(n+1.)), c='r', ymax=.1, lw=2)
-                plt.axvline((n+1.)/(n*.9972), c='r', ymax=.1, lw=2)
-            
-            plt.xlim(0, 1.8)
-            plt.xlabel('Frequency [day$^{-1}$]')
-            plt.ylabel(r'$\Delta\chi^2$')
-            
-            plt.subplot(gs[2,:])
-            plt.plot(phase[~mask[i]], mag[i,~mask[i]], '.', alpha=.5, c='k')
-            plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='g')
-            plt.plot(mphase, mmodel, c='r', lw=2)
-            plt.xlim(-.5, .5)
-            plt.ylim(.05, -.02)
-            #plt.xlabel('Phase')
-            plt.ylabel(r'$\Delta m$')
-            
-            plt.tight_layout()
-            
-            if outdir is None:
-                plt.show()
-            elif (np.amax(dchisq[:,i]) >= 900):
-                plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}.png'.format(sID[i])))
-            else:
-                plt.savefig(os.path.join(outdir, 'candidate_ASCC{}.png'.format(sID[i])))
-            
-            plt.close()
-
     return
     
 def add_periodogram(ax, freq, pgram):
@@ -487,7 +501,7 @@ def add_sboxmodel(ax, jdmid, mag, emag, mask, pars):
     
     return pars
     
-def new_periodogram(data, filelist, ascc, outdir=None):
+def plot_periodogram(data, filelist, ascc, outdir=None):
     
     ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
     
@@ -566,6 +580,114 @@ def new_periodogram(data, filelist, ascc, outdir=None):
 
     return
 
+def find_ns(lstseq):
+    """ Number of sampling points in LST, takes wrapping into account."""
+    
+    lstidx = lstseq%270
+    option1 = np.ptp(lstidx) + 1
+    
+    lstidx = np.mod(lstidx + 135, 270)
+    option2 = np.ptp(lstidx) + 1
+    
+    if (option2 > option1):
+        return option1, False
+    else:
+        return option2, True
+
+def plot_lightcurve(filename, ascc, outdir=None):
+    
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    import detrend
+    
+    fields = ['lstseq', 'lst', 'jdmid', 'mag0', 'emag0', 'nobs']
+    
+    f = RedFile(filename)
+    try:
+        lc = f.read_lightcurve(ascc, fields)
+    except:
+        return
+    
+    lstseq = lc['lstseq']
+    lst = lc['lst']
+    jdmid = lc['jdmid']
+    mag0 = lc['mag0']
+    emag0 = lc['emag0']
+    nobs = lc['nobs']
+    
+    jdmid = jdmid - 2400000.5
+    emag0 = emag0/np.sqrt(nobs)
+    
+    f_g = sum(nobs==50)/float(sum(nobs>25))
+
+    sel = (nobs == 50)
+    lstseq = lstseq[sel]
+    lst = lst[sel]
+    jdmid = jdmid[sel]
+    mag0 = mag0[sel]
+    emag0 = emag0[sel]
+    
+    if (len(jdmid) == 0):
+        return
+        
+    n1 = np.ptp(lstseq)
+    n2, wrap = find_ns(lstseq)
+    
+    n1 = np.maximum(n1, 2)
+    n2 = np.maximum(n2, 2)
+    
+    weights = 1/(emag0)**2
+    pars, trend1, trend2, chisq = detrend.new_harmonic2(jdmid, lst, mag0, weights, [n1, n2])
+    
+    head, tail = os.path.split(filename)
+    tail = tail.rsplit('.')[0]
+    tail = tail.rsplit('_')[-1]
+    
+    majorLocator1 = MultipleLocator(1)
+    majorLocator2 = MultipleLocator(20)
+    
+    if wrap:
+        lst = np.mod(lst+12, 24)-12
+    
+    fig = plt.figure(figsize=(11.69, 8.27))
+
+    gs = gridspec.GridSpec(3, 2, height_ratios = [1, 5, 5], width_ratios = [2, 3])
+
+    plt.suptitle('{}, ASCC {}, $f_g = {:.2f}$ \n $\\chi^2_{{\\nu}} = {:.3f}$, npoints = {}, npars = {}'.format(tail, ascc, f_g, chisq/(len(jdmid) - len(pars)), len(jdmid), len(pars)), size='xx-large')
+    
+    ax1 = plt.subplot(gs[1,0])
+    ax1.invert_yaxis()
+    plt.errorbar(lst, mag0 - trend1, emag0, fmt='.', c='k')
+    plt.plot(lst, trend2, '.', c='r')
+    ax1.xaxis.set_major_locator(majorLocator1)
+    plt.ylabel('$\Delta m$')
+    
+    ax2 = plt.subplot(gs[1,1], sharey=ax1)
+    plt.errorbar(jdmid, mag0 - trend2, emag0, fmt='.', c='k')
+    plt.plot(jdmid, trend1, '.', c='r')
+    ax2.xaxis.set_major_locator(majorLocator2)
+    
+    ax3 = plt.subplot(gs[2,0], sharex=ax1)
+    ax3.invert_yaxis()
+    plt.errorbar(lst, mag0 - trend1 - trend2, emag0, fmt='.', c='k')
+    plt.xlabel('Time [LST]')
+    plt.ylabel('$\Delta m$')
+    
+    ax4 = plt.subplot(gs[2,1], sharex=ax2, sharey=ax3)
+    plt.errorbar(jdmid, mag0 - trend1 - trend2, emag0, fmt='.', c='k')
+    plt.xlabel('Time [MJD]')
+    
+    plt.tight_layout()
+    
+    if outdir is None:
+        plt.show()
+    else:
+        outfile = 'lightcurve_ASCC{}_{}.png'.format(ascc, tail)
+        outfile = os.path.join(outdir, outfile)
+        plt.savefig(outfile)
+    plt.close()
+
+    return
+
 def phase_lst(data, filelist, ascc, outdir=None):
     
     ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
@@ -627,7 +749,8 @@ def phase_lst(data, filelist, ascc, outdir=None):
                 plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}_p2.png'.format(sID[i])))
             else:
                 plt.savefig(os.path.join(outdir, 'candidate_ASCC{}_p2.png'.format(sID[i])))
-    
+            plt.close()
+                
     return
 
 def phase_sigma(data, filelist, ascc, outdir=None):
@@ -691,233 +814,28 @@ def phase_sigma(data, filelist, ascc, outdir=None):
                 plt.savefig(os.path.join(outdir, 'prime_candidate_ASCC{}_p2.png'.format(sID[i])))
             else:
                 plt.savefig(os.path.join(outdir, 'candidate_ASCC{}_p2.png'.format(sID[i])))
-
-    return
-
-def plot_lightcurve(data, filelist, ascc, outdir=None):
-    
-    ASCC, ra, dec, vmag, sptype, jdmin, jdmax = read_header(data)
-    
-    for filename in filelist:
-        
-        with h5py.File(filename, 'r') as f:
-            
-            grp = f['header']
-            sID = grp['ascc'].value
-            period = grp['period'].value
-            best_depth = grp['depth'].value
-            best_epoch = grp['epoch'].value
-            best_duration = grp['duration'].value
-            best_nt = grp['nt'].value
-            flag = grp['flag'].value
-            
-            grp = f['data']
-            freq = grp['freq'].value
-            dchisq = grp['dchisq'].value
-
-        select = np.in1d(sID, ascc)
-        args, = np.where(select)
-        if (len(args) == 0):
-            continue 
-            
-        ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-            
-        # Read the data.
-        jdmid, lst, mag, emag, mask, trend = read_data(data, sID)
-        jdmid = jdmid - np.amin(jdmid)
-            
-        for i in args:
-            
-            if (best_duration[i]/period[i] > .15):
-                continue
-                
-            if (np.amax(dchisq[:,i]) < 400):
-                continue
-            
-            # Plot the lightcurve.
-            fig = plt.figure()
-    
-            gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
-        
-            plt.suptitle('ASCC {}, {}, $V={:.1f}$'.format(sID[i], sptype[ASCC==sID[i]][0], vmag[ASCC==sID[i]][0]), size='xx-large')
-            
-            ax1 = plt.subplot(gs[1,:])
-            ax1.invert_yaxis()
-            plt.errorbar(jdmid[~mask[i]], mag[i,~mask[i]] + trend[i,~mask[i]], emag[i,~mask[i]], fmt='.', c='k')
-            plt.plot(jdmid[~mask[i]], trend[i,~mask[i]], c='r')
-            plt.xlabel('Time [days]')
-            plt.ylabel(r'$\Delta m$')
-            plt.ylim(.5, -.5)
-            
-            ax2 = plt.subplot(gs[2,:], sharex=ax1)
-            ax2.invert_yaxis()
-            plt.errorbar(jdmid[~mask[i]], mag[i,~mask[i]], emag[i,~mask[i]], fmt='.', c='k')
-            plt.xlabel('Time [days]')
-            plt.ylabel(r'$\Delta m$')
-            plt.ylim(.1, -.1)
-            
-            plt.tight_layout()
-            
-            if outdir is None:
-                plt.show()
-            else:
-                plt.savefig(os.path.join(outdir, 'lightcurve_ASCC{}.png'.format(sID[i])))
-        
             plt.close()
 
     return
 
 
-def periodogram_animation(filelist, data, sID):
-    
-    for filename in filelist:
-        
-        with h5py.File(filename, 'r') as f:
-            ascc = f['header/ascc'].value
-        
-        if sID in ascc:
-            break
-    
-    with h5py.File(filename, 'r') as f:
-        
-        grp = f['header']
-        ascc = grp['ascc'].value
-        chisq0 = grp['chisq0'].value
-        
-        grp = f['data']
-        freq = grp['freq'].value
-        dchisq = grp['dchisq'].value
-        depth = grp['depth'].value
-        duration = grp['duration'].value
-        epoch = grp['epoch'].value
-    
-    # Read the data.
-    jdmid, lst, mag, emag, mask, trend = read_data(data, ascc)
-    jdmid = jdmid - np.amin(jdmid)
-    
-    arg, = np.where(ascc == sID)
-    arg = arg[0]
-    
-    for i in range(len(freq)):
-        
-        print i
-    
-        phase = np.mod((jdmid - epoch[i,arg])*freq[i] + .5, 1.) - .5
-    
-        # The best fit box-model.
-        model = transit.box_model(jdmid, 1/freq[i], epoch[i,arg], -depth[i,arg], duration[i,arg])
-        weights = np.where(mask, 0., 1./emag**2)
-        mean = np.sum(weights[arg]*(mag[arg] - model))/np.sum(weights[arg])
-        model = model + mean
-        
-        sort = np.argsort(phase)
-        mphase = phase[sort]
-        model = model[sort]
-        
-        # Make the figure.
-        fig = plt.figure()
-        
-        gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,10])
-        
-        plt.suptitle('ASCC {}'.format(sID))
-        
-        ax1 = plt.subplot(gs[1,:])
-        plt.annotate('$P = {:.2f}$ days'.format(1/freq[i]), (0,1), xycoords='axes fraction', ha = 'left', va='top', xytext=(5, -5), textcoords='offset points', size='x-large', backgroundcolor='w')
-        plt.plot(freq, dchisq[:,arg], c='k')
-        plt.axvline(freq[i], c='g', ls='--')
-        plt.xlim(freq[i]-.1, freq[i]+.1)
-        plt.xlabel('Frequency [day$^{-1}$]')
-        plt.ylabel(r'$\Delta\chi^2$')
-        
-        ax2 = plt.subplot(gs[2,:])
-        ax2.invert_yaxis()
-        plt.errorbar(phase[~mask[arg]], mag[arg,~mask[arg]], emag[arg,~mask[arg]], fmt='.', c='k')
-        plt.plot(mphase, model, c='r', lw=2)
-        plt.xlim(-.5, .5)
-        plt.xlabel('Phase')
-        plt.ylabel(r'$\Delta m$')
-        
-        plt.tight_layout()
-        plt.savefig('/data2/talens/boxlstsq_movie/mov_{:04d}.png'.format(i))
-        #plt.show()
-        plt.close()
-    
-    return
-
-
 def main():
     
-    data = ['/data3/talens/2015Q1/LPN/red0_vmag_2015Q1LPN.hdf5',
-            '/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
-            '/data3/talens/2015Q1/LPS/red0_vmag_2015Q1LPS.hdf5',
-            '/data3/talens/2015Q1/LPW/red0_vmag_2015Q1LPW.hdf5',
-            '/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
-            '/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
-            '/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
-            '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
-            '/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
-            '/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
-            '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5',
-            '/data3/talens/2015Q4/LPN/red0_vmag_2015Q4LPN.hdf5',
-            '/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5',
-            '/data3/talens/2015Q4/LPS/red0_vmag_2015Q4LPS.hdf5',
-            '/data3/talens/2015Q4/LPW/red0_vmag_2015Q4LPW.hdf5',
-            '/data3/talens/2015Q4/LPC/red0_vmag_2015Q4LPC.hdf5']
-    
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = np.sort(data)
     
     filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls0*.hdf5')
+    filelist = np.sort(filelist)
     
-    #plot_candidates(data, filelist, '/data3/talens/boxlstsq/2015Q1234/new_figures')
-    phase_sigma(data, filelist, ['8763', '23353', '49834', '54305', '82459', '273664'])
+    verify_candidates(filelist, outfile = '/data3/talens/2015Q1234.csv')
     
+    #ascc, flag, period, depth, duration, nt = boxlstsq_header(filelist)
     
-    #data = ['/data3/talens/2015Q1/LPN/red0_vmag_2015Q1LPN.hdf5',
-            #'/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
-            #'/data3/talens/2015Q1/LPS/red0_vmag_2015Q1LPS.hdf5',
-            #'/data3/talens/2015Q1/LPW/red0_vmag_2015Q1LPW.hdf5',
-            #'/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
-            #'/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            #'/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            #'/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            #'/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            #'/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
-            #'/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
-            #'/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
-            #'/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
-            #'/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
-            #'/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5',
-            #'/data3/talens/2015Q4/LPN/red0_vmag_2015Q4LPN.hdf5',
-            #'/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5',
-            #'/data3/talens/2015Q4/LPS/red0_vmag_2015Q4LPS.hdf5',
-            #'/data3/talens/2015Q4/LPW/red0_vmag_2015Q4LPW.hdf5',
-            #'/data3/talens/2015Q4/LPC/red0_vmag_2015Q4LPC.hdf5']
+    #ascc = ascc[flag == 0] 
     
-    #filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls0*.hdf5')
-    
-    #new_periodogram(data, filelist, '444741')
-    
-    exit()
-    
-    #filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq/bls0_*.hdf5')
-    #ascc1, flag, period, depth, duration, nt = boxlstsq_header(filelist)
-    #ascc1 = ascc1[flag == 0]
-    
-    #filelist = glob.glob('/data2/talens/2015Q2_vmag/boxlstsq_new/bls0_*.hdf5')
-    #ascc2, flag, period, depth, duration, nt = boxlstsq_header(filelist)
-    #ascc2 = ascc2[flag == 0]
-    
-    #print 'In 1 but not in 2:', np.setdiff1d(ascc1, ascc2)
-    #print 'In 2 but not in 1:', np.setdiff1d(ascc2, ascc1)
-    
-    #for ascc in np.setdiff1d(ascc1, ascc2):
-        #os.system('shotwell /data2/talens/2015Q2_vmag/boxlstsq/figures/*{}*'.format(ascc))
-    
-    #for ascc in np.setdiff1d(ascc2, ascc1):
-        #os.system('shotwell /data2/talens/2015Q2_vmag/boxlstsq_new/figures/*{}*'.format(ascc))
+    #for filename in data:
+        #for ascc0 in ascc:
+            #plot_lightcurve(filename, ascc0, '/data3/talens/boxlstsq/2015Q1234/test')
     
     return
 
