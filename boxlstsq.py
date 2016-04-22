@@ -131,7 +131,7 @@ def boxlstsq(time, flux, weights, **options):
             
         if fmax is None:
             fmax = fmax_def
-        elif (fmax < fmax_def):
+        elif (fmax > fmax_def):
             print 'Warning: maximum frequency is inside the Hill radius.'
                 
         if (fmax < fmin):
