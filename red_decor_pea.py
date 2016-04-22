@@ -242,23 +242,26 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
         
         # Compute the parameters.
         
-        for i in range(5):
+        #for i in range(5):
             #par1 = np.bincount(idx1, weights*(mag - par2[idx2] - par3[idx3] - ipx))/np.bincount(idx1, weights)
-            par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
-            par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+        par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
+        #par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+        
+        sol1 = par1[idx1] + par2[idx2] + par3[idx3]
             
-            sol1 = par1[idx1] + par2[idx2] + par3[idx3]
-            
-            #res = mag - sol1
-            #for i in range(npars4/4):
-                #par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:], res[strides[i]:strides[i+1]])[0]
-                #ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
+        res = mag - sol1
+        wsqrt = np.sqrt(weights)
+        for i in range(npars4/4):
+            par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
+            ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
                 
-        for i in range(5):
+        #for i in range(5):
     
-            err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + err3[idx3]**2))
-            err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + err1[idx1]**2))
-            weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
+        err1 = _find_sigma_vmag(idx3, idx1, mag-ipx, error, par3, err3)
+        par3, err3 = _find_sigma(idx1, idx3, mag-ipx, error, par1, err1)
+        #err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + err3[idx3]**2))
+        #err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + err1[idx1]**2))
+        weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -374,7 +377,7 @@ class CoarseDecorrelation(object):
         staridx = np.repeat(staridx, nobs)
         camtransidx, decidx = self.camgrid.radec2idx(ha, dec)
         intrapixidx, decidx = self.ipxgrid.radec2idx(ha, dec)
-        _, _, skyidx = self.skygrid.radec2idx(ha, dec)
+        _, _, skyidx = self.skygrid.radec2idx(ra, dec)
         
         # Remove bad data.
         here = (flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1)
@@ -577,8 +580,8 @@ class CoarseDecorrelation(object):
     
 def main():
     
-    filename = '/data2/talens/2015Q2/LPW/fLC_201506ALPW.hdf5'
-    CoarseDecorrelation(filename, 0, '/data2/talens/sys0_201506ALPW_12.hdf5')
+    filename = '/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5'
+    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_swe.hdf5')
 
     return
 
