@@ -92,11 +92,43 @@ def depth_radiusstar():
     
     plt.show()
     
+def coverage_LaPalma():
+    
+    import healpy
+    from mascara import observer
+    
+    npix = healpy.nside2npix(8)
+    
+    ccdx = np.hstack([np.zeros(167*2), np.linspace(0, 4008, 167*3), 4008*np.ones(167*2), np.linspace(0, 4008, 167*3)[::-1]])
+    ccdy = np.hstack([np.linspace(0, 2672, 167*2), 2672*np.ones(167*3), np.linspace(0, 2672, 167*2)[::-1], np.zeros(167*3)])
+    
+    alt0 = [90, 49, 49, 49, 49]
+    az0 = [0, 0, 90, 180, 270]
+    
+    site = observer.Site('LaPalma')
+    ha0, dec0 = site.altaz2hadec(np.array([90.]), np.array([0.]))
+    
+    healpy.orthview(np.zeros(npix), rot=(ha0, dec0), half_sky=True)
+    for alt, az in zip(alt0, az0):
+    
+        cam = observer.Camera(altitude=alt, azimuth=az, orientation=270., Xo=2004, Yo=1336, nx=4008, ny=2672)
+        phi, the = cam.XY2PhiThe(ccdx, ccdy)
+        alt, az = cam.PhiThe2Hor(phi, the)
+        ha, dec = site.altaz2hadec(alt, az)
+        
+        healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180)
+        healpy.graticule(10., 15.)
+    
+    plt.show()
+    
+    return
+    
 def main():
     
     #transit_duration()
-    magnitude_parallax()
+    #magnitude_parallax()
     #depth_radiusstar()
+    coverage_LaPalma()
     
     return
 
