@@ -141,7 +141,7 @@ def read_data_array(filename, ascc):
     tmp[staridx, idx] = True
     mask = ~tmp
     
-    return jdmid, lst, mag, emag, mask, ns
+    return lstseq, jdmid, lst, mag, emag, mask, ns
 
 #def fit_trend(jdmid, lst, mag, emag, mask):
     #""" Detrend an array of lightcurves."""
@@ -173,17 +173,21 @@ def read_data(filelist, ascc):
     """ Read the data from a list of reduced lightcurve files."""
     
     # Create arrays.
+    lstseq = np.array([])
     jdmid = np.array([])
     lst = np.array([])
     mag = np.array([[]]*len(ascc))
     emag = np.array([[]]*len(ascc))
     mask = np.array([[]]*len(ascc), dtype='bool')
     trend = np.array([[]]*len(ascc))
+    cam = np.array([])
+    
+    camid = {'LPN':0, 'LPE':1, 'LPS':2, 'LPW':3, 'LPC':4}
     
     for filename in filelist:
 
         # Read the data.
-        jdmid_, lst_, mag_, emag_, mask_, ns_ = read_data_array(filename, ascc)
+        lstseq_, jdmid_, lst_, mag_, emag_, mask_, ns_ = read_data_array(filename, ascc)
         
         if len(jdmid_) == 0:
             continue
@@ -192,14 +196,16 @@ def read_data(filelist, ascc):
         trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_, ns_)
         mag_ = mag_ - trend_
         
+        lstseq = np.append(lstseq, lstseq_)
         jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lst_)
+        cam = np.append(cam, [camid[filename[-8:-5]]]*len(jdmid_))
         mag = np.append(mag, mag_, axis=1)
         emag = np.append(emag, emag_, axis=1)
         mask = np.append(mask, mask_, axis=1)
         trend = np.append(trend, trend_, axis=1)
         
-    return jdmid, lst, mag, emag, mask, trend
+    return lstseq, jdmid, lst, mag, emag, mask, trend, cam
 
 def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     """ Perform the box least-squares and flag non-detections."""
