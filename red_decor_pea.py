@@ -18,7 +18,7 @@ from package import IO
 from package.coordinates import grids
 from package.plotting import viridis
 
-from pea_grid import polar_eqarea_caps, PolarEAGrid
+from pea_grid import PolarEAGrid
 
 def _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err):
     
@@ -97,6 +97,7 @@ def _find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     
     return par2, err3
 
+
 def sigma_function(idx, ressq, errsq, err):
     
     weights = 1/(errsq + (err**2)[idx])
@@ -105,7 +106,7 @@ def sigma_function(idx, ressq, errsq, err):
     
     return term
 
-def find_sigma(idx, residuals, error, maxiter=10):
+def find_sigma(idx, residuals, errsq, maxiter=10):
     
     # Search for a solution between 0 and 2.
     N = np.amax(idx) + 1
@@ -113,7 +114,6 @@ def find_sigma(idx, residuals, error, maxiter=10):
     err2 = np.full(N, 2)
     
     ressq = residuals*residuals
-    errsq = error*error
     
     # Compute the value of the function at the beginning the interval.
     diff1 = sigma_function(idx, ressq, errsq, err1)
@@ -137,61 +137,6 @@ def find_sigma(idx, residuals, error, maxiter=10):
     err3[args2] = 2.
 
     return err3
-    
-def fast_sigma_function(ressq, errsq, err):
-    
-    weights = 1/(errsq + err**2)
-    term = ressq*weights**2 - weights
-    term = np.sum(term)
-    
-    return term
-
-def fast_find_sigma(idx, residuals, error, sort, maxiter=10):
-    
-    idx = idx[sort]
-    residuals = residuals[sort]
-    error = error[sort]
-    
-    strides = np.cumsum(np.bincount(idx))
-    strides = np.append(0, strides)
-    
-    # Search for a solution between 0 and 2.
-    N = np.amax(idx) + 1
-    err1 = np.zeros(N)
-    err2 = np.full(N, 2)
-    
-    ressq = residuals*residuals
-    errsq = error*error
-    
-    # Compute the value of the function at the beginning the interval.
-    diff1 = sigma_function(idx, ressq, errsq, err1)
-    args1, = np.where(diff1 < 1e-10)
-
-    # Compute the value of the function at the end the interval.
-    diff2 = sigma_function(idx, ressq, errsq, err2)
-    args2, = np.where(diff2 > 1e-10)
-
-    args, = np.where(diff1*diff2 < 0)
-
-    err3 = np.zeros(N)
-    for i in args:
-
-        # Find the solution.
-        for niter in range(maxiter):
-            
-            err3[i] = (err2[i] + err1[i])/2.
-            diff3 = fast_sigma_function(ressq[strides[i]:strides[i+1]], errsq[strides[i]:strides[i+1]], err3[i])
-            
-            if (diff3 > 1e-10):
-                err1[i] = err3[i]
-            else:
-                err2[i] = err3[i]
-    
-    err3 = (err2 + err1)/2.
-    err3[args1] = 0.
-    err3[args2] = 2.
-
-    return err3
 
 def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
     
@@ -204,6 +149,9 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
     error = error[sort]
     x = x[sort]
     y = y[sort]
+    
+    nobs2 = np.bincount(idx2)
+    nobs3 = np.bincount(idx3)
     
     strides = np.cumsum(np.bincount(idx4))
     strides = np.append(0, strides)
@@ -225,27 +173,47 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
     csy = np.cos(2*np.pi*y)
     mat = np.vstack([snx, csx, sny, csy]).T
 
-    ipx = np.zeros(len(mag))
-
     par1 = np.zeros(npars1)
     err1 = np.zeros(npars1)
-    par2 = np.zeros(npars2)
+    par2 = np.bincount(idx2, weights*mag)/np.bincount(idx2, weights)
     par3 = np.zeros(npars3)
     err3 = np.zeros(npars3)
     par4 = np.zeros((npars4/4, 4))
     
-    sky = False
+    sol1 = par1[idx1] + par2[idx2] + par3[idx3]
+    ipx = np.zeros(len(mag))
+    
     for niter in range(maxiter):
         
         if verbose:
             print 'niter = {}'.format(niter)
         
         # Compute the parameters.
+        #err1 = find_sigma(idx1, mag - sol1 - ipx, error**2 + (err3**2)[idx3])
+        #err3 = find_sigma(idx3, mag - sol1 - ipx, error**2 + (err1**2)[idx1])
         
-        #for i in range(5):
-            #par1 = np.bincount(idx1, weights*(mag - par2[idx2] - par3[idx3] - ipx))/np.bincount(idx1, weights)
+        err1 = _find_sigma_vmag(idx3, idx1, mag - par2[idx2] - ipx, error, par3, err3)
+        par3, err3 = _find_sigma(idx1, idx3, mag - par2[idx2] - ipx, error, par1, err1)
+        
+        weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
+        
         par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
-        #par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+        par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+        
+        sol1 = par1[idx1] + par2[idx2] + par3[idx3]
+        
+        res = mag - sol1
+        wsqrt = np.sqrt(weights)
+        for i in range(npars4/4):
+            #if (strides[i+1] - strides[i]) < 5: continue
+            par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
+            ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
+        
+        """
+        #for i in range(5):
+        #par1 = np.bincount(idx1, weights*(mag - par2[idx2] - par3[idx3] - ipx))/np.bincount(idx1, weights)
+        par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
+        par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
         
         sol1 = par1[idx1] + par2[idx2] + par3[idx3]
             
@@ -256,25 +224,29 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
             ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
                 
         #for i in range(5):
-    
-        err1 = _find_sigma_vmag(idx3, idx1, mag-ipx, error, par3, err3)
-        par3, err3 = _find_sigma(idx1, idx3, mag-ipx, error, par1, err1)
-        #err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + err3[idx3]**2))
-        #err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + err1[idx1]**2))
+        err1 = find_sigma(idx1, mag - sol1 - ipx, np.sqrt(error**2 + (err3**2)[idx3]))
+        err3 = find_sigma(idx3, mag - sol1 - ipx, np.sqrt(error**2 + (err1**2)[idx1]))
+            
+        #err1 = _find_sigma_vmag(idx3, idx1, mag-par2[idx2]-ipx, error, par3, err3)
+        #par3, err3 = _find_sigma(idx1, idx3, mag-par2[idx2]-ipx, error, par1, err1)
+        
         weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
+        """
         
         # Check if the solution has converged.
         if (niter > 0):
             
+            tmp1 = np.abs(sol1 - sol1_old)
             tmp2 = np.abs(par2 - par2_old)
             tmp3 = np.abs(par3 - par3_old)
             tmp4 = np.abs(par4 - par4_old) 
             
-            dcrit2 = np.nanmax(tmp2)
-            dcrit3 = np.nanmax(tmp3)
+            dcrit2 = np.nanmax(tmp2[nobs2 > 1])
+            dcrit3 = np.nanmax(tmp3[nobs3 > 1])
             dcrit4 = np.nanmax(tmp4)
             
             if verbose:
+                print '{:.3f}'.format(np.nanmax(tmp1))
                 print '{}/{}, {:.3f}'.format(np.sum(tmp2<dtol), npars2, dcrit2)
                 print '{}/{}, {:.3f}'.format(np.sum(tmp3<dtol), npars3, dcrit3)
                 print '{}/{}, {:.3f}'.format(np.sum(tmp4<dtol), npars4, dcrit4)
@@ -282,7 +254,32 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
             if (dcrit2 < dtol) & (dcrit3 < dtol) & (dcrit4 < dtol):
                 print 'Solution has converged, ending the iterations.'
                 break
+                
+        if (niter > 1):
+            
+            tmp1 = np.abs(sol1 - sol1_older)
+            tmp2 = np.abs(par2 - par2_older)
+            tmp3 = np.abs(par3 - par3_older)
+            tmp4 = np.abs(par4 - par4_older) 
+            
+            dcrit2 = np.nanmax(tmp2[nobs2 > 1])
+            dcrit3 = np.nanmax(tmp3[nobs3 > 1])
+            dcrit4 = np.nanmax(tmp4)
+            
+            if verbose:
+                print '{:.3f}'.format(np.nanmax(tmp1))
+            
+            if (dcrit2 < dtol) & (dcrit3 < dtol) & (dcrit4 < dtol):
+                print 'Solution is oscillating, ending the iterations.'
+                break
         
+        if (niter > 0):
+            sol1_older = np.copy(sol1_old)
+            par2_older = np.copy(par2_old)
+            par3_older = np.copy(par3_old)
+            par4_older = np.copy(par4_old)
+        
+        sol1_old = np.copy(sol1)
         par2_old = np.copy(par2)
         par3_old = np.copy(par3)
         par4_old = np.copy(par4)
@@ -484,9 +481,11 @@ class CoarseDecorrelation(object):
 
             print 'Computing solution for ring', i
 
-            self.z[camidx], self.s[skyidx], self.A[ipxidx], self.sigma1[staridx], self.sigma2[skyidx], quality, lnL = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=25)
+            self.z[camidx], self.s[skyidx], self.A[ipxidx], self.sigma1[staridx], self.sigma2[skyidx], quality, lnL = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=100)
         
             print quality.niter, quality.chisq/(quality.npoints - quality.npars), lnL
+        
+            break
         
         self.z = self.z.reshape((self.camgrid.nx+2, self.camgrid.ny+2))
         self.A = self.A.reshape((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4))
@@ -581,7 +580,7 @@ class CoarseDecorrelation(object):
 def main():
     
     filename = '/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5'
-    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_swe.hdf5')
+    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_test.hdf5')
 
     return
 

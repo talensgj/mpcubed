@@ -132,19 +132,37 @@ def plot_clouds2():
     
 def compare():
 
+    file0 = '/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506ALPE.hdf5'
+    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_w.hdf5'
+    file1 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_test.hdf5'
+
     from pea_grid import PolarEAGrid
 
-    f = IO.SysFile('/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506ALPE.hdf5')
+    f = IO.SysFile(file0)
     pgcam, trans0, nobs = f.read_trans()
     pg, sinx0, cosx0, siny0, cosy0, nobs = f.read_intrapix()
+    
     hg, clouds0, sigma, nobs, lstmin, lstmax = f.read_clouds()
-    print lstmin
+    
+    #with h5py.File(file0, 'r') as f:
+        #grp = f['data/clouds']
+        #idx = grp['idx'].value
+        #lstseq = grp['lstseq'].value
+        #clouds0 = grp['clouds'].value
+        #lstmin = grp.attrs['lstmin']
+        #lstlen = grp.attrs['lstlen']
+        
+    #pea = PolarEAGrid(23)
+        
+    #tmp = np.full((pea.npix, lstlen), fill_value=np.nan)
+    #tmp[idx, lstseq-lstmin] = clouds0
+    #clouds0 = tmp
 
-    f = IO.SysFile('/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_sw.hdf5')
+    f = IO.SysFile(file1)
     pg, trans1, nobs = f.read_trans()
     pg, sinx1, cosx1, siny1, cosy1, nobs = f.read_intrapix()
     
-    with h5py.File('/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE.hdf5', 'r') as f:
+    with h5py.File(file1, 'r') as f:
         grp = f['data/clouds']
         idx = grp['idx'].value
         lstseq = grp['lstseq'].value
@@ -158,110 +176,110 @@ def compare():
     tmp[idx, lstseq-lstmin] = clouds1
     clouds1 = tmp
     
-    with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 'r') as f:
+    #with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 'r') as f:
         
-        grp = f['header_table']
-        ascc = grp['ascc'].value
-        ra = grp['ra'].value
-        dec = grp['dec'].value
-        vmag = grp['vmag'].value
-        nobs = grp['nobs'].value
+        #grp = f['header_table']
+        #ascc = grp['ascc'].value
+        #ra = grp['ra'].value
+        #dec = grp['dec'].value
+        #vmag = grp['vmag'].value
+        #nobs = grp['nobs'].value
         
-        sort = np.argsort(dec)
-        ascc = ascc[sort]
-        ra = ra[sort]
-        dec = dec[sort]
-        vmag = vmag[sort]
-        nobs = nobs[sort]
+        #sort = np.argsort(dec)
+        #ascc = ascc[sort]
+        #ra = ra[sort]
+        #dec = dec[sort]
+        #vmag = vmag[sort]
+        #nobs = nobs[sort]
         
-        for i in range(0, len(ascc), 1000):
+        #for i in range(0, len(ascc), 1000):
             
-            lc = f['data/'+ascc[i]].value
+            #lc = f['data/'+ascc[i]].value
             
-            ha = np.mod(lc['lst']*15. - ra[i], 360.)
-            dec_ = np.repeat(dec[i], nobs[i])
+            #ha = np.mod(lc['lst']*15. - ra[i], 360.)
+            #dec_ = np.repeat(dec[i], nobs[i])
             
-            idx1, idx2 = pgcam.radec2idx(ha, dec_)
+            #idx1, idx2 = pgcam.radec2idx(ha, dec_)
             
-            mag, emag = misc.flux2mag(lc['flux0'], lc['eflux0'])
-            mag = mag - vmag[i]
+            #mag, emag = misc.flux2mag(lc['flux0'], lc['eflux0'])
+            #mag = mag - vmag[i]
             
-            t0 = trans0[idx1, idx2]
-            t1 = trans1[idx1, idx2]
+            #t0 = trans0[idx1, idx2]
+            #t1 = trans1[idx1, idx2]
             
-            idx1, idx2 = pg.radec2idx(ha, dec_)
+            #idx1, idx2 = pg.radec2idx(ha, dec_)
             
-            ipx0 = sinx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny0[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy0[idx1, idx2]*np.cos(2*np.pi*lc['y'])
-            ipx1 = sinx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny1[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy1[idx1, idx2]*np.cos(2*np.pi*lc['y'])
+            #ipx0 = sinx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny0[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy0[idx1, idx2]*np.cos(2*np.pi*lc['y'])
+            #ipx1 = sinx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny1[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy1[idx1, idx2]*np.cos(2*np.pi*lc['y'])
             
-            idx0 = hg.radec2idx(ra[i], dec[i])
-            _, _, idx1 = pea.radec2idx(np.array([ra[i]]), np.array([dec[i]]))
+            #idx0 = hg.radec2idx(ra[i], dec[i])
+            #_, _, idx1 = pea.radec2idx(np.array([ra[i]]), np.array([dec[i]]))
             
-            c0 = clouds0[idx0, lc['lstseq']-lstmin]
-            c1 = clouds1[idx1, lc['lstseq']-lstmin]
+            #c0 = clouds0[idx0, lc['lstseq']-lstmin]
+            #c1 = clouds1[idx1, lc['lstseq']-lstmin]
             
-            plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
-            plt.axvline(idx2[0], c='k', lw=2)
-            plt.colorbar()
-            plt.show()
+            #plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+            #plt.axvline(idx2[0], c='k', lw=2)
+            #plt.colorbar()
+            #plt.show()
             
-            ax1 = plt.subplot(521)
-            plt.plot(mag, '.')
-            plt.plot(t0+ipx0+c0, '.')
+            #ax1 = plt.subplot(521)
+            #plt.plot(mag, '.')
+            #plt.plot(t0+ipx0+c0, '.')
             
-            plt.subplot(522, sharex=ax1, sharey=ax1)
-            plt.plot(mag, '.')
-            plt.plot(t1+ipx1+c1, '.')
-            plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
+            #plt.subplot(522, sharex=ax1, sharey=ax1)
+            #plt.plot(mag, '.')
+            #plt.plot(t1+ipx1+c1, '.')
+            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
             
-            ax2 = plt.subplot(523, sharex=ax1)
-            plt.plot(mag-ipx0-c0, '.')
-            plt.plot(t0, '.')
+            #ax2 = plt.subplot(523, sharex=ax1)
+            #plt.plot(mag-ipx0-c0, '.')
+            #plt.plot(t0, '.')
             
-            plt.subplot(524, sharex=ax1, sharey=ax2)
-            plt.plot(mag-ipx1-c1, '.')
-            plt.plot(t1, '.')
-            plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
+            #plt.subplot(524, sharex=ax1, sharey=ax2)
+            #plt.plot(mag-ipx1-c1, '.')
+            #plt.plot(t1, '.')
+            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
             
-            ax3 = plt.subplot(525, sharex=ax1)
-            plt.plot(mag-t0-c0, '.')
-            plt.plot(ipx0, '.')
+            #ax3 = plt.subplot(525, sharex=ax1)
+            #plt.plot(mag-t0-c0, '.')
+            #plt.plot(ipx0, '.')
             
-            plt.subplot(526, sharex=ax1, sharey=ax3)
-            plt.plot(mag-t1-c1, '.')
-            plt.plot(ipx1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(526, sharex=ax1, sharey=ax3)
+            #plt.plot(mag-t1-c1, '.')
+            #plt.plot(ipx1, '.')
+            #plt.ylim(-1, 1)
             
-            ax4 = plt.subplot(527, sharex=ax1)
-            plt.plot(mag-t0-ipx0, '.')
-            plt.plot(c0, '.')
+            #ax4 = plt.subplot(527, sharex=ax1)
+            #plt.plot(mag-t0-ipx0, '.')
+            #plt.plot(c0, '.')
             
-            plt.subplot(528, sharex=ax1, sharey=ax4)
-            plt.plot(mag-t1-ipx1, '.')
-            plt.plot(c1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(528, sharex=ax1, sharey=ax4)
+            #plt.plot(mag-t1-ipx1, '.')
+            #plt.plot(c1, '.')
+            #plt.ylim(-1, 1)
             
-            ax5 = plt.subplot(529, sharex=ax1)
-            plt.plot(mag - t0-ipx0-c0, '.')
+            #ax5 = plt.subplot(529, sharex=ax1)
+            #plt.plot(mag - t0-ipx0-c0, '.')
             
-            print np.nanstd(mag - t0 - ipx0 - c0)
+            #print np.nanstd(mag - t0 - ipx0 - c0)
             
-            plt.subplot(5,2,10, sharex=ax1, sharey=ax5)
-            plt.plot(mag - t1-ipx1-c1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(5,2,10, sharex=ax1, sharey=ax5)
+            #plt.plot(mag - t1-ipx1-c1, '.')
+            #plt.ylim(-1, 1)
             
-            print np.nanstd(mag - t1 - ipx1 - c1)
+            #print np.nanstd(mag - t1 - ipx1 - c1)
             
-            plt.show()
-            plt.close()
+            #plt.show()
+            #plt.close()
             
         
-    exit()
+    #exit()
        
     ax = plt.subplot(211)
     plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
     plt.colorbar()
-    plt.subplot(212)
+    plt.subplot(212, sharex=ax)
     plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
     plt.colorbar()
 
