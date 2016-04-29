@@ -24,6 +24,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from package.models import transit
+from package.plotting import viridis
 
 import boxlstsq
 from transit_search import read_header, read_data
@@ -290,6 +291,20 @@ def transits(jdmid, period, epoch, duration):
 
     return length
     
+#def transits(jdmid, pars):
+    
+    #phase = (jdmid - pars[1])/pars[0]
+    #orbit = np.floor(phase + .5).astype('int')
+    
+    #phase = np.mod(phase+.5, 1.)-.5
+    #sel = (np.abs(phase) < .5*pars[3]/pars[0])
+    
+    #intransit = np.bincount(orbit[sel])
+    #intransit = intransit[intransit > 0]
+    
+    #return intransit
+    
+    
 def rolling_mean(idx, y, window):
     
     nbin = np.bincount(idx)
@@ -549,6 +564,133 @@ def plot_phase_lst(jdmid, lst, mag, emag, mask, pars):
                 
     return
 
+def fancy_plot(jdmid, xtmp, ytmp, ztmp, dx, dy, vmin=None, vmax=None):
+    
+    args1, = np.where(np.diff(jdmid) > 10./(24*60))
+    args2, = np.where(np.diff(np.floor(ytmp)) > 0)
+    
+    args = np.append(args1, args2)
+    args = np.unique(args)
+    
+    if (len(args) == 0):
+        
+        x = np.append(xtmp-dx/2., xtmp[-1]+dx/2.)
+        y = np.append(ytmp-dy/2., ytmp[-1]-dy/2.)
+        
+        x = np.vstack([x, x])
+        y = np.vstack([y, y+dy])
+        
+        z = ztmp[:, None].T
+        
+        plt.pcolormesh(x, y, z, vmin=vmin, vmax=vmax, cmap=viridis)
+        
+    else:
+        
+        args = args + 1
+        args = np.append(0, args)
+        args = np.append(args, len(ztmp))
+       
+        for i in range(len(args)-1):
+        
+            x = xtmp[args[i]:args[i+1]]
+            y = ytmp[args[i]:args[i+1]]
+            z = ztmp[args[i]:args[i+1]]
+        
+            x = np.append(x-dx/2., x[-1]+dx/2.)
+            y = np.append(y-dy/2., y[-1]-dy/2.)
+            
+            x = np.vstack([x, x])
+            y = np.vstack([y, y+dy])
+            
+            z = z[:, None].T
+            
+            plt.pcolormesh(x, y, z, vmin=vmin, vmax=vmax, cmap=viridis)
+    
+    return
+
+def plot_transit_coverage(jdmid, lst, mag, emag, mask, pars, ascc, star):
+    
+    import ephem
+    
+    jdmid = jdmid[~mask]
+    lst = lst[~mask]
+    mag = mag[~mask]
+    emag = emag[~mask]
+    
+    # Compute the phase.
+    phase = (jdmid - pars[1])/pars[0]
+    orbit = phase + .5
+    phase = np.mod(phase+.5, 1.)-.5
+    
+    m = ephem.Moon()
+    mphase = np.zeros(len(jdmid))
+    #mdist = np.zeros(len(jdmid))
+    
+    for i in range(len(jdmid)):
+        m.compute(jdmid[i])
+        mphase[i] = m.moon_phase
+        #mdist[i] = ephem.separation(m, (star['ra']*np.pi/180., (star['dec']+90)*np.pi/180.))
+
+    #mdist = mdist*180./np.pi
+        
+    dx = 5./(pars[0]*24*60)
+    dy = 1.
+    
+    plt.subplot(221)
+    plt.title(r'ASCC {}, $P = {:.4f}$ days'.format(ascc, pars[0]))
+    #plt.pcolormesh(phase, orbit, mphase, vmin=0., vmax=1.)
+    fancy_plot(jdmid, phase, orbit, mag, dx, dy, vmin=-.02, vmax=.05)
+    cbar = plt.colorbar()
+    cbar.set_label(r'$\Delta m$')
+    cbar.set_ticks(np.linspace(-.02, .05, 8))
+    plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.xlim(-.5, .5)
+    plt.ylim(-.5, np.amax(orbit)+.5)
+    plt.xlabel('Phase')
+    plt.ylabel('Orbit')
+    
+    plt.subplot(222)
+    fancy_plot(jdmid, phase, orbit, lst, dx, dy, vmin=0, vmax=24)
+    cbar = plt.colorbar()
+    cbar.set_label('Time [LST]')
+    cbar.set_ticks(np.linspace(0, 24, 7))
+    plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.xlim(-.5, .5)
+    plt.ylim(-.5, np.amax(orbit)+.5)
+    plt.xlabel('Phase')
+    plt.ylabel('Orbit')
+    
+    plt.subplot(223)
+    fancy_plot(jdmid, phase, orbit, mphase, dx, dy, vmin=0, vmax=1)
+    cbar = plt.colorbar()
+    cbar.set_label('Moon Phase')
+    cbar.set_ticks(np.linspace(0, 1, 6))
+    plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.xlim(-.5, .5)
+    plt.ylim(-.5, np.amax(orbit)+.5)
+    plt.xlabel('Phase')
+    plt.ylabel('Orbit')
+    
+    #plt.subplot(224)
+    #fancy_plot(jdmid, phase, orbit, mdist, dx, dy, vmin=0, vmax=30)
+    #cbar = plt.colorbar()
+    #cbar.set_label('Moon Phase')
+    #cbar.set_ticks(np.linspace(0, 30, 7))
+    #plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    #plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    #plt.xlim(-.5, .5)
+    #plt.ylim(-.5, np.amax(orbit)+.5)
+    #plt.xlabel('Phase')
+    #plt.ylabel('Orbit')
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+    
+    return
 
 def refine_fit(jdmid, mag, emag, mask, box_pars, display=False):
     
@@ -836,6 +978,9 @@ def candidates(data, filelist, outdir=None):
             # Plot the periodogram.
             plot_periodogram(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
             
+            # Plot the transit coverage.
+            plot_transit_coverage(jdmid, lst, mag[i], emag[i], mask[i], pars, ascc[i], star)
+            
             # Get the star and planet radii.
             new_flag, Rstar, Rplanet = new_flags(star, pars)
             
@@ -975,15 +1120,15 @@ def candidates(data, filelist, outdir=None):
 
 def main():
     
-    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = glob.glob('/data3/talens/2015Q?/LPN/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls0*.hdf5')
+    filelist = glob.glob('/data3/talens/boxlstsq/2015LPN/bls0*.hdf5')
     filelist = np.sort(filelist)
     
     #filelist = ['/data3/talens/boxlstsq/2015LPE/bls0_vmag_2015LPE_patch266.hdf5']
     
-    candidates(data, filelist, outdir='/data3/talens/boxlstsq/2015Q1234/candidates')
+    candidates(data, filelist)
     
     return
 
