@@ -191,13 +191,13 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
         
         # Compute the parameters.
         
-        #err1 = find_sigma(idx1, mag - sol1 - ipx, error**2 + (err3**2)[idx3])
+        err1 = find_sigma(idx1, mag - sol1 - ipx, error**2 + (err3**2)[idx3])
         #err3 = find_sigma(idx3, mag - sol1 - ipx, error**2 + (err1**2)[idx1])
     
         #err1 = _find_sigma_vmag(idx3, idx1, mag - par2[idx2] - ipx, error, par3, err3)
-        #par3, err3 = _find_sigma(idx1, idx3, mag - par2[idx2] - ipx, error, par1, err1)
+        par3, err3 = _find_sigma(idx1, idx3, mag - par2[idx2] - ipx, error, par1, err1)
         
-        #weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
+        weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
         
         par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
         par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
@@ -210,10 +210,12 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
             par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
             ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
         
+        fsol = sol1 + ipx
+        
         # Check if the solution has converged.
         if (niter > 0):
             
-            tmp1 = np.abs(sol1 - sol1_old)
+            tmp1 = np.abs(fsol - fsol_old)
             tmp2 = np.abs(par2 - par2_old)
             tmp3 = np.abs(par3 - par3_old)
             tmp4 = np.abs(par4 - par4_old) 
@@ -234,7 +236,7 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
                 
         if (niter > 1):
             
-            tmp1 = np.abs(sol1 - sol1_older)
+            tmp1 = np.abs(fsol - fsol_older)
             tmp2 = np.abs(par2 - par2_older)
             tmp3 = np.abs(par3 - par3_older)
             tmp4 = np.abs(par4 - par4_older) 
@@ -251,12 +253,12 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
                 break
         
         if (niter > 0):
-            sol1_older = np.copy(sol1_old)
+            fsol_older = np.copy(fsol_old)
             par2_older = np.copy(par2_old)
             par3_older = np.copy(par3_old)
             par4_older = np.copy(par4_old)
         
-        sol1_old = np.copy(sol1)
+        fsol_old = np.copy(fsol)
         par2_old = np.copy(par2)
         par3_old = np.copy(par3)
         par4_old = np.copy(par4)
@@ -351,7 +353,7 @@ class CoarseDecorrelation(object):
         staridx = np.repeat(staridx, nobs)
         camtransidx, decidx = self.camgrid.radec2idx(ha, dec)
         intrapixidx, decidx = self.ipxgrid.radec2idx(ha, dec)
-        _, _, skyidx = self.skygrid.radec2idx(ra, dec)
+        _, _, skyidx = self.skygrid.radec2idx(ha, dec)
         
         # Remove bad data.
         here = (flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1)
@@ -554,8 +556,8 @@ class CoarseDecorrelation(object):
     
 def main():
     
-    filename = '/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5'
-    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_racells_nw.hdf5')
+    filename = '/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5'
+    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506BLPE_hacells.hdf5')
 
     return
 

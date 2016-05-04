@@ -129,12 +129,121 @@ def plot_clouds2():
         plt.close()
 
     return
+  
+#def plot_PolarEqArea(grid, skymap, **kwargs):
+    
+    #from matplotlib import patches
+    
+    #N = grid.N
+    #strides = np.cumsum(N)
+    #strides = np.append(0, strides)
+    
+    #for i in range(grid.nrings + 2):
+        
+        #if (N[i] == 1):
+            #pass
+            
+        #else:
+            #xedges = np.linspace(0, 360, N[i]+1)
+            #yedges = grid.yedges[i:i+2]
+            
+            #data = skymap[strides[i]:strides[i+1]]
+            #data = data[:,None].T
+            #data = np.ma.masked_invalid(data)
+            
+            #xedges, yedges = np.meshgrid(xedges, yedges)
+            #yedges = yedges[::-1]
+            
+            #plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    
+    #return
+    
+def _hadec2xy(ha, dec):
+        
+    from mascara import observer
+        
+    # Read the pointing from the file.
+    #f = IO.SysFile(self.sysfile)
+    #alt0, az0, th0, x0, y0 = f.read_pointing()
+    
+    # Initialize the coordinate transformations.
+    site = observer.Site('LaPalma')
+    cam = observer.Camera('central')
+    #cam = observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+    
+    tmp = ha.shape
+    ha, dec = ha.ravel(), dec.ravel()
+    
+    # Perfrom the coordinate transformations.
+    alt, az = site.hadec2altaz(ha, dec, degree=True)
+    phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
+    x, y = cam.PhiThe2XY(phi, theta)
+    
+    x, y = x.reshape(tmp), y.reshape(tmp)
+    
+    return x, y
+    
+def plot_Polar(grid, skymap, **kwargs):
+    
+    xedges = grid.xedges
+    yedges = grid.yedges
+    
+    xedges, yedges = np.meshgrid(xedges, yedges)
+    xedges, yedges = _hadec2xy(xedges, yedges)
+    
+    skymap = skymap[1:-1,1:-1].T
+    skymap = np.ma.masked_invalid(skymap)
+    
+    plt.pcolormesh(xedges, yedges, skymap, **kwargs)
+    
+    return  
+    
+def plot_Healpix(grid, skymap, size=400, **kwargs):
+    
+    xedges = np.linspace(0, 360, size)
+    yedges = np.linspace(-90, 90, size)
+    
+    x = (xedges[:-1] + xedges[1:])/2
+    y = (yedges[:-1] + yedges[1:])/2
+    
+    x, y = np.meshgrid(x, y)
+    
+    idx = grid.radec2idx(x, y)
+    
+    data = skymap[idx]
+    data = np.ma.masked_invalid(data)
+    
+    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    
+    return
+    
+def plot_PolarEqArea(grid, skymap, size=50, **kwargs):
+    
+    xedges = np.linspace(0, 360, size)
+    yedges = np.linspace(-90, 90, size)
+    
+    x = (xedges[:-1] + xedges[1:])/2
+    y = (yedges[:-1] + yedges[1:])/2
+    
+    x, y = np.meshgrid(x, y)
+    x = x.ravel()
+    y = y.ravel()
+    
+    _, _, idx = grid.radec2idx(x, y)
+    
+    data = skymap[idx]
+    data = data.reshape((size-1, size-1))
+    data = np.ma.masked_invalid(data)
+    
+    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    
+    return
     
 def compare():
 
-    file0 = '/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506ALPE.hdf5'
-    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_w.hdf5'
-    file1 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_test.hdf5'
+    file0 = '/data2/talens/2015Q2_vmag/LPS/sys0_vmag_201506ALPS.hdf5'
+    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_hacells.hdf5'
+    file1 = '/data2/talens/2015Q2_pea/LPS/sys0_pea_201506ALPS_hacells.hdf5'
 
     from pea_grid import PolarEAGrid
 
@@ -176,7 +285,44 @@ def compare():
     tmp[idx, lstseq-lstmin] = clouds1
     clouds1 = tmp
     
-    with h5py.File('/data2/talens/2015Q2/LPE/fLC_201506ALPE.hdf5', 'r') as f:
+    #ax = plt.subplot(211)
+    #plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    #plt.colorbar()
+    #plt.subplot(212, sharex=ax)
+    #plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    #plt.colorbar()
+
+    #plt.show()
+    
+    #frame = 0
+    #for i in range(40000, 46000):
+        
+        #if np.all(np.isnan(clouds0[:,i])):
+            #continue
+    
+        #fig = plt.figure(figsize=(10,20))
+        
+        #ax = plt.subplot(211, projection='mollweide')
+        #plt.title('Sky 201506ALPE, idx = {}'.format(i))
+        #plot_Healpix(hg, clouds0[:,i], vmin=-.5, vmax=.5, cmap=plotting.viridis)
+        #ax.grid(True)
+        #ax.set_xticklabels([])
+        #ax.set_yticklabels([])
+        
+        #ax = plt.subplot(212, projection='mollweide')
+        #plot_PolarEqArea(pea, clouds1[:,i], vmin=-.5, vmax=.5, cmap=plotting.viridis)
+        #ax.grid(True)
+        #ax.set_xticklabels([])
+        #ax.set_yticklabels([])
+        
+        #plt.savefig('/data2/talens/sky/frame_{:05d}.png'.format(frame))
+        #plt.close()
+        
+        #frame += 1
+    
+    #exit()
+    
+    with h5py.File('/data2/talens/2015Q2/LPS/fLC_201506ALPS.hdf5', 'r') as f:
         
         grp = f['header_table']
         ascc = grp['ascc'].value
@@ -276,73 +422,125 @@ def compare():
             
         
     exit()
-       
-    ax = plt.subplot(211)
-    plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    
+    fig = plt.figure(figsize=(16, 10))
+    
+    vmin = np.nanpercentile(trans0, 1)
+    vmax = np.nanpercentile(trans0, 99)
+    
+    ax = plt.subplot(221, aspect='equal')
+    plot_Polar(pgcam, trans0, vmin=vmin, vmax=vmax, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(212, sharex=ax)
-    plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pgcam, trans1, vmin=vmin, vmax=vmax, cmap=plotting.viridis)
     plt.colorbar()
-
-    plt.show()
-        
-    trans0 = trans0.T
-    trans1 = trans1.T
-        
-    ax = plt.subplot(221)
-    plt.imshow(trans0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=7.2, vmax=8.5)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pgcam, trans0 - trans1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(222, sharex=ax, sharey=ax)
-    plt.imshow(trans1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=7.2, vmax=8.5)
-    plt.colorbar()
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(trans0 - trans1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
-    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.tight_layout()
     plt.show()
     
-    ax = plt.subplot(221)
-    plt.imshow(sinx0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    fig = plt.figure(figsize=(16, 10))
+    
+    ax = plt.subplot(221, aspect='equal')
+    plot_Polar(pg, sinx0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(222, sharex=ax, sharey=ax)
-    plt.imshow(sinx1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, sinx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(sinx0 - sinx1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, sinx0 - sinx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.tight_layout()
     plt.show()
     
-    ax = plt.subplot(221)
-    plt.imshow(cosx0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    fig = plt.figure(figsize=(16, 10))
+    
+    ax = plt.subplot(221, aspect='equal')
+    plot_Polar(pg, cosx0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(222, sharex=ax, sharey=ax)
-    plt.imshow(cosx1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, cosx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(cosx0 - cosx1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, cosx0 - cosx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.tight_layout()
     plt.show()
     
-    ax = plt.subplot(221)
-    plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    fig = plt.figure(figsize=(16, 10))
+    
+    ax = plt.subplot(221, aspect='equal')
+    plot_Polar(pg, siny0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(222, sharex=ax, sharey=ax)
-    plt.imshow(siny1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, siny1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(siny0 - siny1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, siny0 - siny1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.tight_layout()
     plt.show()
     
-    ax = plt.subplot(221)
-    plt.imshow(cosy0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    fig = plt.figure(figsize=(16, 10))
+    
+    ax = plt.subplot(221, aspect='equal')
+    plot_Polar(pg, cosy0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(222, sharex=ax, sharey=ax)
-    plt.imshow(cosy1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, cosy1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
-    plt.subplot(223, sharex=ax, sharey=ax)
-    plt.imshow(cosy0 - cosy1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.05, vmax=.05)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plot_Polar(pg, cosy0 - cosy1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.tight_layout()
     plt.show()
+    exit()
     
     return
     
