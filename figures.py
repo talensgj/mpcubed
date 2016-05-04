@@ -1,10 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import glob
+
 import numpy as np
 
 import matplotlib.pyplot as plt
+from matplotlib import cm
+import matplotlib.gridspec as gridspec
+from matplotlib import rcParams
 
+import pandas as pd
+
+# For A4 paper.
+rcParams['figure.figsize'] = (11.69,8.27)
+rcParams['xtick.labelsize'] = 'medium'
+rcParams['ytick.labelsize'] = 'medium'
+rcParams['axes.labelsize'] = 'large'
+rcParams['image.interpolation'] = 'nearest'
+rcParams['image.origin'] = 'lower'
+rcParams['axes.titlesize'] = 'xx-large'
 
 def transit_duration():
     
@@ -91,7 +107,7 @@ def depth_radiusstar():
     plt.ylabel(r'$\delta$ [%]')
     
     plt.show()
-    
+   
 def coverage_LaPalma():
     
     import healpy
@@ -117,18 +133,112 @@ def coverage_LaPalma():
         ha, dec = site.altaz2hadec(alt, az)
         
         healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180)
-        healpy.graticule(10., 15.)
+    healpy.graticule(10., 15.)
     
     plt.show()
     
     return
+    
+def coverage_night(filelist):
+    
+    import healpy
+    from astropy.io import fits
+    
+    from mascara import observer
+    from package.coordinates import grids
+    from package.plotting import viridis
+    
+    cameras = {'N':0, 'E':1, 'S':2, 'W':3, 'C':4}
+    mask = np.full((5, 13500), fill_value=np.nan)
+    jdmid = np.zeros(13500)
+    lst = np.zeros(13500)
+    
+    for filename in filelist:
+        
+        print filename
+        
+        with fits.open(filename) as hdulist:
+            cam = hdulist[0].header['CAMERA']
+            lstidx = hdulist[0].header['LPSTIDX']
+            lst[lstidx] = hdulist[0].header['LPST']
+            jdmid[lstidx] = hdulist[0].header['JD']
+    
+        mask[cameras[cam], lstidx] = 1
+    
+    hg = grids.HealpixGrid(64)
+    coverage = np.zeros(hg.npix)
+    
+    ccdx = np.linspace(0, 4008, 3*167)
+    ccdy = np.linspace(0, 2672, 2*167)
+    
+    ccdx, ccdy = np.meshgrid(ccdx, ccdy)
+    ccdx = ccdx.ravel()
+    ccdy = ccdy.ravel()
+    
+    alt0 = [49, 49, 49, 49, 90]
+    az0 = [0, 90, 180, 270, 0]
+    
+    site = observer.Site('LaPalma')
+    ha0, dec0 = site.altaz2hadec(np.array([90.]), np.array([0.]))
+    for i in range(5):
+        
+        cam = observer.Camera(altitude=alt0[i], azimuth=az0[i], orientation=270., Xo=2004, Yo=1336, nx=4008, ny=2672)
+        phi, the = cam.XY2PhiThe(ccdx, ccdy)
+        alt, az = cam.PhiThe2Hor(phi, the)
+        ha, dec = site.altaz2hadec(alt, az)
+        
+        for j in range(13500):
+            
+            if (mask[i,j] > 0):
+                
+                ra = np.mod(lst[j]*15 - ha, 360)
+                #idx = hg.radec2idx(ha, dec)
+                idx = hg.radec2idx(ra, dec)
+                coverage[np.unique(idx)] += 1
+    
+    coverage[coverage == 0] = np.nan
+      
+    fig = plt.figure(figsize=(10,6))
+    gs = gridspec.GridSpec(3, 2, height_ratios = [.5,10,2], width_ratios = [20,.5])
+    plt.suptitle('Coverage 30-01-2016', size='xx-large')
+      
+    cmap = viridis
+    cmap.set_under('w')
+      
+    # Plot the coverage.
+    ax = plt.subplot(gs[1,0])
+    #healpy.orthview(coverage, rot=(ha0, dec0), half_sky=True, fig=0, sub=211)
+    healpy.mollview(coverage, hold=True, title='', cbar=False, cmap=viridis)
+    healpy.graticule(10., 15.)
+    
+    ax = plt.gca()
+    image = ax.get_images()[0]
+    ax = plt.subplot(gs[1,1])
+    cb = plt.colorbar(image, cax=ax)
+    cb.set_label('# Images')
+    
+    plt.subplot(gs[2,0])
+    plt.imshow(mask, aspect='auto', interpolation='none', cmap=plt.cm.Greys_r, origin='upper')
+    plt.yticks([0, 1, 2, 3, 4], ['N', 'E', 'S', 'W', 'C'])
+    plt.xlabel('Time [LST-IDX]')
+
+    #plt.tight_layout()
+    plt.show()
+    plt.close()
+    
+    return
+
     
 def main():
     
     #transit_duration()
     #magnitude_parallax()
     #depth_radiusstar()
-    coverage_LaPalma()
+    #coverage_LaPalma()
+    
+    #filelist = glob.glob('/data2/talens/LaPalma/raw/20160130LP?/*LP?.fits')
+    #filelist = filelist[::50]
+    #coverage_night(filelist)
     
     return
 
