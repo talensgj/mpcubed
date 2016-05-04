@@ -265,7 +265,7 @@ def find_ns(lstseq):
     lstidx = np.mod(lstidx + 135, 270)
     option2 = np.ptp(lstidx) + 1
     
-    if (option2 > option1):
+    if (option2 >= option1):
         return option1, False
     else:
         return option2, True
@@ -360,6 +360,9 @@ def plot_lightcurve(filename, ascc, outdir=None):
     n1 = np.ptp(lstseq)
     n2, wrap = find_ns(lstseq)
     
+    if wrap:
+        lst = np.mod(lst+12, 24)-12
+    
     n1 = np.maximum(n1, 2)
     n2 = np.maximum(n2, 2)
     
@@ -372,9 +375,6 @@ def plot_lightcurve(filename, ascc, outdir=None):
     
     majorLocator1 = MultipleLocator(1)
     majorLocator2 = MultipleLocator(20)
-    
-    if wrap:
-        lst = np.mod(lst+12, 24)-12
     
     fig = plt.figure(figsize=(11.69, 8.27))
 
@@ -538,108 +538,95 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     
     return
 
-
-def plot_phase_lst(jdmid, lst, mag, emag, mask, pars):
+def phase_orbit(lstseq, phase, orbit, data, dx, dy, **kwargs):
+    """ Make a phase-orbit plot of the given data."""
     
-    jdmid = jdmid[~mask]
-    lst = lst[~mask]
-    mag = mag[~mask]
-    emag = emag[~mask]
-    
-    # Compute the phase.
-    phase = (jdmid - pars[1])/pars[0]
-    phase = np.mod(phase+.5, 1.)-.5
-    
-    ax = plt.subplot(111)
-    
-    plt.plot(phase, lst, '.', alpha=.5)
-    plt.xlim(-.5, .5)
-    plt.ylim(0, 24)
-    plt.xlabel('Phase')
-    plt.ylabel('Time [LST]')
-    
-    plt.tight_layout()
-    plt.show()
-    plt.close()
-                
-    return
-
-def fancy_plot(jdmid, xtmp, ytmp, ztmp, dx, dy, vmin=None, vmax=None):
-    
-    args1, = np.where(np.diff(jdmid) > 10./(24*60))
-    args2, = np.where(np.diff(np.floor(ytmp)) > 0)
+    # Segement the data fro plotting.
+    args1, = np.where(np.diff(lstseq) > 1)
+    args2, = np.where(np.diff(np.floor(orbit)) > 0)
     
     args = np.append(args1, args2)
     args = np.unique(args)
-    
-    if (len(args) == 0):
         
-        x = np.append(xtmp-dx/2., xtmp[-1]+dx/2.)
-        y = np.append(ytmp-dy/2., ytmp[-1]-dy/2.)
+    args = args + 1
+    args = np.append(0, args)
+    args = np.append(args, len(data))
+   
+    # Plot each data segment.
+    for i in range(len(args)-1):
+    
+        # Get the segment.
+        x = phase[args[i]:args[i+1]]
+        y = orbit[args[i]:args[i+1]]
+        z = data[args[i]:args[i+1]]
+       
+        # Convert the center-cooridnates to edge-coordinates. 
+        x = np.append(x - dx/2., x[-1] + dx/2.)
+        y = np.append(y - dy/2., y[-1] - dy/2.)
         
         x = np.vstack([x, x])
-        y = np.vstack([y, y+dy])
+        y = np.vstack([y, y + dy])
         
-        z = ztmp[:, None].T
+        # Give the data the appropriate shape.
+        z = z[:, None].T
         
-        plt.pcolormesh(x, y, z, vmin=vmin, vmax=vmax, cmap=viridis)
-        
-    else:
-        
-        args = args + 1
-        args = np.append(0, args)
-        args = np.append(args, len(ztmp))
-       
-        for i in range(len(args)-1):
-        
-            x = xtmp[args[i]:args[i+1]]
-            y = ytmp[args[i]:args[i+1]]
-            z = ztmp[args[i]:args[i+1]]
-        
-            x = np.append(x-dx/2., x[-1]+dx/2.)
-            y = np.append(y-dy/2., y[-1]-dy/2.)
-            
-            x = np.vstack([x, x])
-            y = np.vstack([y, y+dy])
-            
-            z = z[:, None].T
-            
-            plt.pcolormesh(x, y, z, vmin=vmin, vmax=vmax, cmap=viridis)
+        # Plot the data.
+        plt.pcolormesh(x, y, z, **kwargs)
     
     return
 
-def plot_transit_coverage(jdmid, lst, mag, emag, mask, pars, ascc, star):
+def plot_transit_coverage(lstseq, jdmid, lst, mag, emag, trend, mask, pars, ascc, star):
     
     import ephem
     
+    lstseq = lstseq[~mask]
     jdmid = jdmid[~mask]
     lst = lst[~mask]
     mag = mag[~mask]
     emag = emag[~mask]
+    trend = trend[~mask]
+    
+    # Make sure the arrays are sorted in time.
+    sort = np.argsort(lstseq)
+    lstseq = lstseq[sort]
+    jdmid = jdmid[sort]
+    lst = lst[sort]
+    mag = mag[sort]
+    emag = emag[sort]
+    trend = trend[sort]
     
     # Compute the phase.
     phase = (jdmid - pars[1])/pars[0]
     orbit = phase + .5
     phase = np.mod(phase+.5, 1.)-.5
     
+    # Compute the moon phase.
     m = ephem.Moon()
     mphase = np.zeros(len(jdmid))
-    #mdist = np.zeros(len(jdmid))
-    
     for i in range(len(jdmid)):
         m.compute(jdmid[i])
         mphase[i] = m.moon_phase
-        #mdist[i] = ephem.separation(m, (star['ra']*np.pi/180., (star['dec']+90)*np.pi/180.))
-
-    #mdist = mdist*180./np.pi
-        
-    dx = 5./(pars[0]*24*60)
+    
+    # Set the cell sizes for the plotting the data.    
+    dx = 319.1262613/(pars[0]*24*60*60)
     dy = 1.
     
-    plt.subplot(221)
-    plt.title(r'ASCC {}, $P = {:.4f}$ days'.format(ascc, pars[0]))
-    #plt.pcolormesh(phase, orbit, mphase, vmin=0., vmax=1.)
-    fancy_plot(jdmid, phase, orbit, mag, dx, dy, vmin=-.02, vmax=.05)
+    # Create the figure title.
+    title = r'ASCC {}, $P = {:.4f}$ days'.format(ascc, pars[0])
+    
+    if (star['hd'] != 0):
+        title = title + ', HD {}'.format(star['hd'])
+    else:
+        title = title + ', TYC {}-{}-{}'.format(star['tyc1'], star['tyc2'], star['tyc3'])
+    
+    # Create the figure.
+    fig = plt.figure(figsize=(11.69, 8.27))
+    gs = gridspec.GridSpec(3, 2, height_ratios=[.5,10,10])
+    
+    plt.suptitle(title, size='xx-large')
+    
+    plt.subplot(gs[1,0])
+    phase_orbit(lstseq, phase, orbit, mag, dx, dy, vmin=-.02, vmax=.05, cmap=viridis)
     cbar = plt.colorbar()
     cbar.set_label(r'$\Delta m$')
     cbar.set_ticks(np.linspace(-.02, .05, 8))
@@ -650,11 +637,11 @@ def plot_transit_coverage(jdmid, lst, mag, emag, mask, pars, ascc, star):
     plt.xlabel('Phase')
     plt.ylabel('Orbit')
     
-    plt.subplot(222)
-    fancy_plot(jdmid, phase, orbit, lst, dx, dy, vmin=0, vmax=24)
+    plt.subplot(gs[1,1])
+    phase_orbit(lstseq, phase, orbit, trend, dx, dy, vmin=-.2, vmax=.2, cmap=viridis)
     cbar = plt.colorbar()
-    cbar.set_label('Time [LST]')
-    cbar.set_ticks(np.linspace(0, 24, 7))
+    cbar.set_label(r'Trend')
+    cbar.set_ticks(np.linspace(-.2, .2, 9))
     plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
     plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
     plt.xlim(-.5, .5)
@@ -662,8 +649,8 @@ def plot_transit_coverage(jdmid, lst, mag, emag, mask, pars, ascc, star):
     plt.xlabel('Phase')
     plt.ylabel('Orbit')
     
-    plt.subplot(223)
-    fancy_plot(jdmid, phase, orbit, mphase, dx, dy, vmin=0, vmax=1)
+    plt.subplot(gs[2,0])
+    phase_orbit(lstseq, phase, orbit, mphase, dx, dy, vmin=0, vmax=1, cmap=viridis)
     cbar = plt.colorbar()
     cbar.set_label('Moon Phase')
     cbar.set_ticks(np.linspace(0, 1, 6))
@@ -674,17 +661,17 @@ def plot_transit_coverage(jdmid, lst, mag, emag, mask, pars, ascc, star):
     plt.xlabel('Phase')
     plt.ylabel('Orbit')
     
-    #plt.subplot(224)
-    #fancy_plot(jdmid, phase, orbit, mdist, dx, dy, vmin=0, vmax=30)
-    #cbar = plt.colorbar()
-    #cbar.set_label('Moon Phase')
-    #cbar.set_ticks(np.linspace(0, 30, 7))
-    #plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
-    #plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
-    #plt.xlim(-.5, .5)
-    #plt.ylim(-.5, np.amax(orbit)+.5)
-    #plt.xlabel('Phase')
-    #plt.ylabel('Orbit')
+    plt.subplot(gs[2,1])
+    phase_orbit(lstseq, phase, orbit, lst, dx, dy, vmin=0, vmax=24, cmap=viridis)
+    cbar = plt.colorbar()
+    cbar.set_label('Time [LST]')
+    cbar.set_ticks(np.linspace(0, 24, 7))
+    plt.axvline(.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.axvline(-.5*pars[3]/pars[0], c='k', lw=2, ls='--')
+    plt.xlim(-.5, .5)
+    plt.ylim(-.5, np.amax(orbit)+.5)
+    plt.xlabel('Phase')
+    plt.ylabel('Orbit')
     
     plt.tight_layout()
     plt.show()
@@ -943,7 +930,7 @@ def candidates(data, filelist, outdir=None):
     cat = StarCatalogue()
     
     for filename in filelist:
-        
+        print filename
         # Read the box least-squares results.
         f = blsFile(filename)
         
@@ -956,7 +943,8 @@ def candidates(data, filelist, outdir=None):
         freq, dchisq = bls['freq'], bls['dchisq']
 
         # Check if there are good candidates in the file.
-        if np.all(flag == 0): continue
+        #if np.all(flag == 0): continue
+        if '221238' not in ascc: continue
 
         # Compute some derived quantities.
         q = duration/period
@@ -970,7 +958,8 @@ def candidates(data, filelist, outdir=None):
         
         for i in range(len(ascc)):
             
-            if (flag[i] > 0): continue
+            #if (flag[i] != 1): continue
+            if ascc[i] != '221238': continue
             
             star = cat.get_star(ascc[i])
             pars = np.array([period[i], epoch[i], -depth[i], duration[i]])
@@ -979,7 +968,12 @@ def candidates(data, filelist, outdir=None):
             plot_periodogram(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
             
             # Plot the transit coverage.
-            plot_transit_coverage(jdmid, lst, mag[i], emag[i], mask[i], pars, ascc[i], star)
+            for j in range(5):
+                
+                if np.any(cam == j):
+                    print j
+                    sel = (cam == j)
+                    plot_transit_coverage(lstseq[sel], jdmid[sel], lst[sel], mag[i][sel], emag[i][sel], trend[i][sel], mask[i][sel], pars, ascc[i], star)
             
             # Get the star and planet radii.
             new_flag, Rstar, Rplanet = new_flags(star, pars)
@@ -1120,15 +1114,17 @@ def candidates(data, filelist, outdir=None):
 
 def main():
     
-    data = glob.glob('/data3/talens/2015Q?/LPN/red0_vmag_2015Q?LP?.hdf5')
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    filelist = glob.glob('/data3/talens/boxlstsq/2015LPN/bls0*.hdf5')
+    filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls/bls0*.hdf5')
     filelist = np.sort(filelist)
     
     #filelist = ['/data3/talens/boxlstsq/2015LPE/bls0_vmag_2015LPE_patch266.hdf5']
     
     candidates(data, filelist)
+    
+    #plot_lightcurve('/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5', '500717')
     
     return
 

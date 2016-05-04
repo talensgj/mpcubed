@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 import os
+import glob
 
 import h5py
 import numpy as np
@@ -67,7 +68,10 @@ def find_ns(lstseq):
     lstidx = np.mod(lstidx + 135, 270)
     option2 = np.ptp(lstidx) + 1
     
-    return np.minimum(option1, option2)
+    if (option2 >= option1):
+        return option1, False
+    else:
+        return option2, True
     
 def read_data_array(filename, ascc):
     """ Read the lightcurves of a group of stars."""
@@ -80,6 +84,7 @@ def read_data_array(filename, ascc):
     emag = np.array([])
     staridx = np.array([])
     ns = 2*np.ones((len(ascc), 2), dtype='int')
+    wrap = np.zeros(len(ascc), dtype='bool')
     
     # Read the lightcurves.
     with h5py.File(filename, 'r') as f:
@@ -116,8 +121,10 @@ def read_data_array(filename, ascc):
             mag = np.append(mag, mag_)
             emag = np.append(emag, emag_)
             staridx = np.append(staridx, [i]*len(lstseq_))
-            ns[i, 0] = np.maximum(np.ptp(lstseq_) + 1, 2)
-            ns[i, 1] = np.maximum(find_ns(lstseq_), 2) 
+            ns[i, 0] = np.ptp(lstseq_) + 1
+            ns[i, 1], wrap[i] = find_ns(lstseq_)
+
+    ns = np.maximum(ns, 2)
 
     # Get the array indices of the data.
     staridx = staridx.astype('int')
@@ -141,22 +148,9 @@ def read_data_array(filename, ascc):
     tmp[staridx, idx] = True
     mask = ~tmp
     
-    return lstseq, jdmid, lst, mag, emag, mask, ns
+    return lstseq, jdmid, lst, mag, emag, mask, ns, wrap
 
-#def fit_trend(jdmid, lst, mag, emag, mask):
-    #""" Detrend an array of lightcurves."""
-    
-    #nstars = mag.shape[0]
-    #weights = np.where(mask, 0., 1./emag**2)
-    #trend = np.zeros(mag.shape)
-    
-    #for i in range(nstars):
-        
-        #pars, trend[i], chisq = detrend.masc_harmonic(jdmid, lst, mag[i], weights[i], 180., 21, 24., 6)
-    
-    #return trend
-
-def fit_trend(jdmid, lst, mag, emag, mask, ns):
+def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
     """ Detrend an array of lightcurves."""
     
     nstars = mag.shape[0]
@@ -165,7 +159,12 @@ def fit_trend(jdmid, lst, mag, emag, mask, ns):
     
     for i in range(nstars):
         
-        pars, trend[i], chisq = detrend.new_harmonic(jdmid, lst, mag[i], weights[i], ns[i])
+        if wrap[i]:
+            x2 = np.mod(lst+12., 24.)-12.
+        else:
+            x2 = np.copy(lst)
+        
+        pars, trend[i], chisq = detrend.new_harmonic(jdmid, x2, mag[i], weights[i], ns[i])
 
     return trend
 
@@ -187,13 +186,13 @@ def read_data(filelist, ascc):
     for filename in filelist:
 
         # Read the data.
-        lstseq_, jdmid_, lst_, mag_, emag_, mask_, ns_ = read_data_array(filename, ascc)
+        lstseq_, jdmid_, lst_, mag_, emag_, mask_, ns_, wrap_ = read_data_array(filename, ascc)
         
         if len(jdmid_) == 0:
             continue
         
         # Detrend the lightcurves.
-        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_, ns_)
+        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_, ns_, wrap_)
         mag_ = mag_ - trend_
         
         lstseq = np.append(lstseq, lstseq_)
@@ -315,7 +314,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
     blgrid[skyuni] =  jdmax - jdmin
         
     jobs = []
-    for i in range(hg.npix):
+    for i in [59]:#range(hg.npix):
         
         # Do not run if the baseline falls short of 60 days.
         if (blgrid[i] < 60.):
@@ -324,7 +323,7 @@ def transit_search(filelist, outdir, name, nprocs=6):
         
         # Read the stars in the skypatch.
         select = (skyidx == i)
-        jdmid, lst, mag, emag, mask, trend = read_data(filelist, ascc[select])
+        lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(filelist, ascc[select])
     
         # Make sure there was data.
         if (len(jdmid) == 0):
@@ -369,41 +368,15 @@ def ensure_dir(path):
 
 def main():
     
-    data = ['/data3/talens/2015Q1/LPN/red0_vmag_2015Q1LPN.hdf5',
-            '/data3/talens/2015Q1/LPE/red0_vmag_2015Q1LPE.hdf5',
-            '/data3/talens/2015Q1/LPS/red0_vmag_2015Q1LPS.hdf5',
-            '/data3/talens/2015Q1/LPW/red0_vmag_2015Q1LPW.hdf5',
-            '/data3/talens/2015Q1/LPC/red0_vmag_2015Q1LPC.hdf5',
-            '/data3/talens/2015Q2/LPN/red0_vmag_2015Q2LPN.hdf5',
-            '/data3/talens/2015Q2/LPE/red0_vmag_2015Q2LPE.hdf5',
-            '/data3/talens/2015Q2/LPS/red0_vmag_2015Q2LPS.hdf5',
-            '/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5',
-            '/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5',
-            '/data3/talens/2015Q3/LPN/red0_vmag_2015Q3LPN.hdf5',
-            '/data3/talens/2015Q3/LPE/red0_vmag_2015Q3LPE.hdf5',
-            '/data3/talens/2015Q3/LPS/red0_vmag_2015Q3LPS.hdf5',
-            '/data3/talens/2015Q3/LPW/red0_vmag_2015Q3LPW.hdf5',
-            '/data3/talens/2015Q3/LPC/red0_vmag_2015Q3LPC.hdf5',
-            '/data3/talens/2015Q4/LPN/red0_vmag_2015Q4LPN.hdf5',
-            '/data3/talens/2015Q4/LPE/red0_vmag_2015Q4LPE.hdf5',
-            '/data3/talens/2015Q4/LPS/red0_vmag_2015Q4LPS.hdf5',
-            '/data3/talens/2015Q4/LPW/red0_vmag_2015Q4LPW.hdf5',
-            '/data3/talens/2015Q4/LPC/red0_vmag_2015Q4LPC.hdf5']
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = np.sort(data)
+
+    print data
     
-    outdir = '/data3/talens/boxlstsq/2015Q1234'
+    outdir = '/data3/talens/boxlstsq/test'
     ensure_dir(outdir)
     
     transit_search(data, outdir, 'vmag_2015Q1234', nprocs=16)
-    
-    #data = ['/data2/talens/2015data/red0_vmag_2015Q1LPN.hdf5',
-            #'/data2/talens/2015data/red0_vmag_2015Q2LPN.hdf5',
-            #'/data2/talens/2015data/red0_vmag_2015Q3LPN.hdf5',
-            #'/data2/talens/2015data/red0_vmag_2015Q4LPN.hdf5']
-    
-    #outdir = '/data2/talens/2015data/boxlstsq/2015LPN'
-    #ensure_dir(outdir)
-    
-    #transit_search(data, outdir, 'vmag_2015LPN', nprocs=6)
     
     return
 
