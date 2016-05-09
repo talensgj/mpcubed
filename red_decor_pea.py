@@ -20,33 +20,34 @@ from package.plotting import viridis
 
 from pea_grid import PolarEAGrid
 
-def _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err):
+def _par_sigma_function(idx, res, errsq, err):
     
-    weights = 1/(error**2 + (sigma1**2)[idx1] + (err**2)[idx2])
-    diff = np.bincount(idx2, weights**2*(value - par1[idx1])**2 - weights)
+    weights = 1/(errsq + (err**2)[idx])
+    par = np.bincount(idx, weights*res)/np.bincount(idx, weights)
+    diff = np.bincount(idx, weights**2*(res - par[idx])**2 - weights)
     
-    return diff
+    return par, diff
     
-def _find_sigma_vmag(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
+def find_par_sigma(idx, res, errsq, maxiter = 10):
     
     # Search for a solution between 0 and 2.
-    N = np.amax(idx2) + 1
+    N = np.amax(idx) + 1
     err1 = np.zeros(N)
     err2 = 2*np.ones(N)
     
     # Compute the value of the function at the beginning the interval.
-    diff1 = _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err1)
+    par, diff1 = _par_sigma_function(idx, res, errsq, err1)
     args1, = np.where(diff1 < 1e-10)
     
     # Compute the value of the function at the end the interval.
-    diff2 = _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err2)
+    par, diff2 = _par_sigma_function(idx, res, errsq, err2)
     args2, = np.where(diff2 > 1e-10)
     
     # Find the solution.
     for niter in range(maxiter):
         
         err3 = (err1 + err2)/2.
-        diff3 = _sigma_function_vmag(idx1, idx2, value, error, par1, sigma1, err3)
+        par, diff3 = _par_sigma_function(idx, res, errsq, err3)
     
         err1 = np.where(diff3 > 1e-10, err3, err1)
         err2 = np.where(diff3 > 1e-10, err2, err3)
@@ -55,50 +56,11 @@ def _find_sigma_vmag(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
     err3[args1] = 0.
     err3[args2] = 2.
     
-    return err3
+    par, _ = _par_sigma_function(idx, res, errsq, err3)
     
-def _sigma_function(idx1, idx2, value, error, par1, sigma1, err):
-    
-    weights = 1/(error**2 + (sigma1**2)[idx1] + (err**2)[idx2])
-    par2 = np.bincount(idx2, weights*(value - par1[idx1]))/np.bincount(idx2, weights)
-    diff = np.bincount(idx2, weights**2*(value - par1[idx1] - par2[idx2])**2 - weights)
-    
-    return par2, diff
-    
-def _find_sigma(idx1, idx2, value, error, par1, sigma1, maxiter = 10):
-    
-    # Search for a solution between 0 and 2.
-    N = np.amax(idx2) + 1
-    err1 = np.zeros(N)
-    err2 = 2*np.ones(N)
-    
-    # Compute the value of the function at the beginning the interval.
-    par2, diff1 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err1)
-    args1, = np.where(diff1 < 1e-10)
-    
-    # Compute the value of the function at the end the interval.
-    par2, diff2 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err2)
-    args2, = np.where(diff2 > 1e-10)
-    
-    # Find the solution.
-    for niter in range(maxiter):
-        
-        err3 = (err1 + err2)/2.
-        par2, diff3 = _sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
-    
-        err1 = np.where(diff3 > 1e-10, err3, err1)
-        err2 = np.where(diff3 > 1e-10, err2, err3)
-        
-    err3 = (err2 + err1)/2.
-    err3[args1] = 0.
-    err3[args2] = 2.
-    
-    par2, _ = _sigma_function(idx1, idx2, value, error, par1, sigma1, err3)
-    
-    return par2, err3
+    return par, err3
 
-
-def sigma_function(idx, ressq, errsq, err):
+def _sigma_function(idx, ressq, errsq, err):
     
     weights = 1/(errsq + (err**2)[idx])
     term = ressq*weights**2 - weights
@@ -116,46 +78,29 @@ def find_sigma(idx, residuals, errsq, maxiter=10):
     ressq = residuals*residuals
     
     # Compute the value of the function at the beginning the interval.
-    diff1 = sigma_function(idx, ressq, errsq, err1)
+    diff1 = _sigma_function(idx, ressq, errsq, err1)
     args1, = np.where(diff1 < 1e-10)
     
     # Compute the value of the function at the end the interval.
-    diff2 = sigma_function(idx, ressq, errsq, err2)
+    diff2 = _sigma_function(idx, ressq, errsq, err2)
     args2, = np.where(diff2 > 1e-10)
 
     # Find the solution.
     for niter in range(maxiter):
         
         err3 = (err2 + err1)/2.
-        diff3 = sigma_function(idx, ressq, errsq, err3)
+        diff3 = _sigma_function(idx, ressq, errsq, err3)
         
         err1 = np.where(diff3 > 1e-10, err3, err1)
         err2 = np.where(diff3 > 1e-10, err2, err3)
     
     err3 = (err2 + err1)/2.
-    
     err3[args1] = 0.
     err3[args2] = 2.
 
     return err3
 
 def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, verbose=False):
-    
-    sort = np.argsort(idx4)
-    idx1 = idx1[sort]
-    idx2 = idx2[sort]
-    idx3 = idx3[sort]
-    idx4 = idx4[sort]
-    mag = mag[sort]
-    error = error[sort]
-    x = x[sort]
-    y = y[sort]
-    
-    nobs2 = np.bincount(idx2)
-    nobs3 = np.bincount(idx3)
-    
-    strides = np.cumsum(np.bincount(idx4))
-    strides = np.append(0, strides)
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(mag)
@@ -168,21 +113,17 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
     # Create arrays.
     weights = 1./error**2
     
-    snx = np.sin(2*np.pi*x)
-    csx = np.cos(2*np.pi*x)
-    sny = np.sin(2*np.pi*y)
-    csy = np.cos(2*np.pi*y)
-    mat = np.vstack([snx, csx, sny, csy]).T
+    strides = np.cumsum(np.bincount(idx4))
+    strides = np.append(0, strides)
+    mat = np.vstack([np.sin(2*np.pi*x), np.cos(2*np.pi*x), np.sin(2*np.pi*y), np.cos(2*np.pi*y)]).T
+    ipx = np.zeros(len(mag))
 
-    par1 = np.zeros(npars1)
-    err1 = np.zeros(npars1)
     par2 = np.bincount(idx2, weights*mag)/np.bincount(idx2, weights)
     par3 = np.zeros(npars3)
-    err3 = np.zeros(npars3)
     par4 = np.zeros((npars4/4, 4))
     
-    sol1 = par1[idx1] + par2[idx2] + par3[idx3]
-    ipx = np.zeros(len(mag))
+    err1 = np.zeros(npars1)
+    err3 = np.zeros(npars3)
     
     for niter in range(maxiter):
         
@@ -190,42 +131,32 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
             print 'niter = {}'.format(niter)
         
         # Compute the parameters.
-        
-        err1 = find_sigma(idx1, mag - sol1 - ipx, error**2 + (err3**2)[idx3])
-        #err3 = find_sigma(idx3, mag - sol1 - ipx, error**2 + (err1**2)[idx1])
-    
-        #err1 = _find_sigma_vmag(idx3, idx1, mag - par2[idx2] - ipx, error, par3, err3)
-        par3, err3 = _find_sigma(idx1, idx3, mag - par2[idx2] - ipx, error, par1, err1)
+        err1 = find_sigma(idx1, mag - par2[idx2] - par3[idx3] - ipx, error**2 + (err3**2)[idx3])
+        par3, err3 = find_par_sigma(idx3, mag - par2[idx2] - ipx, error**2 + (err1**2)[idx1])
         
         weights = 1/(error**2 + (err1**2)[idx1] + (err3**2)[idx3])
         
-        par2 = np.bincount(idx2, weights*(mag - par1[idx1] - par3[idx3] - ipx))/np.bincount(idx2, weights)
-        par3 = np.bincount(idx3, weights*(mag - par1[idx1] - par2[idx2] - ipx))/np.bincount(idx3, weights)
+        par2 = np.bincount(idx2, weights*(mag - par3[idx3] - ipx))/np.bincount(idx2, weights)
+        par3 = np.bincount(idx3, weights*(mag - par2[idx2] - ipx))/np.bincount(idx3, weights)
         
-        sol1 = par1[idx1] + par2[idx2] + par3[idx3]
-        
-        res = mag - sol1
+        res = mag - par2[idx2] - par3[idx3]
         wsqrt = np.sqrt(weights)
         for i in range(npars4/4):
             par4[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
             ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par4[i])
         
-        fsol = sol1 + ipx
-        
         # Check if the solution has converged.
         if (niter > 0):
             
-            tmp1 = np.abs(fsol - fsol_old)
             tmp2 = np.abs(par2 - par2_old)
             tmp3 = np.abs(par3 - par3_old)
             tmp4 = np.abs(par4 - par4_old) 
             
-            dcrit2 = np.nanmax(tmp2[nobs2 > 1])
-            dcrit3 = np.nanmax(tmp3[nobs3 > 1])
+            dcrit2 = np.nanmax(tmp2)
+            dcrit3 = np.nanmax(tmp3)
             dcrit4 = np.nanmax(tmp4)
             
             if verbose:
-                print '{:.3f}'.format(np.nanmax(tmp1))
                 print '{}/{}, {:.3f}'.format(np.sum(tmp2<dtol), npars2, dcrit2)
                 print '{}/{}, {:.3f}'.format(np.sum(tmp3<dtol), npars3, dcrit3)
                 print '{}/{}, {:.3f}'.format(np.sum(tmp4<dtol), npars4, dcrit4)
@@ -236,40 +167,32 @@ def cdecor(idx1, idx2, idx3, idx4, mag, error, x, y, maxiter=100, dtol=1e-3, ver
                 
         if (niter > 1):
             
-            tmp1 = np.abs(fsol - fsol_older)
             tmp2 = np.abs(par2 - par2_older)
             tmp3 = np.abs(par3 - par3_older)
             tmp4 = np.abs(par4 - par4_older) 
             
-            dcrit2 = np.nanmax(tmp2[nobs2 > 1])
-            dcrit3 = np.nanmax(tmp3[nobs3 > 1])
+            dcrit2 = np.nanmax(tmp2)
+            dcrit3 = np.nanmax(tmp3)
             dcrit4 = np.nanmax(tmp4)
-            
-            if verbose:
-                print '{:.3f}'.format(np.nanmax(tmp1))
             
             if (dcrit2 < dtol) & (dcrit3 < dtol) & (dcrit4 < dtol):
                 print 'Solution is oscillating, ending the iterations.'
                 break
         
         if (niter > 0):
-            fsol_older = np.copy(fsol_old)
             par2_older = np.copy(par2_old)
             par3_older = np.copy(par3_old)
             par4_older = np.copy(par4_old)
         
-        fsol_old = np.copy(fsol)
         par2_old = np.copy(par2)
         par3_old = np.copy(par3)
         par4_old = np.copy(par4)
     
     # Compute the chi-square of the fit.
-    chisq = weights*(mag - sol1 - ipx)**2        
+    chisq = weights*(mag - par2[idx2] - par3[idx3] - ipx)**2        
     chisq = np.sum(chisq)
     
-    lnL = np.sum(np.log(1/weights)) + chisq
-    
-    return par2, par3, par4, err1, err3, Quality(niter, chisq, npoints, npars), lnL
+    return par2, par3, par4, err1, err3, Quality(niter, chisq, npoints, npars)
     
 
 class CoarseDecorrelation(object):
@@ -291,7 +214,7 @@ class CoarseDecorrelation(object):
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_vmag_'%self.aper
+            prefix = 'sys%i_pea_ha_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
@@ -418,16 +341,18 @@ class CoarseDecorrelation(object):
         self.m = np.copy(self.vmag)
         self.z = np.full((self.camgrid.npix,), fill_value=np.nan)
         self.A = np.full((self.ipxgrid.npix, 4), fill_value=np.nan)
-        self.s = np.full((self.skygrid.npix*lstlen,), fill_value=np.nan)
+        self.s = np.array([])
         
         if self.sigmas:
             self.sigma1 = np.full(len(self.ascc), fill_value=0)
-            self.sigma2 = np.full((self.skygrid.npix*lstlen,), fill_value=0)
+            self.sigma2 = np.array([])
+            
+        widx = np.array([], dtype='int')
         
-        self.nobs_m = np.full(len(self.ascc), fill_value=np.nan)
-        self.nobs_z = np.full((self.camgrid.npix,), fill_value=np.nan)
-        self.nobs_A = np.full((self.ipxgrid.npix,), fill_value=np.nan)
-        self.nobs_s = np.full((self.skygrid.npix*lstlen), fill_value=np.nan)
+        self.nobs_m = np.zeros(len(self.ascc), dtype='uint32')
+        self.nobs_z = np.zeros((self.camgrid.npix,), dtype='uint32')
+        self.nobs_A = np.zeros((self.ipxgrid.npix,), dtype='uint32')
+        self.nobs_s = np.array([], dtype='int')
         
         niter = np.zeros(self.skynx + 2)
         chisq = np.zeros(self.skynx + 2)
@@ -442,11 +367,11 @@ class CoarseDecorrelation(object):
             if np.sum(here) == 0:
                 continue
         
-            mag, emag, x, y, staridx, decidx, haidx1, haidx2, skyidx, lstseq = self._read_data(here)
+            mag, emag, x, y, staridx, decidx, camidx, ipxidx, skyidx, lstseq = self._read_data(here)
         
-            camidx = np.ravel_multi_index((haidx1, decidx), (self.camgrid.nx+2, self.camgrid.ny+2))
+            camidx = np.ravel_multi_index((camidx, decidx), (self.camgrid.nx+2, self.camgrid.ny+2))
             skyidx = np.ravel_multi_index((skyidx, lstseq), (self.skygrid.npix, lstlen)) 
-            ipxidx = np.ravel_multi_index((haidx2, decidx), (self.ipxgrid.nx+2, self.ipxgrid.ny+2))
+            ipxidx = np.ravel_multi_index((ipxidx, decidx), (self.ipxgrid.nx+2, self.ipxgrid.ny+2))
 
             staridx, idx1 = np.unique(staridx, return_inverse=True)
             camidx, idx2 = np.unique(camidx, return_inverse=True)
@@ -456,24 +381,38 @@ class CoarseDecorrelation(object):
             self.nobs_m[staridx] = np.bincount(idx1)
             self.nobs_z[camidx] = np.bincount(idx2)
             self.nobs_A[ipxidx] = np.bincount(idx4)
-            self.nobs_s[skyidx] = np.bincount(idx3)
+            self.nobs_s = np.append(self.nobs_s, np.bincount(idx3))
 
-            print 'Computing solution for ring', i,
+            sort = np.argsort(idx4)
+            idx1 = idx1[sort]
+            idx2 = idx2[sort]
+            idx3 = idx3[sort]
+            idx4 = idx4[sort]
+            mag = mag[sort]
+            emag = emag[sort]
+            x = x[sort]
+            y = y[sort]
 
-            self.z[camidx], self.s[skyidx], self.A[ipxidx], self.sigma1[staridx], self.sigma2[skyidx], quality, lnL = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=50)
+            print 'Computing solution for ring', i
+
+            self.z[camidx], s, self.A[ipxidx], self.sigma1[staridx], sigma2, quality = cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=50)
+        
+            widx = np.append(widx, skyidx)
+            self.s = np.append(self.s, s)
+            self.sigma2 = np.append(self.sigma2, sigma2)
         
             print 'niter = ', quality.niter
         
+            niter[i] = quality.niter
+            chisq[i] = quality.chisq
+            npoints[i] = quality.npoints
+            npars[i] = quality.npars
+        
         self.z = self.z.reshape((self.camgrid.nx+2, self.camgrid.ny+2))
         self.A = self.A.reshape((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4))
-        self.s = self.s.reshape((self.skygrid.npix, lstlen))
-        
-        if self.sigmas:
-            self.sigma2 = self.sigma2.reshape((self.skygrid.npix, lstlen))
         
         self.nobs_z = self.nobs_z.reshape((self.camgrid.nx+2, self.camgrid.ny+2))
         self.nobs_A = self.nobs_A.reshape((self.ipxgrid.nx+2, self.ipxgrid.ny+2))
-        self.nobs_s = self.nobs_s.reshape((self.skygrid.npix, lstlen))
         
         # Write the results to file.
         with h5py.File(self.sysfile) as f:
@@ -537,13 +476,13 @@ class CoarseDecorrelation(object):
             grp['intrapix'].attrs['ny'] = self.ipxny
             
             # Write the sky transmission.
-            idx, lstseq = np.where(~np.isnan(self.s))
+            idx, lstseq = np.unravel_index(widx, (self.skygrid.npix, lstlen))
             grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
             grp.create_dataset('clouds/lstseq', data = lstseq + self.lstmin, dtype = 'uint32')
-            grp.create_dataset('clouds/nobs', data = self.nobs_s[idx, lstseq], dtype = 'uint32')
-            grp.create_dataset('clouds/clouds', data = self.s[idx, lstseq], dtype = 'float32')
+            grp.create_dataset('clouds/nobs', data = self.nobs_s, dtype = 'uint32')
+            grp.create_dataset('clouds/clouds', data = self.s, dtype = 'float32')
             if self.sigmas:
-                grp.create_dataset('clouds/sigma', data = self.sigma2[idx, lstseq], dtype = 'float32')
+                grp.create_dataset('clouds/sigma', data = self.sigma2, dtype = 'float32')
             
             grp['clouds'].attrs['grid'] = 'healpix'
             grp['clouds'].attrs['nx'] = self.skynx
@@ -553,11 +492,11 @@ class CoarseDecorrelation(object):
         
         return
 
-    
+  
 def main():
     
-    filename = '/data2/talens/2015Q2/LPE/fLC_201506BLPE.hdf5'
-    CoarseDecorrelation(filename, 0, '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506BLPE_hacells.hdf5')
+    filename = '/data3/talens/2015Q2/LPE/fLC_201506BLPE.hdf5'
+    CoarseDecorrelation(filename, 0, '/data3/talens/sys0_pea_201506BLPE_hacells.hdf5')
 
     return
 
