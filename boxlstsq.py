@@ -136,7 +136,7 @@ def boxlstsq(time, flux, weights, **options):
                 
         if (fmax < fmin):
             print 'Error: fmax must be larger than fmin.'
-            return None, None, None, None, None
+            return None, None, None, None, None, None, None, None
         
         # Compute optimal sampling frequencies in range fmin, fmax.
         freq = freqs(fmin, fmax, S, OS, M, R)
@@ -151,7 +151,8 @@ def boxlstsq(time, flux, weights, **options):
     nbins = np.ceil((Qmin*ES)/q)
     
     # Prepare the data for the loop.
-    time = time - np.amin(time)
+    time0 = np.amin(time)
+    time = time - time0
     t = np.nansum(weights, axis=0) # Sum of weights.
     flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
     chisq0 = np.nansum(weights*flux**2., axis=0) # Best fit constant model.
@@ -242,5 +243,7 @@ def boxlstsq(time, flux, weights, **options):
         epoch[i] = epoch_tmp[args_1d]
         duration[i] = duration_tmp[args_1d]
         nt[i] = n
+        
+    epoch = epoch + time0
         
     return freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt
