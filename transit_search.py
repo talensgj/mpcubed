@@ -285,17 +285,94 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
 
     return
 
-def search_skypatch_mp(jobs, nprocs):
+#def search_skypatch_mp(jobs, nprocs):
+    #""" Use multiprocessing to perform the transit search."""
+    
+    #pool = mp.Pool(processes = nprocs)
+    #for i in range(len(jobs)):
+        #pool.apply_async(search_skypatch, args = jobs[i])
+    #pool.close()
+    #pool.join()
+    
+    #return
+    
+def search_skypatch_mp(queue):
     """ Use multiprocessing to perform the transit search."""
     
-    pool = mp.Pool(processes = nprocs)
-    for i in range(len(jobs)):
-        pool.apply_async(search_skypatch, args = jobs[i])
-    pool.close()
-    pool.join()
+    while True:
+        
+        item = queue.get()
+        
+        if (item == 'DONE'):
+            break
+        else:
+            search_skypatch(*item)
     
     return
     
+#def transit_search(filelist, outdir, name, nprocs=6):
+    #""" Perform detrending and transit search given reduced lightcurves."""
+    
+    ## Read the combined header of the files.
+    #ascc, ra, dec, vmag, sptype, jdmin, jdmax = read_header(filelist)
+    
+    ## Divide the stars in groups of neighbouring stars.
+    #hg = grids.HealpixGrid(8)
+    #skyidx = hg.radec2idx(ra, dec)
+
+    ## Determine the maximum baseline in each grid cell.
+    #blgrid = np.zeros(hg.npix)
+    #skyuni, idx = np.unique(skyidx, return_inverse=True)
+    #jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
+    #jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
+    #blgrid[skyuni] =  jdmax - jdmin
+        
+    #jobs = []
+    #for i in [59]:#range(hg.npix):
+        
+        ## Do not run if the baseline falls short of 60 days.
+        #if (blgrid[i] < 60.):
+            #print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
+            #continue
+        
+        ## Read the stars in the skypatch.
+        #select = (skyidx == i)
+        #lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(filelist, ascc[select])
+    
+        ## Make sure there was data.
+        #if (len(jdmid) == 0):
+            #continue
+        
+        ## Filename for the output file. 
+        #blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
+        #blsfile = os.path.join(outdir, blsfile)
+        
+        ## Check if multiprocessing was set.
+        #if (nprocs == 1):
+            #search_skypatch(i, ascc[select], jdmid, mag, emag, mask, blsfile)
+        #else:
+            #jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
+        
+        ## Compute the periodgrams in the joblist.
+        #if (len(jobs) == 5*nprocs):
+            #search_skypatch_mp(jobs, nprocs)
+            #jobs = []
+    
+    ## Compute any remaining periodograms.
+    #if (len(jobs) != 0):
+        #search_skypatch_mp(jobs, nprocs)
+    
+    ## Print a message indicating succes.
+    #print
+    #print 'Succesfully ran the boxlstsq on:'
+    #for filename in filelist:
+        #print ' ', filename
+    #print
+    #print 'The results were writen to:'
+    #print ' ', outdir
+        
+    #return
+
 def transit_search(filelist, outdir, name, nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
     
@@ -312,9 +389,11 @@ def transit_search(filelist, outdir, name, nprocs=6):
     jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
     jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
     blgrid[skyuni] =  jdmax - jdmin
+       
+    the_queue = mp.Queue(nprocs)
+    the_pool = mp.Pool(nprocs, search_skypatch_mp, (the_queue,))
         
-    jobs = []
-    for i in [59]:#range(hg.npix):
+    for i in range(hg.npix):
         
         # Do not run if the baseline falls short of 60 days.
         if (blgrid[i] < 60.):
@@ -333,20 +412,13 @@ def transit_search(filelist, outdir, name, nprocs=6):
         blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
         blsfile = os.path.join(outdir, blsfile)
         
-        # Check if multiprocessing was set.
-        if (nprocs == 1):
-            search_skypatch(i, ascc[select], jdmid, mag, emag, mask, blsfile)
-        else:
-            jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
-        
-        # Compute the periodgrams in the joblist.
-        if (len(jobs) == 5*nprocs):
-            search_skypatch_mp(jobs, nprocs)
-            jobs = []
+        the_queue.put((i, ascc[select], jdmid, mag, emag, mask, blsfile))
     
-    # Compute any remaining periodograms.
-    if (len(jobs) != 0):
-        search_skypatch_mp(jobs, nprocs)
+    for i in range(nprocs):
+        the_queue.put('DONE')
+    
+    the_pool.close()
+    the_pool.join()
     
     # Print a message indicating succes.
     print
@@ -368,15 +440,13 @@ def ensure_dir(path):
 
 def main():
     
-    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = glob.glob('/data3/talens/2015Q4/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
-
-    print data
     
     outdir = '/data3/talens/boxlstsq/test'
     ensure_dir(outdir)
     
-    transit_search(data, outdir, 'vmag_2015Q1234', nprocs=16)
+    transit_search(data, outdir, '2015Q4', nprocs=16)
     
     return
 
