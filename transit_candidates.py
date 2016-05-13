@@ -538,6 +538,73 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     
     return
 
+def plot_transit(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq, pars, outdir=None):
+    
+    jdmid = jdmid[~mask]
+    mag = mag[~mask]
+    emag = emag[~mask]
+    mask = mask[~mask]
+    
+    # Create the figure.
+    fig = plt.figure(figsize=(16, 5))
+    gs = gridspec.GridSpec(2, 1, height_ratios = [1,20])
+
+    # Plot the data and the best-fit box-model.
+    ax = plt.subplot(gs[1,:])
+    
+    #phase = (jdmid - pars[1])/pars[0]
+    #phase = np.mod(phase + .5, 1) - .5
+    #mod = transit.box(jdmid, *pars)
+    #m = np.sum((mag - mod)/emag**2)/np.sum(1/emag**2)
+    #mod = mod + m
+    
+    #x0 = .5*pars[3]/pars[0]
+    #phase_plot = np.array([-.5, -x0, -x0, x0, x0, .5])
+    #mod_plot = np.array([0., 0., -pars[2], -pars[2], 0., 0.])
+    
+    #plt.errorbar(phase, mag, emag, fmt='.', c='k')
+    #plt.plot(phase_plot, mod_plot, c='r', lw=2)
+    #plt.xlim(-.5, .5)
+    #plt.ylim(.1, -.1)
+    #plt.xlabel('Phase')
+    #plt.ylabel(r'$\Delta m$')
+        
+    sbox_pars, chisq, flag = refine_fit(jdmid, mag, emag, mask, pars)
+    phase = (jdmid - sbox_pars[1])/sbox_pars[0]
+    phase = np.mod(phase+.5, 1.)-.5
+        
+    npoints = 9*np.ceil(sbox_pars[0]/sbox_pars[3])
+    bins = np.linspace(-.5, .5, npoints+1)
+    weights = 1/emag**2
+    
+    m0, bins = np.histogram(phase, bins=bins, weights=weights)
+    m1, bins = np.histogram(phase, bins=bins, weights=weights*mag)
+    
+    phase_bin = (bins[:-1] + bins[1:])/2
+    mag_bin = m1/m0
+    emag_bin = np.sqrt(1/m0)
+    
+    phase_plot = np.linspace(-.5, .5, 9*sbox_pars[0]/sbox_pars[3])
+    mod_plot = transit.softbox(phase_plot*sbox_pars[0]+sbox_pars[1], *sbox_pars)
+        
+    mod = transit.softbox(jdmid, *sbox_pars)
+    mod_bin = transit.softbox(phase_bin*sbox_pars[0]+sbox_pars[1], *sbox_pars) 
+        
+    plt.suptitle('ASCC {}, $P={:.3f}$ days, $\delta={:.1f}$ %'.format(ascc, sbox_pars[0], sbox_pars[2]*100), size='xx-large')
+    plt.plot(phase, mag, '.', c='k', alpha=.5)
+    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='g')
+    plt.plot(phase_plot, mod_plot, c='r', lw=2)
+    plt.xlim(-.5, .5)
+    plt.ylim(.05, -.02)
+    plt.xlabel('Phase')
+    plt.ylabel(r'$\Delta m$')
+        
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+    
+    return
+
 def phase_orbit(lstseq, phase, orbit, data, dx, dy, **kwargs):
     """ Make a phase-orbit plot of the given data."""
     
@@ -943,8 +1010,8 @@ def candidates(data, filelist, outdir=None):
         freq, dchisq = bls['freq'], bls['dchisq']
 
         # Check if there are good candidates in the file.
-        #if np.all(flag == 0): continue
-        if '221238' not in ascc: continue
+        #if np.all(flag > 0): continue
+        if '352324' not in ascc: continue
 
         # Compute some derived quantities.
         q = duration/period
@@ -954,18 +1021,19 @@ def candidates(data, filelist, outdir=None):
         # Read the lightcurves.
         lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(data, ascc)
         lstseq = lstseq.astype('int')
-        jdmid = jdmid - np.amin(jdmid)
+        #jdmid = jdmid - np.amin(jdmid)
         
         for i in range(len(ascc)):
             
-            #if (flag[i] != 1): continue
-            if ascc[i] != '221238': continue
+            #if (flag[i] > 0): continue
+            if ascc[i] != '352324': continue
             
             star = cat.get_star(ascc[i])
             pars = np.array([period[i], epoch[i], -depth[i], duration[i]])
             
             # Plot the periodogram.
             plot_periodogram(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
+            plot_transit(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
             
             # Plot the transit coverage.
             for j in range(5):
@@ -1117,14 +1185,12 @@ def main():
     data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls/bls0*.hdf5')
+    filelist = glob.glob('/data3/talens/boxlstsq/test/bls/*')
     filelist = np.sort(filelist)
-    
-    #filelist = ['/data3/talens/boxlstsq/2015LPE/bls0_vmag_2015LPE_patch266.hdf5']
     
     candidates(data, filelist)
     
-    #plot_lightcurve('/data3/talens/2015Q2/LPW/red0_vmag_2015Q2LPW.hdf5', '500717')
+    #plot_lightcurve('/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5', '807144')
     
     return
 
