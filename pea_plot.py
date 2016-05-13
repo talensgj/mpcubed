@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import glob
+
 import h5py
 import numpy as np
 
@@ -10,45 +12,46 @@ from package import plotting
 from package import IO
 from package import misc
 
-def plot_trans(filename):
+def read_clouds(sysfile):
     
-    systematics = plotting.SysPlot(filename)
-    systematics.plot_trans()
+    from pea_grid import PolarEAGrid
     
-    return
+    with h5py.File(sysfile, 'r') as f:
     
-def plot_intrapix():
-    
-    systematics = plotting.SysPlot('/data2/talens/sys0_201506ALPW_2.hdf5')
-    systematics.plot_intrapix()
-
-    return
-
-def plot_clouds():
-    
-    with h5py.File('/data2/talens/201506ALPS.hdf5', 'r') as f:
-        
         grp = f['data/clouds']
-        idx1 = grp['idx'].value
+        idx = grp['idx'].value
         lstseq = grp['lstseq'].value
         clouds = grp['clouds'].value
+        nobs = grp['nobs'].value
         
-    lstseq, idx2 = np.unique(lstseq, return_inverse=True)
-    N = np.amax(idx1) + 1
-    
-    print lstseq[6000], lstseq[7000]
-    
-    tmp = np.full((len(lstseq), N), fill_value=np.nan)
-    tmp[idx2, idx1] = clouds
+        try: sigma = grp['sigma'].value
+        except: sigma = None
+        
+        nx = grp.attrs['nx']
+        lstmin = grp.attrs['lstmin']
+        lstmax = grp.attrs['lstmax']
+        lstlen = grp.attrs['lstlen']
 
-    plt.figure(figsize=(16,6))
-    plt.imshow(tmp.T, aspect='auto', interpolation='nearest', vmin=-.5, vmax=.5)
-    plt.colorbar()
-    plt.show()
-    
-    return
+    lstseq = lstseq - lstmin
 
-def plot_clouds2():
+    hg = PolarEAGrid(nx)
+    
+    tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
+    tmp[idx, lstseq] = clouds
+    clouds = tmp
+    
+    tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
+    tmp[idx, lstseq] = nobs
+    nobs = tmp
+    
+    if sigma is not None:
+        tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
+        tmp[idx, lstseq] = sigma
+        sigma = tmp
+
+    return hg, clouds, sigma, nobs, lstmin, lstmax
+
+def plot_clouds():
     
     import matplotlib.gridspec as gridspec
     from matplotlib import cm
@@ -129,6 +132,65 @@ def plot_clouds2():
         plt.close()
 
     return
+    
+def _hadec2xy(ha, dec):
+        
+    from mascara import observer
+        
+    # Read the pointing from the file.
+    #f = IO.SysFile(self.sysfile)
+    #alt0, az0, th0, x0, y0 = f.read_pointing()
+    
+    # Initialize the coordinate transformations.
+    site = observer.Site('LaPalma')
+    cam = observer.Camera('west')
+    #cam = observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+    
+    tmp = ha.shape
+    ha, dec = ha.ravel(), dec.ravel()
+    
+    # Perfrom the coordinate transformations.
+    alt, az = site.hadec2altaz(ha, dec, degree=True)
+    phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
+    x, y = cam.PhiThe2XY(phi, theta)
+    
+    x, y = x.reshape(tmp), y.reshape(tmp)
+    
+    return x, y
+    
+def plot_Polar(grid, skymap, **kwargs):
+    
+    xedges = grid.xedges
+    yedges = grid.yedges
+    
+    xedges, yedges = np.meshgrid(xedges, yedges)
+    xedges, yedges = _hadec2xy(xedges, yedges)
+    
+    skymap = skymap[1:-1,1:-1].T
+    skymap = np.ma.masked_invalid(skymap)
+    
+    im = plt.pcolormesh(xedges, yedges, skymap, **kwargs)
+    
+    return im  
+    
+def plot_Healpix(grid, skymap, size=400, **kwargs):
+    
+    xedges = np.linspace(0, 360, size)
+    yedges = np.linspace(-90, 90, size)
+    
+    x = (xedges[:-1] + xedges[1:])/2
+    y = (yedges[:-1] + yedges[1:])/2
+    
+    x, y = np.meshgrid(x, y)
+    
+    idx = grid.radec2idx(x, y)
+    
+    data = skymap[idx]
+    data = np.ma.masked_invalid(data)
+    
+    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    
+    return
   
 #def plot_PolarEqArea(grid, skymap, **kwargs):
     
@@ -158,66 +220,7 @@ def plot_clouds2():
     
     #return
     
-def _hadec2xy(ha, dec):
-        
-    from mascara import observer
-        
-    # Read the pointing from the file.
-    #f = IO.SysFile(self.sysfile)
-    #alt0, az0, th0, x0, y0 = f.read_pointing()
-    
-    # Initialize the coordinate transformations.
-    site = observer.Site('LaPalma')
-    cam = observer.Camera('central')
-    #cam = observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
-    
-    tmp = ha.shape
-    ha, dec = ha.ravel(), dec.ravel()
-    
-    # Perfrom the coordinate transformations.
-    alt, az = site.hadec2altaz(ha, dec, degree=True)
-    phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
-    x, y = cam.PhiThe2XY(phi, theta)
-    
-    x, y = x.reshape(tmp), y.reshape(tmp)
-    
-    return x, y
-    
-def plot_Polar(grid, skymap, **kwargs):
-    
-    xedges = grid.xedges
-    yedges = grid.yedges
-    
-    xedges, yedges = np.meshgrid(xedges, yedges)
-    xedges, yedges = _hadec2xy(xedges, yedges)
-    
-    skymap = skymap[1:-1,1:-1].T
-    skymap = np.ma.masked_invalid(skymap)
-    
-    plt.pcolormesh(xedges, yedges, skymap, **kwargs)
-    
-    return  
-    
-def plot_Healpix(grid, skymap, size=400, **kwargs):
-    
-    xedges = np.linspace(0, 360, size)
-    yedges = np.linspace(-90, 90, size)
-    
-    x = (xedges[:-1] + xedges[1:])/2
-    y = (yedges[:-1] + yedges[1:])/2
-    
-    x, y = np.meshgrid(x, y)
-    
-    idx = grid.radec2idx(x, y)
-    
-    data = skymap[idx]
-    data = np.ma.masked_invalid(data)
-    
-    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
-    
-    return
-    
-def plot_PolarEqArea(grid, skymap, size=50, **kwargs):
+def plot_PolarEA(grid, skymap, size=50, **kwargs):
     
     xedges = np.linspace(0, 360, size)
     yedges = np.linspace(-90, 90, size)
@@ -235,64 +238,56 @@ def plot_PolarEqArea(grid, skymap, size=50, **kwargs):
     data = data.reshape((size-1, size-1))
     data = np.ma.masked_invalid(data)
     
-    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    #plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    
+    xedges, yedges = np.meshgrid(xedges, yedges)
+    xedges, yedges = _hadec2xy(xedges, yedges)
+    plt.pcolormesh(xedges, yedges, data, **kwargs)
     
     return
     
 def compare():
 
-    file0 = '/data2/talens/2015Q2_vmag/LPS/sys0_vmag_201506ALPS.hdf5'
-    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506ALPE_hacells.hdf5'
-    file1 = '/data2/talens/2015Q2_pea/LPS/sys0_pea_201506ALPS_hacells.hdf5'
-
-    from pea_grid import PolarEAGrid
+    file0 = '/data2/talens/2015Q2_vmag/LPW/sys0_vmag_201505ALPW.hdf5'
+    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506BLPE_hacells.hdf5'
+    file1 = '/data2/talens/2015Q2_pea/LPW/sys0_pea_ha_201505ALPW.hdf5'
 
     f = IO.SysFile(file0)
     pgcam, trans0, nobs = f.read_trans()
     pg, sinx0, cosx0, siny0, cosy0, nobs = f.read_intrapix()
-    
     hg, clouds0, sigma, nobs, lstmin, lstmax = f.read_clouds()
     
-    #with h5py.File(file0, 'r') as f:
-        #grp = f['data/clouds']
-        #idx = grp['idx'].value
-        #lstseq = grp['lstseq'].value
-        #clouds0 = grp['clouds'].value
-        #lstmin = grp.attrs['lstmin']
-        #lstlen = grp.attrs['lstlen']
-        
-    #pea = PolarEAGrid(23)
-        
-    #tmp = np.full((pea.npix, lstlen), fill_value=np.nan)
-    #tmp[idx, lstseq-lstmin] = clouds0
-    #clouds0 = tmp
-
+    plt.subplot(111, aspect='equal')
+    plot_Polar(pgcam, trans0)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    plt.show()
+    
+    plt.subplot(111, projection='mollweide')
+    plot_Healpix(hg, clouds0[:,0])
+    plt.show()
+    
     f = IO.SysFile(file1)
     pg, trans1, nobs = f.read_trans()
     pg, sinx1, cosx1, siny1, cosy1, nobs = f.read_intrapix()
+    hg, clouds1, sigma, nobs, lstmin, lstmax = read_clouds(file1)
     
-    with h5py.File(file1, 'r') as f:
-        grp = f['data/clouds']
-        idx = grp['idx'].value
-        lstseq = grp['lstseq'].value
-        clouds1 = grp['clouds'].value
-        lstmin = grp.attrs['lstmin']
-        lstlen = grp.attrs['lstlen']
-        
-    pea = PolarEAGrid(23)
-        
-    tmp = np.full((pea.npix, lstlen), fill_value=np.nan)
-    tmp[idx, lstseq-lstmin] = clouds1
-    clouds1 = tmp
+    plt.subplot(111, aspect='equal')
+    plot_PolarEA(hg, clouds1[:,0], vmin=-.5, vmax=.5)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    plt.show()
     
     #ax = plt.subplot(211)
-    #plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    #plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
     #plt.colorbar()
     #plt.subplot(212, sharex=ax)
-    #plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.5, vmax=.5)
+    #plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
     #plt.colorbar()
 
     #plt.show()
+    
+    exit()
     
     #frame = 0
     #for i in range(40000, 46000):
@@ -322,106 +317,106 @@ def compare():
     
     #exit()
     
-    with h5py.File('/data2/talens/2015Q2/LPS/fLC_201506ALPS.hdf5', 'r') as f:
+    #with h5py.File('/data2/talens/2015Q2_pea/LPW/fLC_201505ALPW.hdf5', 'r') as f:
         
-        grp = f['header_table']
-        ascc = grp['ascc'].value
-        ra = grp['ra'].value
-        dec = grp['dec'].value
-        vmag = grp['vmag'].value
-        nobs = grp['nobs'].value
+        #grp = f['header_table']
+        #ascc = grp['ascc'].value
+        #ra = grp['ra'].value
+        #dec = grp['dec'].value
+        #vmag = grp['vmag'].value
+        #nobs = grp['nobs'].value
         
-        sort = np.argsort(dec)
-        ascc = ascc[sort]
-        ra = ra[sort]
-        dec = dec[sort]
-        vmag = vmag[sort]
-        nobs = nobs[sort]
+        #sort = np.argsort(dec)
+        #ascc = ascc[sort]
+        #ra = ra[sort]
+        #dec = dec[sort]
+        #vmag = vmag[sort]
+        #nobs = nobs[sort]
         
-        for i in range(0, len(ascc), 1000):
+        #for i in range(0, len(ascc), 1000):
             
-            lc = f['data/'+ascc[i]].value
+            #lc = f['data/'+ascc[i]].value
             
-            ha = np.mod(lc['lst']*15. - ra[i], 360.)
-            dec_ = np.repeat(dec[i], nobs[i])
+            #ha = np.mod(lc['lst']*15. - ra[i], 360.)
+            #dec_ = np.repeat(dec[i], nobs[i])
             
-            idx1, idx2 = pgcam.radec2idx(ha, dec_)
+            #idx1, idx2 = pgcam.radec2idx(ha, dec_)
             
-            mag, emag = misc.flux2mag(lc['flux0'], lc['eflux0'])
-            mag = mag - vmag[i]
+            #mag, emag = misc.flux2mag(lc['flux0'], lc['eflux0'])
+            #mag = mag - vmag[i]
             
-            t0 = trans0[idx1, idx2]
-            t1 = trans1[idx1, idx2]
+            #t0 = trans0[idx1, idx2]
+            #t1 = trans1[idx1, idx2]
             
-            idx1, idx2 = pg.radec2idx(ha, dec_)
+            #idx1, idx2 = pg.radec2idx(ha, dec_)
             
-            ipx0 = sinx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny0[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy0[idx1, idx2]*np.cos(2*np.pi*lc['y'])
-            ipx1 = sinx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny1[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy1[idx1, idx2]*np.cos(2*np.pi*lc['y'])
+            #ipx0 = sinx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny0[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy0[idx1, idx2]*np.cos(2*np.pi*lc['y'])
+            #ipx1 = sinx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny1[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy1[idx1, idx2]*np.cos(2*np.pi*lc['y'])
             
-            idx0 = hg.radec2idx(ra[i], dec[i])
-            #_, _, idx1 = pea.radec2idx(np.array([ra[i]]), np.array([dec[i]]))
-            _, _, idx1 = pea.radec2idx(ha, dec_)
+            #idx0 = hg.radec2idx(ra[i], dec[i])
+            ##_, _, idx1 = pea.radec2idx(np.array([ra[i]]), np.array([dec[i]]))
+            #_, _, idx1 = pea.radec2idx(ha, dec_)
             
-            c0 = clouds0[idx0, lc['lstseq']-lstmin]
-            c1 = clouds1[idx1, lc['lstseq']-lstmin]
+            #c0 = clouds0[idx0, lc['lstseq']-lstmin]
+            #c1 = clouds1[idx1, lc['lstseq']-lstmin]
             
-            plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
-            plt.axvline(idx2[0], c='k', lw=2)
-            plt.colorbar()
-            plt.show()
+            #plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
+            #plt.axvline(idx2[0], c='k', lw=2)
+            #plt.colorbar()
+            #plt.show()
             
-            ax1 = plt.subplot(521)
-            plt.plot(mag, '.')
-            plt.plot(t0+ipx0+c0, '.')
+            #ax1 = plt.subplot(521)
+            #plt.plot(mag, '.')
+            #plt.plot(t0+ipx0+c0, '.')
             
-            plt.subplot(522, sharex=ax1, sharey=ax1)
-            plt.plot(mag, '.')
-            plt.plot(t1+ipx1+c1, '.')
-            plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
+            #plt.subplot(522, sharex=ax1, sharey=ax1)
+            #plt.plot(mag, '.')
+            #plt.plot(t1+ipx1+c1, '.')
+            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
             
-            ax2 = plt.subplot(523, sharex=ax1)
-            plt.plot(mag-ipx0-c0, '.')
-            plt.plot(t0, '.')
+            #ax2 = plt.subplot(523, sharex=ax1)
+            #plt.plot(mag-ipx0-c0, '.')
+            #plt.plot(t0, '.')
             
-            plt.subplot(524, sharex=ax1, sharey=ax2)
-            plt.plot(mag-ipx1-c1, '.')
-            plt.plot(t1, '.')
-            plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
+            #plt.subplot(524, sharex=ax1, sharey=ax2)
+            #plt.plot(mag-ipx1-c1, '.')
+            #plt.plot(t1, '.')
+            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
             
-            ax3 = plt.subplot(525, sharex=ax1)
-            plt.plot(mag-t0-c0, '.')
-            plt.plot(ipx0, '.')
+            #ax3 = plt.subplot(525, sharex=ax1)
+            #plt.plot(mag-t0-c0, '.')
+            #plt.plot(ipx0, '.')
             
-            plt.subplot(526, sharex=ax1, sharey=ax3)
-            plt.plot(mag-t1-c1, '.')
-            plt.plot(ipx1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(526, sharex=ax1, sharey=ax3)
+            #plt.plot(mag-t1-c1, '.')
+            #plt.plot(ipx1, '.')
+            #plt.ylim(-1, 1)
             
-            ax4 = plt.subplot(527, sharex=ax1)
-            plt.plot(mag-t0-ipx0, '.')
-            plt.plot(c0, '.')
+            #ax4 = plt.subplot(527, sharex=ax1)
+            #plt.plot(mag-t0-ipx0, '.')
+            #plt.plot(c0, '.')
             
-            plt.subplot(528, sharex=ax1, sharey=ax4)
-            plt.plot(mag-t1-ipx1, '.')
-            plt.plot(c1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(528, sharex=ax1, sharey=ax4)
+            #plt.plot(mag-t1-ipx1, '.')
+            #plt.plot(c1, '.')
+            #plt.ylim(-1, 1)
             
-            ax5 = plt.subplot(529, sharex=ax1)
-            plt.plot(mag - t0-ipx0-c0, '.')
+            #ax5 = plt.subplot(529, sharex=ax1)
+            #plt.plot(mag - t0-ipx0-c0, '.')
             
-            print np.nanstd(mag - t0 - ipx0 - c0)
+            #print np.nanstd(mag - t0 - ipx0 - c0)
             
-            plt.subplot(5,2,10, sharex=ax1, sharey=ax5)
-            plt.plot(mag - t1-ipx1-c1, '.')
-            plt.ylim(-1, 1)
+            #plt.subplot(5,2,10, sharex=ax1, sharey=ax5)
+            #plt.plot(mag - t1-ipx1-c1, '.')
+            #plt.ylim(-1, 1)
             
-            print np.nanstd(mag - t1 - ipx1 - c1)
+            #print np.nanstd(mag - t1 - ipx1 - c1)
             
-            plt.show()
-            plt.close()
+            #plt.show()
+            #plt.close()
             
         
-    exit()
+    #exit()
     
     fig = plt.figure(figsize=(16, 10))
     
@@ -540,16 +535,20 @@ def compare():
     
     plt.tight_layout()
     plt.show()
-    exit()
     
     return
     
 def main(args):
     
+    #filelist = glob.glob('/data2/talens/2015Q2_pea/LPC/sys0*')
+    
+    #for filename in filelist:
+        #systematics = plotting.SysPlot(filename)
+        #systematics.plot_trans(display=False, savefig=True)
+        #systematics.plot_intrapix(display=False, savefig=True)
+    
     compare()
     
-    #plot_trans('/data2/talens/sys0_201506ALPW_23e13f.hdf5')
-    #plot_intrapix()
     #plot_clouds()
     #plot_clouds2()
     

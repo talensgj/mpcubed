@@ -112,6 +112,7 @@ def coverage_LaPalma():
     
     import healpy
     from mascara import observer
+    from package.plotting import viridis
     
     npix = healpy.nside2npix(8)
     
@@ -124,7 +125,14 @@ def coverage_LaPalma():
     site = observer.Site('LaPalma')
     ha0, dec0 = site.altaz2hadec(np.array([90.]), np.array([0.]))
     
-    healpy.orthview(np.zeros(npix), rot=(ha0, dec0), half_sky=True)
+    cmap = viridis
+    cmap.set_bad('w')
+    cmap.set_under('w')
+    
+    fig = plt.figure(figsize=(8,8))
+    plt.subplot(111)
+    
+    healpy.orthview(np.full(npix, fill_value=np.nan), fig=0, hold=True, rot=(ha0, dec0), half_sky=True, title='', cbar=False, cmap=cmap)
     for alt, az in zip(alt0, az0):
     
         cam = observer.Camera(altitude=alt, azimuth=az, orientation=270., Xo=2004, Yo=1336, nx=4008, ny=2672)
@@ -132,10 +140,11 @@ def coverage_LaPalma():
         alt, az = cam.PhiThe2Hor(phi, the)
         ha, dec = site.altaz2hadec(alt, az)
         
-        healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180)
+        healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180, c='r', lw=2)
     healpy.graticule(10., 15.)
     
     plt.show()
+    plt.close()
     
     return
     
@@ -234,7 +243,7 @@ def main():
     #transit_duration()
     #magnitude_parallax()
     #depth_radiusstar()
-    #coverage_LaPalma()
+    coverage_LaPalma()
     
     #filelist = glob.glob('/data2/talens/LaPalma/raw/20160130LP?/*LP?.fits')
     #filelist = filelist[::50]
