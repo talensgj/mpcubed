@@ -20,6 +20,7 @@ from package import misc
 from package import plotting
 from package.red_apply_vmag import CorrectLC
 
+import fourier
 import detrend
 from pea_plot import plot_Polar
 from transit_candidates import RedFile, find_ns
@@ -186,7 +187,7 @@ n1 = np.maximum(n1, 2)
 n2 = np.maximum(n2, 2)
 
 weights = 1/(emag)**2
-pars, trend1, trend2, chisq = detrend.new_harmonic2(jdmid, lst, mag, weights, [n1, n2])
+freq1, freq2, pars1, pars2, trend1, trend2, chisq = detrend.new_harmonic3(jdmid, lst, mag, weights, [n1, n2])
 
 fig = plt.figure(figsize=(16,5))
 
@@ -212,20 +213,28 @@ plt.close()
 
 fig = plt.figure(figsize=(16,5))
 
+x1 = np.linspace(np.amin(jdmid), np.amax(jdmid), 1000)
+mat1 = fourier.fourier_mat(x1, freq1)
+y1 = np.dot(mat1, pars1)
+
+x2 = np.linspace(np.amin(lst), np.amax(lst), 100)
+mat2 = fourier.fourier_mat(x2, freq2)
+y2 = np.dot(mat2, pars2)
+
 gs = gridspec.GridSpec(2, 2, height_ratios = [1,20], width_ratios=[1,2])
 
 plt.suptitle('ASCC 807144, 2015Q2 LPC', size='xx-large')
 
 ax = plt.subplot(gs[1, 0])
 plt.plot(lst, mag - trend1, '.', c='k', alpha=.5)
-plt.plot(lst, trend2, '.', c='r')
+plt.plot(x2, y2, c='r', lw=2)
 ax.invert_yaxis()
 plt.xlabel('Time [LST]')
 plt.ylabel('Magnitude')
 
 ax = plt.subplot(gs[1, 1])
 plt.plot(jdmid - jdref, mag - trend2, '.', c='k', alpha=.5)
-plt.plot(jdmid - jdref, trend1, '.', c='r')
+plt.plot(x1 - jdref, y1, c='r', lw=2)
 ax.invert_yaxis()
 plt.xlabel('Time [JD - {:.0f}]'.format(jdref))
 plt.ylabel('Magnitude')
