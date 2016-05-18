@@ -30,7 +30,7 @@ class CorrectLC():
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_pea_ha_'%self.aper
+            prefix = 'sys%i_pea_ra_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
@@ -110,7 +110,7 @@ class CorrectLC():
         
         camidx, decidx = self.pgcam.radec2idx(ha, dec)
         ipxidx, decidx = self.pgipx.radec2idx(ha, dec)
-        _, _, skyidx = self.hg.radec2idx(ha, dec)
+        _, _, skyidx = self.hg.radec2idx(ra, dec)
         
         # Get the correction terms.
         trans = self.trans[camidx, decidx] + self.mag[i]
@@ -200,7 +200,7 @@ class CorrectLC():
         # The output file.
         if outfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'red%i_pea_ha_'%self.aper
+            prefix = 'red%i_pea_ra_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             outfile = os.path.join(head, tail)
         

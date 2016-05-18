@@ -214,7 +214,7 @@ class CoarseDecorrelation(object):
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_pea_ha_'%self.aper
+            prefix = 'sys%i_pea_ra_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
@@ -276,7 +276,7 @@ class CoarseDecorrelation(object):
         staridx = np.repeat(staridx, nobs)
         camtransidx, decidx = self.camgrid.radec2idx(ha, dec)
         intrapixidx, decidx = self.ipxgrid.radec2idx(ha, dec)
-        _, _, skyidx = self.skygrid.radec2idx(ha, dec)
+        _, _, skyidx = self.skygrid.radec2idx(ra, dec)
         
         # Remove bad data.
         here = (flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1)
