@@ -333,6 +333,7 @@ def plot_lightcurve(filename, ascc, outdir=None):
     try:
         lc = f.read_lightcurve(ascc, fields)
     except:
+        print 'Failed to read lightcurve.'
         return
     
     lstseq = lc['lstseq']
@@ -355,6 +356,7 @@ def plot_lightcurve(filename, ascc, outdir=None):
     emag0 = emag0[sel]
     
     if (len(jdmid) == 0):
+        print 'No good datapoints.'
         return
         
     n1 = np.ptp(lstseq)
@@ -491,6 +493,9 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     phase = np.mod(phase+.5, 1.)-.5
         
     npoints = 9*np.ceil(sbox_pars[0]/sbox_pars[3])
+    if (npoints < 0):
+        npoints = 9
+    
     bins = np.linspace(-.5, .5, npoints+1)
     weights = 1/emag**2
     
@@ -590,10 +595,12 @@ def plot_transit(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq, par
     mod = transit.softbox(jdmid, *sbox_pars)
     mod_bin = transit.softbox(phase_bin*sbox_pars[0]+sbox_pars[1], *sbox_pars) 
         
+    print sbox_pars, flag
+        
     plt.suptitle('ASCC {}, $P={:.3f}$ days, $\delta={:.1f}$ %'.format(ascc, sbox_pars[0], sbox_pars[2]*100), size='xx-large')
-    plt.plot(phase, mag, '.', c='k', alpha=.5)
-    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='g')
-    plt.plot(phase_plot, mod_plot, c='r', lw=2)
+    plt.plot(phase, mag, '.', c='k', alpha=.8)
+    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='r', ms=8)
+    plt.plot(phase_plot, mod_plot, c='g', lw=4)
     plt.xlim(-.5, .5)
     plt.ylim(.05, -.02)
     plt.xlabel('Phase')
@@ -767,7 +774,11 @@ def refine_fit(jdmid, mag, emag, mask, box_pars, display=False):
     
     # Perform the refined fit.
     try:
-        sbox_pars, pcov = optimize.curve_fit(transit.softbox, jdmid, mag, sbox_pars, sigma=emag, absolute_sigma=True)
+        time0 = np.amin(jdmid)
+        x = jdmid - time0
+        sbox_pars[1] = sbox_pars[1] - time0
+        sbox_pars, pcov = optimize.curve_fit(transit.softbox, x, mag, sbox_pars, sigma=emag, absolute_sigma=True)
+        sbox_pars[1] = sbox_pars[1] + time0
     except:
         flag = 1
         sbox_mod = box_mod
@@ -980,7 +991,7 @@ def red_noise(lstseq, jdmid, mag, emag, mask, pars):
     
     return SNr
 
-def candidates(data, filelist, outdir=None):
+def candidates(data, filelist, outdir=None, ascc0=None):
     
     if outdir is not None:
         
@@ -1010,8 +1021,16 @@ def candidates(data, filelist, outdir=None):
         freq, dchisq = bls['freq'], bls['dchisq']
 
         # Check if there are good candidates in the file.
-        #if np.all(flag > 0): continue
-        if '352324' not in ascc: continue
+        if ascc0 is not None:
+            if np.any(np.in1d(ascc, ascc0)):
+                pass
+            else:
+                continue
+        else:
+            if np.any(flag == 0):
+                pass
+            else:
+                continue
 
         # Compute some derived quantities.
         q = duration/period
@@ -1025,15 +1044,23 @@ def candidates(data, filelist, outdir=None):
         
         for i in range(len(ascc)):
             
-            #if (flag[i] > 0): continue
-            if ascc[i] != '352324': continue
-            
+            if ascc0 is not None:
+                if (ascc[i] in ascc0):
+                    pass
+                else:
+                    continue
+            else:
+                if (flag[i] == 0):
+                    pass
+                else:
+                    continue
+                
             star = cat.get_star(ascc[i])
             pars = np.array([period[i], epoch[i], -depth[i], duration[i]])
             
             # Plot the periodogram.
             plot_periodogram(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
-            plot_transit(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
+            #plot_transit(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
             
             # Plot the transit coverage.
             for j in range(5):
@@ -1182,15 +1209,30 @@ def candidates(data, filelist, outdir=None):
 
 def main():
     
-    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    #filelist = glob.glob('/data3/talens/boxlstsq/2015Q2/bls/*')
+    #filelist = np.sort(filelist)
+    
+    #ascc0 = np.array([])
+    #for filename in filelist:
+        #f = blsFile(filename)
+        #hdr = f.read_header(['ascc', 'flag'])
+        #ascc0 = np.append(ascc0, hdr['ascc'][hdr['flag']==0])
+    
+    data = glob.glob('/data3/talens/2015Q2/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    filelist = glob.glob('/data3/talens/boxlstsq/test/bls/*')
+    filelist = glob.glob('/data3/talens/boxlstsq/2015Q2/bls/*')
     filelist = np.sort(filelist)
     
-    candidates(data, filelist)
+    candidates(data, filelist, ascc0=['31753'])
     
-    #plot_lightcurve('/data3/talens/2015Q2/LPC/red0_vmag_2015Q2LPC.hdf5', '807144')
+    #data = glob.glob('/data3/talens/2015Q2_pea_ra/LP?/red0_pea_ra_2015Q?LP?.hdf5')
+    #data = np.sort(data)
+    
+    #print data
+    
+    #for filename in data:
+        #plot_lightcurve(filename, '31753')
     
     return
 
