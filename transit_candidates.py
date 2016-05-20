@@ -443,24 +443,23 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     # Plot the periodogram.
     ax = plt.subplot(gs[1,:])
     
-    plt.plot(freq, dchisq, c='k')
+    plt.plot(freq, dchisq, c=(0,0,0))
     
     freq = 1/pars[0]
-    plt.axvline(freq, c='g', ls='--')
+    plt.axvline(freq, c=(0./255,109./255,219./255), ls='--')
     for n in range(2, 5):
-        plt.axvline(n*freq, c='g', ls='--')
-        plt.axvline(freq/n, c='g', ls='--')
+        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--')
+        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--')
         
     freq = 1/.9972
-    plt.axvline(freq, c='r', lw=2, ymax=.1)
+    plt.axvline(freq, c=(146./255,0,0), lw=2, ymax=.1)
     for n in range(2, 5):
-        plt.axvline(n*freq, c='r', lw=2, ymax=.1)
-        plt.axvline(freq/n, c='r', lw=2, ymax=.1)
+        plt.axvline(n*freq, c=(146./255,0,0), lw=2, ymax=.1)
+        plt.axvline(freq/n, c=(146./255,0,0), lw=2, ymax=.1)
         
-    plt.axvline(freq, c='r', lw=2, ymax=.1)
     for n in range(1, 5):
-        plt.axvline(n*freq/(n+1), c='r', lw=2, ymax=.1)
-        plt.axvline((n+1)*freq/n, c='r', lw=2, ymax=.1)
+        plt.axvline(n*freq/(n+1), c=(146./255,0,0), lw=2, ymax=.1)
+        plt.axvline((n+1)*freq/n, c=(146./255,0,0), lw=2, ymax=.1)
         
     plt.xlim(0, 1.8)
     plt.xlabel('Frequency [day$^{-1}$]')
@@ -478,8 +477,8 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     phase_plot = np.linspace(-.5, .5, 9*pars[0]/pars[3])
     mod_plot = transit.box(phase_plot*pars[0]+pars[1], *pars)
     
-    plt.errorbar(phase, mag, emag, fmt='.', c='k')
-    plt.plot(phase_plot, mod_plot, c='r', lw=2)
+    plt.errorbar(phase, mag, emag, fmt='.', c=(0,0,0))
+    plt.plot(phase_plot, mod_plot, c=(146./255,0,0), lw=2)
     plt.xlim(-.5, .5)
     plt.ylim(.1, -.1)
     plt.xlabel('Phase')
@@ -513,9 +512,9 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     mod_bin = transit.softbox(phase_bin*sbox_pars[0]+sbox_pars[1], *sbox_pars) 
         
     plt.title(r'$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days'.format(sbox_pars[2]*100, sbox_pars[0], sbox_pars[3]))
-    plt.plot(phase, mag, '.', c='k', alpha=.5)
-    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='g')
-    plt.plot(phase_plot, mod_plot, c='r', lw=2)
+    plt.plot(phase, mag, '.', c=(0,0,0), alpha=.5)
+    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c=(0./255,109./255,219./255))
+    plt.plot(phase_plot, mod_plot, c=(146./255,0,0), lw=2)
     plt.xlim(-.5, .5)
     plt.ylim(.05, -.02)
     plt.xlabel('Phase')
@@ -524,8 +523,8 @@ def plot_periodogram(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq,
     # Plot the residuals.
     ax = plt.subplot(gs[4,:])
     
-    plt.plot(phase, mag-mod, '.', c='k', alpha=.5)
-    plt.errorbar(phase_bin, mag_bin-mod_bin, emag_bin, fmt='o', c='g')
+    plt.plot(phase, mag-mod, '.', c=(0,0,0), alpha=.5)
+    plt.errorbar(phase_bin, mag_bin-mod_bin, emag_bin, fmt='o', c=(0./255,109./255,219./255))
     plt.xlim(-.5, .5)
     plt.ylim(.02, -.02)
     plt.yticks([-.02, -.01, 0., .01, .02])
@@ -556,23 +555,6 @@ def plot_transit(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq, par
 
     # Plot the data and the best-fit box-model.
     ax = plt.subplot(gs[1,:])
-    
-    #phase = (jdmid - pars[1])/pars[0]
-    #phase = np.mod(phase + .5, 1) - .5
-    #mod = transit.box(jdmid, *pars)
-    #m = np.sum((mag - mod)/emag**2)/np.sum(1/emag**2)
-    #mod = mod + m
-    
-    #x0 = .5*pars[3]/pars[0]
-    #phase_plot = np.array([-.5, -x0, -x0, x0, x0, .5])
-    #mod_plot = np.array([0., 0., -pars[2], -pars[2], 0., 0.])
-    
-    #plt.errorbar(phase, mag, emag, fmt='.', c='k')
-    #plt.plot(phase_plot, mod_plot, c='r', lw=2)
-    #plt.xlim(-.5, .5)
-    #plt.ylim(.1, -.1)
-    #plt.xlabel('Phase')
-    #plt.ylabel(r'$\Delta m$')
         
     sbox_pars, chisq, flag = refine_fit(jdmid, mag, emag, mask, pars)
     phase = (jdmid - sbox_pars[1])/sbox_pars[0]
@@ -595,12 +577,10 @@ def plot_transit(ascc, star, Nt, flag, jdmid, mag, emag, mask, freq, dchisq, par
     mod = transit.softbox(jdmid, *sbox_pars)
     mod_bin = transit.softbox(phase_bin*sbox_pars[0]+sbox_pars[1], *sbox_pars) 
         
-    print sbox_pars, flag
-        
     plt.suptitle('ASCC {}, $P={:.3f}$ days, $\delta={:.1f}$ %'.format(ascc, sbox_pars[0], sbox_pars[2]*100), size='xx-large')
-    plt.plot(phase, mag, '.', c='k', alpha=.8)
-    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c='r', ms=8)
-    plt.plot(phase_plot, mod_plot, c='g', lw=4)
+    plt.plot(phase, mag, '.', c=(0,0,0), alpha=.8)
+    plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c=(0./255,109./255,219./255), ms=8)#, mec='w', mew=2)
+    plt.plot(phase_plot, mod_plot, c=(146./255,0,0), lw=4)
     plt.xlim(-.5, .5)
     plt.ylim(.05, -.02)
     plt.xlabel('Phase')
@@ -1063,12 +1043,12 @@ def candidates(data, filelist, outdir=None, ascc0=None):
             #plot_transit(ascc[i], star, Nt[i], flag[i], jdmid, mag[i], emag[i], mask[i], freq, dchisq[:,i], pars, outdir)
             
             # Plot the transit coverage.
-            for j in range(5):
+            #for j in range(5):
                 
-                if np.any(cam == j):
-                    print j
-                    sel = (cam == j)
-                    plot_transit_coverage(lstseq[sel], jdmid[sel], lst[sel], mag[i][sel], emag[i][sel], trend[i][sel], mask[i][sel], pars, ascc[i], star)
+                #if np.any(cam == j):
+                    #print j
+                    #sel = (cam == j)
+                    #plot_transit_coverage(lstseq[sel], jdmid[sel], lst[sel], mag[i][sel], emag[i][sel], trend[i][sel], mask[i][sel], pars, ascc[i], star)
             
             # Get the star and planet radii.
             new_flag, Rstar, Rplanet = new_flags(star, pars)
@@ -1104,107 +1084,24 @@ def candidates(data, filelist, outdir=None, ascc0=None):
 
     return
 
-#def read_star(data, ascc):
+def boxlstsq_refine(data, ascc):
     
-    #import detrend
+    lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(data, ascc)
+        
+    weights = np.where(mask, 0., 1./emag**2)
+    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T)
     
-    #jdmid = np.array([])
-    #lst = np.array([])
-    #mag = np.array([])
-    #emag = np.array([])
-    #nobs = np.array([])
-    #trend = np.array([])
+    ax = plt.subplot(211)
+    plt.plot(freq, dchisq)
     
-    #for filename in data:
-        
-        #with h5py.File(filename, 'r') as f:
-        
-            #try:
-                #grp = f['data/'+ascc]
-            #except:
-                #continue
-            
-            #lstseq = grp['lstseq'].value
-            #jdmid_ = grp['jdmid'].value
-            #lst_ = grp['lst'].value
-            #mag_ = grp['mag0'].value
-            #emag_ = grp['emag0'].value
-            #nobs_ = grp['nobs'].value
-        
-        #emag_ = emag_/np.sqrt(nobs_)
-        
-        #sel = (nobs_ > 49)
-        #lstseq = lstseq[sel]
-        #jdmid_ = jdmid_[sel]
-        #lst_ = lst_[sel]
-        #mag_ = mag_[sel]
-        #emag_ = emag_[sel]
-        #nobs_ = nobs_[sel]
-        
-        #if (len(jdmid_) == 0):
-            #continue
-        
-        #n1 = np.ptp(lstseq) + 1
-        #n2 = np.ptp(lstseq%270) + 1
-        
-        #pars, trend_, chisq = detrend.new_harmonic(jdmid_, lst_, mag_, 1/emag_**2, [n1, n2])
-        
-        #jdmid = np.append(jdmid, jdmid_)
-        #lst = np.append(lst, lst_)
-        #mag = np.append(mag, mag_)
-        #emag = np.append(emag, emag_)
-        #nobs = np.append(nobs, nobs_)
-        #trend = np.append(trend, trend_)
-        
-    #return jdmid, lst, mag, emag, nobs, trend
-
-#def boxlstsq_refine(data, filelist):
+    plt.subplot(212, sharex=ax)
+    plt.plot(freq, nt)
+    plt.ylim(0, 5)
     
-    #for filename in filelist:
-        
-        #with h5py.File(filename, 'r') as f:
-            
-            #grp = f['header']
-            #ascc = grp['ascc'].value
-            #flag = grp['flag'].value
-        
-            #grp = f['data']
-            #freq0 = grp['freq'].value
-            #dchisq0 = grp['dchisq'].value
-        
-        #for i in range(len(ascc)):
-            
-            #if (flag[i] > 0): continue
-            
-            #jdmid, lst, mag, emag, nobs, trend = read_star(data, ascc[i])
-            
-            #if len(jdmid) == 0: continue
-            
-            ##freq1, chisq0, dchisq1, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag - trend, 1/emag**2, OS=1)
-            ##freq2, chisq0, dchisq2, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag - trend, 1/emag**2, OS=3)
-            ##freq3, chisq0, dchisq3, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag - trend, 1/emag**2, OS=5)
+    plt.show()
+    plt.close()
     
-            ##plt.title('ASCC {}'.format(ascc[i]))
-            ###plt.plot(freq0, dchisq0[:,i])
-            ##plt.plot(freq1, dchisq1, label='OS=1')
-            ##plt.plot(freq2, dchisq2, label='OS=3')
-            ##plt.plot(freq3, dchisq3, label='OS=5')
-            ##plt.legend()
-            ##plt.xlabel(r'Frequency [day$^{-1}$]')
-            ##plt.ylabel(r'$\Delta\chi^2$')
-            ##plt.show()
-            ##plt.close()
-    
-            #freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag - trend, 1/emag**2, M=.5, R=.01, fmax=24.)
-    
-            #plt.title('ASCC {}'.format(ascc[i]))
-            #plt.plot(freq, dchisq)
-            #plt.xlabel(r'Frequency [day$^{-1}$]')
-            #plt.ylabel(r'$\Delta\chi^2$')
-            #plt.show()
-            #plt.close()
-    
-    #return
+    return
 
 
 def main():
@@ -1218,21 +1115,25 @@ def main():
         #hdr = f.read_header(['ascc', 'flag'])
         #ascc0 = np.append(ascc0, hdr['ascc'][hdr['flag']==0])
     
-    data = glob.glob('/data3/talens/2015Q2/LP?/red0_vmag_2015Q?LP?.hdf5')
-    data = np.sort(data)
-    
-    filelist = glob.glob('/data3/talens/boxlstsq/2015Q2/bls/*')
-    filelist = np.sort(filelist)
-    
-    candidates(data, filelist, ascc0=['31753'])
-    
-    #data = glob.glob('/data3/talens/2015Q2_pea_ra/LP?/red0_pea_ra_2015Q?LP?.hdf5')
+    #data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
     #data = np.sort(data)
-    
+    #data = np.delete(data, [7,12])
     #print data
     
+    #filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls/*')
+    #filelist = np.sort(filelist)
+    
+    #candidates(data, filelist, ascc0=['500717'])
+    
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = np.sort(data)
+
+    print data
+
+    boxlstsq_refine(data, ['1284530'])
+    
     #for filename in data:
-        #plot_lightcurve(filename, '31753')
+        #plot_lightcurve(filename, '1339109')
     
     return
 

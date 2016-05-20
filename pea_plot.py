@@ -7,6 +7,15 @@ import h5py
 import numpy as np
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib import rcParams
+
+rcParams['xtick.labelsize'] = 'large'
+rcParams['ytick.labelsize'] = 'large'
+rcParams['axes.labelsize'] = 'x-large'
+rcParams['image.interpolation'] = 'none'
+rcParams['image.origin'] = 'lower'
+rcParams['axes.titlesize'] = 'xx-large'
 
 from package import plotting
 from package import IO
@@ -143,7 +152,7 @@ def _hadec2xy(ha, dec):
     
     # Initialize the coordinate transformations.
     site = observer.Site('LaPalma')
-    cam = observer.Camera('west')
+    cam = observer.Camera('east')
     #cam = observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
     
     tmp = ha.shape
@@ -158,6 +167,63 @@ def _hadec2xy(ha, dec):
     
     return x, y
     
+def _add_hadecgrid():
+        
+        from mascara import observer
+        
+        # Read the pointing from the file.
+        #f = IO.SysFile(self.sysfile)
+        #alt0, az0, th0, x0, y0 = f.read_pointing()
+        
+        # Initialize the coordinate transformations.
+        site = observer.Site('LaPalma')
+        cam = observer.Camera('east')
+        #cam = observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+        
+        # Add lines of constant declination.
+        ha = np.linspace(0, 360, 360)
+        dec = np.linspace(-80, 80, 17)
+        ha, dec = np.meshgrid(ha, dec)
+        
+        tmp = ha.shape
+        
+        ha, dec = ha.ravel(), dec.ravel()
+        
+        alt, az = site.hadec2altaz(ha, dec, degree=True)
+        phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
+        x, y = cam.PhiThe2XY(phi, theta)
+        
+        x, y = x.reshape(tmp), y.reshape(tmp)
+        
+        here = (x > -50) & (x < 4008+50) & (y > -50) & (y < 2672+50)
+        x[~here] = np.nan
+        y[~here] = np.nan
+        
+        plt.plot(x.T, y.T, c='k')
+        
+        # Add lines of constant hour angle.
+        ha = np.linspace(0, 345, 24)
+        dec = np.linspace(-80, 80, 160)
+        ha, dec = np.meshgrid(ha, dec)
+        
+        tmp = ha.shape
+        
+        ha, dec = ha.ravel(), dec.ravel()
+        
+        alt, az = site.hadec2altaz(ha, dec, degree=True)
+        phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
+        x, y = cam.PhiThe2XY(phi, theta)
+        
+        x, y = x.reshape(tmp), y.reshape(tmp)
+        
+        here = (x > -50) & (x < 4008+50) & (y > -50) & (y < 2672+50)
+        x[~here] = np.nan
+        y[~here] = np.nan
+        
+        plt.plot(x, y, c='k')
+        
+        return
+    
 def plot_Polar(grid, skymap, **kwargs):
     
     xedges = grid.xedges
@@ -170,6 +236,7 @@ def plot_Polar(grid, skymap, **kwargs):
     skymap = np.ma.masked_invalid(skymap)
     
     im = plt.pcolormesh(xedges, yedges, skymap, **kwargs)
+    _add_hadecgrid()
     
     return im  
     
@@ -188,9 +255,9 @@ def plot_Healpix(grid, skymap, size=400, **kwargs):
     data = skymap[idx]
     data = np.ma.masked_invalid(data)
     
-    plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
+    im = plt.pcolormesh(xedges*np.pi/180-np.pi, yedges*np.pi/180, data, **kwargs)
     
-    return
+    return im 
   
 #def plot_PolarEqArea(grid, skymap, **kwargs):
     
@@ -242,181 +309,94 @@ def plot_PolarEA(grid, skymap, size=50, **kwargs):
     
     xedges, yedges = np.meshgrid(xedges, yedges)
     xedges, yedges = _hadec2xy(xedges, yedges)
-    plt.pcolormesh(xedges, yedges, data, **kwargs)
+    im = plt.pcolormesh(xedges, yedges, data, **kwargs)
+    _add_hadecgrid()
+    
+    return im
+   
+def new_sysplot(filename):
+    
+    # Read the transmission and intrapixel variations.
+    f = IO.SysFile(filename)
+    pgcam, trans, nobs = f.read_trans()
+    pgipx, sinx, cosx, siny, cosy, nobs = f.read_intrapix()
+    
+    # Plot the transmission.
+    fig = plt.figure(figsize=(14,9))
+    
+    plt.suptitle('Transmission.', size='xx-large')
+    
+    gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+    
+    ax = plt.subplot(gs[1,0], aspect='equal')
+    
+    vmin = np.nanpercentile(trans, 1)
+    vmax = np.nanpercentile(trans, 99)
+    delta = vmax - vmin
+    vmin = vmin - .01*delta
+    vmax = vmax + .01*delta
+    
+    im = plot_Polar(pgcam, trans, vmin=vmin, vmax=vmax, cmap=plotting.viridis)
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    cax = plt.subplot(gs[1,1])
+    cb = plt.colorbar(im, cax=cax)
+    cb.ax.invert_yaxis()
+    cb.set_label(r'$\Delta m$')
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+    
+    # Plot the intrapixel variations.
+    fig = plt.figure(figsize=(16, 10))
+
+    plt.suptitle('Intrapixel variations.', size='xx-large')
+
+    gs = gridspec.GridSpec(3, 3, width_ratios = [15,15,.5], height_ratios = [1,10,10])
+    
+    plt.subplot(gs[1,0], aspect='equal')
+    plt.title(r'$\sin(2\pi x)$')
+    im = plot_Polar(pgipx, sinx, vmin=-.1, vmax=.1, cmap=plotting.viridis) 
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(gs[1,1], aspect='equal')
+    plt.title(r'$\cos(2\pi x)$')
+    im = plot_Polar(pgipx, cosx, vmin=-.1, vmax=.1, cmap=plotting.viridis) 
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(gs[2,0], aspect='equal')
+    plt.title(r'$\sin(2\pi y)$')
+    im = plot_Polar(pgipx, siny, vmin=-.1, vmax=.1, cmap=plotting.viridis) 
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(gs[2,1], aspect='equal')
+    plt.title(r'$\cos(2\pi y)$')
+    im = plot_Polar(pgipx, cosy, vmin=-.1, vmax=.1, cmap=plotting.viridis) 
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    cax = plt.subplot(gs[1:,2])
+    cb = plt.colorbar(im, cax=cax)
+    cb.set_label('Amplitude')
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()
     
     return
     
-def compare():
-
-    file0 = '/data2/talens/2015Q2_vmag/LPW/sys0_vmag_201505ALPW.hdf5'
-    #file0 = '/data2/talens/2015Q2_pea/LPE/sys0_pea_201506BLPE_hacells.hdf5'
-    file1 = '/data2/talens/2015Q2_pea/LPW/sys0_pea_ha_201505ALPW.hdf5'
-
+def diff_trans(file0, file1):
+    
     f = IO.SysFile(file0)
     pgcam, trans0, nobs = f.read_trans()
-    pg, sinx0, cosx0, siny0, cosy0, nobs = f.read_intrapix()
-    hg, clouds0, sigma, nobs, lstmin, lstmax = f.read_clouds()
-    
-    plt.subplot(111, aspect='equal')
-    plot_Polar(pgcam, trans0)
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    plt.show()
-    
-    plt.subplot(111, projection='mollweide')
-    plot_Healpix(hg, clouds0[:,0])
-    plt.show()
     
     f = IO.SysFile(file1)
-    pg, trans1, nobs = f.read_trans()
-    pg, sinx1, cosx1, siny1, cosy1, nobs = f.read_intrapix()
-    hg, clouds1, sigma, nobs, lstmin, lstmax = read_clouds(file1)
-    
-    plt.subplot(111, aspect='equal')
-    plot_PolarEA(hg, clouds1[:,0], vmin=-.5, vmax=.5)
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    plt.show()
-    
-    #ax = plt.subplot(211)
-    #plt.imshow(clouds0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
-    #plt.colorbar()
-    #plt.subplot(212, sharex=ax)
-    #plt.imshow(clouds1, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
-    #plt.colorbar()
-
-    #plt.show()
-    
-    exit()
-    
-    #frame = 0
-    #for i in range(40000, 46000):
-        
-        #if np.all(np.isnan(clouds0[:,i])):
-            #continue
-    
-        #fig = plt.figure(figsize=(10,20))
-        
-        #ax = plt.subplot(211, projection='mollweide')
-        #plt.title('Sky 201506ALPE, idx = {}'.format(i))
-        #plot_Healpix(hg, clouds0[:,i], vmin=-.5, vmax=.5, cmap=plotting.viridis)
-        #ax.grid(True)
-        #ax.set_xticklabels([])
-        #ax.set_yticklabels([])
-        
-        #ax = plt.subplot(212, projection='mollweide')
-        #plot_PolarEqArea(pea, clouds1[:,i], vmin=-.5, vmax=.5, cmap=plotting.viridis)
-        #ax.grid(True)
-        #ax.set_xticklabels([])
-        #ax.set_yticklabels([])
-        
-        #plt.savefig('/data2/talens/sky/frame_{:05d}.png'.format(frame))
-        #plt.close()
-        
-        #frame += 1
-    
-    #exit()
-    
-    #with h5py.File('/data2/talens/2015Q2_pea/LPW/fLC_201505ALPW.hdf5', 'r') as f:
-        
-        #grp = f['header_table']
-        #ascc = grp['ascc'].value
-        #ra = grp['ra'].value
-        #dec = grp['dec'].value
-        #vmag = grp['vmag'].value
-        #nobs = grp['nobs'].value
-        
-        #sort = np.argsort(dec)
-        #ascc = ascc[sort]
-        #ra = ra[sort]
-        #dec = dec[sort]
-        #vmag = vmag[sort]
-        #nobs = nobs[sort]
-        
-        #for i in range(0, len(ascc), 1000):
-            
-            #lc = f['data/'+ascc[i]].value
-            
-            #ha = np.mod(lc['lst']*15. - ra[i], 360.)
-            #dec_ = np.repeat(dec[i], nobs[i])
-            
-            #idx1, idx2 = pgcam.radec2idx(ha, dec_)
-            
-            #mag, emag = misc.flux2mag(lc['flux0'], lc['eflux0'])
-            #mag = mag - vmag[i]
-            
-            #t0 = trans0[idx1, idx2]
-            #t1 = trans1[idx1, idx2]
-            
-            #idx1, idx2 = pg.radec2idx(ha, dec_)
-            
-            #ipx0 = sinx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx0[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny0[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy0[idx1, idx2]*np.cos(2*np.pi*lc['y'])
-            #ipx1 = sinx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + cosx1[idx1, idx2]*np.sin(2*np.pi*lc['x']) + siny1[idx1, idx2]*np.sin(2*np.pi*lc['y']) + cosy1[idx1, idx2]*np.cos(2*np.pi*lc['y'])
-            
-            #idx0 = hg.radec2idx(ra[i], dec[i])
-            ##_, _, idx1 = pea.radec2idx(np.array([ra[i]]), np.array([dec[i]]))
-            #_, _, idx1 = pea.radec2idx(ha, dec_)
-            
-            #c0 = clouds0[idx0, lc['lstseq']-lstmin]
-            #c1 = clouds1[idx1, lc['lstseq']-lstmin]
-            
-            #plt.imshow(siny0, aspect='auto', interpolation='nearest', cmap=plotting.viridis, vmin=-.1, vmax=.1)
-            #plt.axvline(idx2[0], c='k', lw=2)
-            #plt.colorbar()
-            #plt.show()
-            
-            #ax1 = plt.subplot(521)
-            #plt.plot(mag, '.')
-            #plt.plot(t0+ipx0+c0, '.')
-            
-            #plt.subplot(522, sharex=ax1, sharey=ax1)
-            #plt.plot(mag, '.')
-            #plt.plot(t1+ipx1+c1, '.')
-            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
-            
-            #ax2 = plt.subplot(523, sharex=ax1)
-            #plt.plot(mag-ipx0-c0, '.')
-            #plt.plot(t0, '.')
-            
-            #plt.subplot(524, sharex=ax1, sharey=ax2)
-            #plt.plot(mag-ipx1-c1, '.')
-            #plt.plot(t1, '.')
-            #plt.ylim(np.nanmedian(mag) - 1., np.nanmedian(mag)+1)
-            
-            #ax3 = plt.subplot(525, sharex=ax1)
-            #plt.plot(mag-t0-c0, '.')
-            #plt.plot(ipx0, '.')
-            
-            #plt.subplot(526, sharex=ax1, sharey=ax3)
-            #plt.plot(mag-t1-c1, '.')
-            #plt.plot(ipx1, '.')
-            #plt.ylim(-1, 1)
-            
-            #ax4 = plt.subplot(527, sharex=ax1)
-            #plt.plot(mag-t0-ipx0, '.')
-            #plt.plot(c0, '.')
-            
-            #plt.subplot(528, sharex=ax1, sharey=ax4)
-            #plt.plot(mag-t1-ipx1, '.')
-            #plt.plot(c1, '.')
-            #plt.ylim(-1, 1)
-            
-            #ax5 = plt.subplot(529, sharex=ax1)
-            #plt.plot(mag - t0-ipx0-c0, '.')
-            
-            #print np.nanstd(mag - t0 - ipx0 - c0)
-            
-            #plt.subplot(5,2,10, sharex=ax1, sharey=ax5)
-            #plt.plot(mag - t1-ipx1-c1, '.')
-            #plt.ylim(-1, 1)
-            
-            #print np.nanstd(mag - t1 - ipx1 - c1)
-            
-            #plt.show()
-            #plt.close()
-            
-        
-    #exit()
+    pgcam, trans1, nobs = f.read_trans()
     
     fig = plt.figure(figsize=(16, 10))
     
@@ -443,91 +423,87 @@ def compare():
     
     plt.tight_layout()
     plt.show()
+    plt.close()
+    
+    return
+    
+def diff_ipx(file0, file1):
+    
+    f = IO.SysFile(file0)
+    pg, sinx0, cosx0, siny0, cosy0, nobs = f.read_intrapix()
+    
+    f = IO.SysFile(file1)
+    pg, sinx1, cosx1, siny1, cosy1, nobs = f.read_intrapix()
     
     fig = plt.figure(figsize=(16, 10))
     
-    ax = plt.subplot(221, aspect='equal')
+    plt.subplot(3,4,1, aspect='equal')
     plot_Polar(pg, sinx0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, sinx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, sinx0 - sinx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    fig = plt.figure(figsize=(16, 10))
-    
-    ax = plt.subplot(221, aspect='equal')
+    plt.subplot(3,4,2, aspect='equal')
     plot_Polar(pg, cosx0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, cosx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, cosx0 - cosx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    fig = plt.figure(figsize=(16, 10))
-    
-    ax = plt.subplot(221, aspect='equal')
+    plt.subplot(3,4,3, aspect='equal')
     plot_Polar(pg, siny0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, siny1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
-    plot_Polar(pg, siny0 - siny1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
-    plt.colorbar()
-    plt.xlim(0, 4008)
-    plt.ylim(0, 2672)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    fig = plt.figure(figsize=(16, 10))
-    
-    ax = plt.subplot(221, aspect='equal')
+    plt.subplot(3,4,4, aspect='equal')
     plot_Polar(pg, cosy0, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(222, aspect='equal', sharex=ax, sharey=ax)
+    plt.subplot(3,4,5, aspect='equal')
+    plot_Polar(pg, sinx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,6, aspect='equal')
+    plot_Polar(pg, cosx1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,7, aspect='equal')
+    plot_Polar(pg, siny1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,8, aspect='equal')
     plot_Polar(pg, cosy1, vmin=-.1, vmax=.1, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(223, aspect='equal', sharex=ax, sharey=ax)
+    plt.subplot(3,4,9, aspect='equal')
+    plot_Polar(pg, sinx0 - sinx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,10, aspect='equal')
+    plot_Polar(pg, cosx0 - cosx1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,11, aspect='equal')
+    plot_Polar(pg, siny0 - siny1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
+    plt.colorbar()
+    plt.xlim(0, 4008)
+    plt.ylim(0, 2672)
+    
+    plt.subplot(3,4,12, aspect='equal')
     plot_Polar(pg, cosy0 - cosy1, vmin=-.05, vmax=.05, cmap=plotting.viridis)
     plt.colorbar()
     plt.xlim(0, 4008)
@@ -535,22 +511,22 @@ def compare():
     
     plt.tight_layout()
     plt.show()
+    plt.close()
     
     return
     
 def main(args):
     
-    #filelist = glob.glob('/data2/talens/2015Q2_pea/LPC/sys0*')
+    #filelist = glob.glob('/data2/talens/2015Q2_pea/LP?/sys0_pea_ra*')
     
     #for filename in filelist:
         #systematics = plotting.SysPlot(filename)
         #systematics.plot_trans(display=False, savefig=True)
         #systematics.plot_intrapix(display=False, savefig=True)
     
-    compare()
-    
-    #plot_clouds()
-    #plot_clouds2()
+    #new_sysplot('/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506BLPE.hdf5')
+    diff_trans('/data2/talens/2015Q2_pea/LPE/sys0_pea_ra_201506ALPE.hdf5', '/data2/talens/2015Q2_pea/LPE/sys0_pea_ha_201506ALPE.hdf5')
+    #diff_ipx('/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506ALPE.hdf5', '/data2/talens/2015Q2_pea/LPE/sys0_pea_ha_201506ALPE.hdf5')
     
     return 0
 

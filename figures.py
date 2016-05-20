@@ -140,7 +140,7 @@ def coverage_LaPalma():
         alt, az = cam.PhiThe2Hor(phi, the)
         ha, dec = site.altaz2hadec(alt, az)
         
-        healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180, c='r', lw=2)
+        healpy.projplot((90-dec)*np.pi/180, ha*np.pi/180, c=(146./255,0,0), lw=2)
     healpy.graticule(10., 15.)
     
     plt.show()
