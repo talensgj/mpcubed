@@ -2,23 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import os
+import glob
 
 import h5py
 import numpy as np
+
 from scipy import linalg
-
 from collections import namedtuple
-
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
-import matplotlib.pyplot as plt
-
-from package import misc
-from package import IO
-from package.coordinates import grids
-from package.plotting import viridis
-
-from pea_grid import PolarEAGrid
+import misc
+import IO
+from coordinates import grids
 
 def _par_sigma_function(idx, res, errsq, err):
     
@@ -308,7 +303,7 @@ class CoarseDecorrelation(object):
         self.f = IO.fLCfile(self.LBfile)
         self.camgrid = grids.PolarGrid(self.camnx, self.camny)
         self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
-        self.skygrid = PolarEAGrid(self.skynx)
+        self.skygrid = grids.PolarEAGrid(self.skynx)
         
         # Read the required header data.
         self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
@@ -484,7 +479,7 @@ class CoarseDecorrelation(object):
             if self.sigmas:
                 grp.create_dataset('clouds/sigma', data = self.sigma2, dtype = 'float32')
             
-            grp['clouds'].attrs['grid'] = 'healpix'
+            grp['clouds'].attrs['grid'] = 'polarea'
             grp['clouds'].attrs['nx'] = self.skynx
             grp['clouds'].attrs['lstmin'] = self.lstmin
             grp['clouds'].attrs['lstmax'] = lstmax

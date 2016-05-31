@@ -6,11 +6,11 @@ import os
 import h5py
 import numpy as np
 
-from package import IO
-from package import misc
-from package.statistics import statistics
+import IO
+import misc
+from statistics import statistics
 
-from pea_grid import PolarEAGrid
+from coordinates import grids
 
 class CorrectLC():
     
@@ -63,11 +63,12 @@ class CorrectLC():
             clouds = grp['clouds'].value
             sigma = grp['sigma'].value
             nobs = grp['nobs'].value
+            nx = grp.attrs['nx']
             lstmin = grp.attrs['lstmin']
             lstmax = grp.attrs['lstmax']
             lstlen = grp.attrs['lstlen']
         
-        self.hg = PolarEAGrid(23)
+        self.hg = grids.PolarEAGrid(nx)
             
         tmp = np.full((self.hg.npix, lstlen), fill_value=np.nan)
         tmp[idx, lstseq-lstmin] = clouds
