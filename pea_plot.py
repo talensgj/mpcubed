@@ -515,6 +515,42 @@ def diff_ipx(file0, file1):
     
     return
     
+def cloud_patch(filename):
+    
+    with h5py.File(filename, 'r') as f:
+        
+        grp = f['data/clouds']
+        idx1 = grp['idx'].value
+        lstseq = grp['lstseq'].value
+        clouds = grp['clouds'].value
+        
+        lstmin = grp.attrs['lstmin']
+        lstmax = grp.attrs['lstmax']
+        lstlen = grp.attrs['lstlen']
+    
+    patches = np.unique(idx1)
+    
+    for idx in patches:
+    
+        sel = (idx1 == idx)
+        
+        x = lstseq[sel]
+        y = clouds[sel]
+
+        days = np.unique(x//13500)
+        
+        for i in range(len(days)):
+            
+            sel = ((x//13500) == days[i])
+            
+            plt.subplot(5, 3, i+1)
+            plt.plot(x[sel]%13500, y[sel], '.')
+            
+        plt.show()
+        plt.close()
+    
+    return
+    
 def main(args):
     
     #filelist = glob.glob('/data2/talens/2015Q2_pea/LP?/sys0_pea_ra*')
@@ -525,8 +561,10 @@ def main(args):
         #systematics.plot_intrapix(display=False, savefig=True)
     
     #new_sysplot('/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506BLPE.hdf5')
-    diff_trans('/data2/talens/2015Q2_pea/LPE/sys0_pea_ra_201506ALPE.hdf5', '/data2/talens/2015Q2_pea/LPE/sys0_pea_ha_201506ALPE.hdf5')
+    #diff_trans('/data2/talens/2015Q2_pea/LPE/sys0_pea_ra_201506ALPE.hdf5', '/data2/talens/2015Q2_pea/LPE/sys0_pea_ha_201506ALPE.hdf5')
     #diff_ipx('/data2/talens/2015Q2_vmag/LPE/sys0_vmag_201506ALPE.hdf5', '/data2/talens/2015Q2_pea/LPE/sys0_pea_ha_201506ALPE.hdf5')
+    
+    cloud_patch('/data2/talens/2015Q2_pea/LPE/sys0_pea_ra_201506ALPE.hdf5')
     
     return 0
 

@@ -237,13 +237,78 @@ def coverage_night(filelist):
     
     return
 
+def observing_seasons():
+    
+    from mascara import observer
+    
+    site = observer.Site('LaPalma')
+    
+    alt0 = [49, 49, 49, 49, 90]
+    az0 = [0, 90, 180, 270, 0]
+    
+    for j in range(5):
+    
+        cam = observer.Camera(altitude=alt0[j], azimuth=az0[j], orientation=270., Xo=2004, Yo=1336, nx=4008, ny=2672)
+    
+        # Plot lines of constant y.
+        y = np.linspace(0, 2672, 5)
+        for i in range(len(y)):
+            
+            xp = np.linspace(0, 4008, 500)
+            yp = y[i]*np.ones(500)
+            
+            phi, the = cam.XY2PhiThe(xp, yp)
+            alt, az = cam.PhiThe2Hor(phi, the)
+            ha, dec = site.altaz2hadec(alt, az)
+        
+            ha = np.mod(ha+180, 360)-180
+        
+            args, = np.where(np.abs(np.diff(ha))>15.)
+            if len(args)>0.:
+                ha = np.insert(ha, args+1, np.nan)
+                dec = np.insert(dec, args+1, np.nan)
+            
+            plt.plot(ha/15, dec, c='k')
+            
+        # Plot lines of constant x.
+        x = np.linspace(0, 4008, 7)
+        for i in range(len(x)):
+            
+            xp = x[i]*np.ones(500)
+            yp = np.linspace(0, 2672, 500)
+            
+            phi, the = cam.XY2PhiThe(xp, yp)
+            alt, az = cam.PhiThe2Hor(phi, the)
+            ha, dec = site.altaz2hadec(alt, az)
+        
+            ha = np.mod(ha+180, 360)-180
+        
+            args, = np.where(np.abs(np.diff(ha))>15.)
+            if len(args)>0.:
+                ha = np.insert(ha, args+1, np.nan)
+                dec = np.insert(dec, args+1, np.nan)
+        
+            plt.plot(ha/15, dec, c='k')
+    
+    plt.xlim(-12, 12)
+    plt.ylim(-40, 90)
+    plt.xticks(np.linspace(-12, 12, 13))
+    plt.yticks(np.linspace(-40, 90, 14))
+    plt.xlabel('HA')
+    plt.ylabel('Dec')
+    
+    plt.show()
+    plt.close()
+    
+    return
     
 def main():
     
     #transit_duration()
     #magnitude_parallax()
     #depth_radiusstar()
-    coverage_LaPalma()
+    #coverage_LaPalma()
+    observing_seasons()
     
     #filelist = glob.glob('/data2/talens/LaPalma/raw/20160130LP?/*LP?.fits')
     #filelist = filelist[::50]
