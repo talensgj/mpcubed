@@ -117,6 +117,111 @@ class PolarGrid(object):
         return array
 
 
+class PolarEAGrid(object):
+    """ Create a polar coordinate grid.
+    
+    Attributes:
+        nrings (int): The number of declination rings between the polar caps.
+        yedges (float): The binedges of the grid along the dec-axis.
+        ncells (int): The number of grid cells in each ring.
+        npix (int): The total number of pixels on the grid.
+    
+    """
+    
+    def __init__(self, nrings):
+        """ Initialize the coordinate grid.
+        
+        Args:
+            nrings (int): The number of declination rings between the polar caps.
+            
+        """
+        
+        self.nrings = nrings
+        
+        # The edges of the declination rings.
+        yedges = np.linspace(-90. + 90./(self.nrings + 1), 90. - 90./(self.nrings + 1), self.nrings + 1)
+        self.yedges = np.hstack([-90., yedges, 90.])
+        
+        # The number of cells in each ring.
+        idx = np.arange(self.nrings)
+        ncells = np.cos(np.pi*(idx + .5)/(self.nrings + 1)) - np.cos(np.pi*(idx + 1.5)/(self.nrings + 1))
+        ncells = ncells/(1 - np.cos(np.pi*.5/(self.nrings + 1)))
+        ncells = np.rint(ncells).astype('int')
+        self.ncells = np.hstack([1, ncells, 1])
+        
+        # The total number of pixels on the grid.
+        self.npix = np.sum(self.ncells)
+        
+        return
+        
+    def radec2idx(self, ra, dec):
+        """ Convert ra, dec coordinates to indices on the grid.
+        
+        Args:
+            ra (float): An array of ra coordinates.
+            dec (float): An array of dec coordinates.
+            
+        Returns:
+            ring (int): The declination ring the datapoint belongs to.
+            cell (int): The cell on the ring the datapoint belongs to.
+            idx (int): The pixel on the full grid the datapoint belongs to.
+            
+        """
+        
+        # Find the ring each datapoint belongs to.
+        ring = np.searchsorted(self.yedges, dec, 'right')
+        
+        # Clean up the out-of-bound indices.
+        ring[ring == 0] = 1
+        ring[ring == (self.nrings + 3)] = self.nrings + 2
+        ring = ring - 1 
+
+        cell = np.zeros(len(ra), dtype='int')
+        for i in range(self.nrings + 2):
+
+            select = (ring == i)
+            
+            # Find the cell along the ring the datapoint belongs to.
+            xedges = np.linspace(0, 360, self.ncells[i] + 1)
+            cell_ = np.searchsorted(xedges, ra[select], 'right')
+
+            # Clean up the out-of-bounds indices.
+            cell_[cell_ == 0] = 1
+            cell_[cell_ == (self.ncells[i] + 1)] = self.ncells[i]
+            cell_ = cell_ - 1        
+            
+            cell[select] = cell_  
+            
+        # Create a single index.
+        idx = (np.cumsum(self.ncells) - self.ncells)[ring] + cell
+        
+        return ring, cell, idx
+        
+    def idx2radec(self, idx):
+        
+        print 'Warning: this function has not yet been written.'
+        
+        return 0., 0.
+        
+    def values2grid(self, idx, values, fill_value=0):
+        """ Given grid indices and values return an array.
+        
+        Args:
+            idx (int): An array of indices.
+            values (float): An array of values corresponding to idx. 
+            fill_value (float): Value to fill unspecified cells with.
+            
+        Returns:
+            array (float): An array corresponding to the grid.
+        
+        """
+        
+        array = np.full(self.npix, fill_value=fill_value)
+        array[idx] = values
+        
+        return array
+
+
 class HealpixGrid(object):
     """ Create a Healpix coordinate grid.
     
