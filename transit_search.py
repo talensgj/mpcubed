@@ -8,11 +8,10 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
+from mpcubed import boxlstsq
 from mpcubed.coordinates import grids
 from mpcubed.statistics import statistics
-
-import detrend
-import boxlstsq
+from mpcubed.systematics import detrend
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -164,7 +163,8 @@ def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
         else:
             x2 = np.copy(lst)
         
-        pars, trend[i], chisq = detrend.new_harmonic(jdmid, x2, mag[i], weights[i], ns[i])
+        freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag[i], weights[i], ns[i])
+        trend[i] = fit1 + fit2
 
     return trend
 

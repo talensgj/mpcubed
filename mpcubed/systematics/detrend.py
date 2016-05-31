@@ -63,7 +63,7 @@ def psf_variations(jdmid, lst, value, weights, ns, step=(.003693591 ,320./3600.)
     fit2 = np.dot(mat[:,n:], pars[n:])
     
     # Calculate the chi-square value of the fit.
-    chisq = weights*(value - fit)**2
+    chisq = weights*(value - fit1 - fit2)**2
     chisq = np.sum(chisq)
 
     return freq1, freq2, pars[:n], pars[n:], fit1, fit2, chisq

@@ -23,10 +23,11 @@ rcParams['image.interpolation'] = 'nearest'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
+from mpcubed import boxlstsq
 from mpcubed.models import transit
 from mpcubed.plotting import viridis
 
-import boxlstsq
+
 from transit_search import read_header, read_data
 
 from scipy import optimize
@@ -809,7 +810,7 @@ def ellipsoidal_variations(jdmid, mag, emag, mask, pars, display=False):
     emag = emag[~mask]
     
     # Evaluate the box-model. 
-    box_mod = transit.box_model(jdmid, *pars)
+    box_mod = transit.box(jdmid, *pars)
     
     # Find the out-of-transit level.
     m = np.sum((mag - box_mod)/emag**2)/np.sum(1/emag**2)
@@ -1115,22 +1116,22 @@ def main():
         #hdr = f.read_header(['ascc', 'flag'])
         #ascc0 = np.append(ascc0, hdr['ascc'][hdr['flag']==0])
     
-    #data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
-    #data = np.sort(data)
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = np.sort(data)
     #data = np.delete(data, [7,12])
     #print data
     
-    #filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls/*')
-    #filelist = np.sort(filelist)
+    filelist = glob.glob('/data3/talens/boxlstsq/2015Q1234/bls/*')
+    filelist = np.sort(filelist)
     
-    #candidates(data, filelist, ascc0=['500717'])
+    candidates(data, filelist, ascc0=['807144'])
     
-    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
-    data = np.sort(data)
+    #data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
+    #data = np.sort(data)
 
-    print data
+    #print data
 
-    boxlstsq_refine(data, ['1284530'])
+    #boxlstsq_refine(data, ['1284530'])
     
     #for filename in data:
         #plot_lightcurve(filename, '1339109')
