@@ -2,5 +2,5 @@
 Statistics
 **********
 
-.. autofunction:: package.statistics.statistics.mad
-.. autofunction:: package.statistics.statistics.idxstats
+.. autofunction:: mpcubed.statistics.statistics.mad
+.. autofunction:: mpcubed.statistics.statistics.idxstats

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Plotting &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    <title>Plotting &mdash; mpcubed 1.0.0 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="top" title="mpcubed 1.0.0 documentation" href="index.html" />
     <link rel="next" title="Statistics" href="statistics.html" />
     <link rel="prev" title="I/O" href="IO.html" /> 
   </head>
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="IO.html" title="I/O"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -55,16 +55,16 @@
   <div class="section" id="plotting">
 <h1>Plotting<a class="headerlink" href="#plotting" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
-<dt id="package.plotting.fLCplot">
-<em class="property">class </em><tt class="descclassname">package.plotting.</tt><tt class="descname">fLCplot</tt><big>(</big><em>fLCfile</em><big>)</big><a class="headerlink" href="#package.plotting.fLCplot" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.fLCplot">
+<em class="property">class </em><tt class="descclassname">mpcubed.plotting.</tt><tt class="descname">fLCplot</tt><big>(</big><em>fLCfile</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.fLCplot" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot data from an fLC file.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
 <dd>fLCfile (str): The fLC file to read the data from.</dd>
 </dl>
 <dl class="method">
-<dt id="package.plotting.fLCplot.plot_as_array">
-<tt class="descname">plot_as_array</tt><big>(</big><em>ascc</em>, <em>field</em><big>)</big><a class="headerlink" href="#package.plotting.fLCplot.plot_as_array" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.fLCplot.plot_as_array">
+<tt class="descname">plot_as_array</tt><big>(</big><em>ascc</em>, <em>field</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.fLCplot.plot_as_array" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the data of a particular star as an array.</p>
 <p>This function is intended for merged fLC files and
 will plot each night as a row in a figure where the rows
@@ -77,14 +77,14 @@ field (str): The lightcurve field to plot.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.plotting.fLCplot.plot_coverage">
-<tt class="descname">plot_coverage</tt><big>(</big><big>)</big><a class="headerlink" href="#package.plotting.fLCplot.plot_coverage" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.fLCplot.plot_coverage">
+<tt class="descname">plot_coverage</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.plotting.fLCplot.plot_coverage" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the sky coverage of the data in the file.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.plotting.fLCplot.plot_star">
-<tt class="descname">plot_star</tt><big>(</big><em>ascc</em><big>)</big><a class="headerlink" href="#package.plotting.fLCplot.plot_star" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.fLCplot.plot_star">
+<tt class="descname">plot_star</tt><big>(</big><em>ascc</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.fLCplot.plot_star" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot an overview of the lightcurve for a particular star.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -95,34 +95,34 @@ field (str): The lightcurve field to plot.</dd>
 </dd></dl>
 
 <dl class="class">
-<dt id="package.plotting.SysPlot">
-<em class="property">class </em><tt class="descclassname">package.plotting.</tt><tt class="descname">SysPlot</tt><big>(</big><em>sysfile</em><big>)</big><a class="headerlink" href="#package.plotting.SysPlot" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.SysPlot">
+<em class="property">class </em><tt class="descclassname">mpcubed.plotting.</tt><tt class="descname">SysPlot</tt><big>(</big><em>sysfile</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.SysPlot" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the data from a systematics file.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
 <dd>sysfile (str): The systematics file to read the data from.</dd>
 </dl>
 <dl class="method">
-<dt id="package.plotting.SysPlot.plot_clouds">
-<tt class="descname">plot_clouds</tt><big>(</big><big>)</big><a class="headerlink" href="#package.plotting.SysPlot.plot_clouds" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.SysPlot.plot_clouds">
+<tt class="descname">plot_clouds</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.plotting.SysPlot.plot_clouds" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the fitted cloud map as a function of x, y and t.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.plotting.SysPlot.plot_intrapix">
-<tt class="descname">plot_intrapix</tt><big>(</big><big>)</big><a class="headerlink" href="#package.plotting.SysPlot.plot_intrapix" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.SysPlot.plot_intrapix">
+<tt class="descname">plot_intrapix</tt><big>(</big><em>display=True</em>, <em>savefig=False</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.SysPlot.plot_intrapix" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the fitted amplitude maps as a function of x and y.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.plotting.SysPlot.plot_magnitudes">
-<tt class="descname">plot_magnitudes</tt><big>(</big><big>)</big><a class="headerlink" href="#package.plotting.SysPlot.plot_magnitudes" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.SysPlot.plot_magnitudes">
+<tt class="descname">plot_magnitudes</tt><big>(</big><em>display=True</em>, <em>savefig=False</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.SysPlot.plot_magnitudes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the fitted magnitudes against the catalogue V magnitude.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.plotting.SysPlot.plot_trans">
-<tt class="descname">plot_trans</tt><big>(</big><big>)</big><a class="headerlink" href="#package.plotting.SysPlot.plot_trans" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.plotting.SysPlot.plot_trans">
+<tt class="descname">plot_trans</tt><big>(</big><em>display=True</em>, <em>savefig=False</em><big>)</big><a class="headerlink" href="#mpcubed.plotting.SysPlot.plot_trans" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the fitted transmission map as a function of x and y.</p>
 </dd></dl>
 
@@ -179,7 +179,7 @@ field (str): The lightcurve field to plot.</dd>
         <li class="right" >
           <a href="IO.html" title="I/O"
              >previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

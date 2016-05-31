@@ -2,7 +2,7 @@
 Plotting
 ********
 
-.. autoclass:: package.plotting.fLCplot
+.. autoclass:: mpcubed.plotting.fLCplot
    :members:
-.. autoclass:: package.plotting.SysPlot
+.. autoclass:: mpcubed.plotting.SysPlot
    :members:

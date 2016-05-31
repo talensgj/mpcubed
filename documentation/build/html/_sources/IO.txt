@@ -2,9 +2,9 @@
 I/O
 ***
 
-.. autoclass:: package.IO.fLCfile
+.. autoclass:: mpcubed.IO.fLCfile
    :members:
-.. autoclass:: package.IO.SysFile
+.. autoclass:: mpcubed.IO.SysFile
    :members:
-.. autofunction:: package.IO.make_baseline
-.. autofunction:: package.IO.make_quarter
+.. autofunction:: mpcubed.IO.make_baseline
+.. autofunction:: mpcubed.IO.make_quarter

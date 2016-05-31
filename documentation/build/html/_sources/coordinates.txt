@@ -6,5 +6,5 @@ Coordinates
 Grids
 =====
 
-.. automodule:: package.coordinates.grids
+.. automodule:: mpcubed.coordinates.grids
    :members:

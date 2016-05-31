@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>I/O &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    <title>I/O &mdash; mpcubed 1.0.0 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="top" title="mpcubed 1.0.0 documentation" href="index.html" />
     <link rel="next" title="Plotting" href="plotting.html" />
     <link rel="prev" title="Systematics" href="systematics.html" /> 
   </head>
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="systematics.html" title="Systematics"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -55,16 +55,16 @@
   <div class="section" id="i-o">
 <h1>I/O<a class="headerlink" href="#i-o" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
-<dt id="package.IO.fLCfile">
-<em class="property">class </em><tt class="descclassname">package.IO.</tt><tt class="descname">fLCfile</tt><big>(</big><em>fLCfile</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.fLCfile">
+<em class="property">class </em><tt class="descclassname">mpcubed.IO.</tt><tt class="descname">fLCfile</tt><big>(</big><em>fLCfile</em><big>)</big><a class="headerlink" href="#mpcubed.IO.fLCfile" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read data from fLC files.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
 <dd>fLCfile (str): The full path to the file.</dd>
 </dl>
 <dl class="method">
-<dt id="package.IO.fLCfile.read_data">
-<tt class="descname">read_data</tt><big>(</big><em>fields</em>, <em>ascc=None</em>, <em>nobs=None</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_data" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.fLCfile.read_data">
+<tt class="descname">read_data</tt><big>(</big><em>fields</em>, <em>ascc=None</em>, <em>nobs=None</em><big>)</big><a class="headerlink" href="#mpcubed.IO.fLCfile.read_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the specified fields from the lightcurves.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -84,8 +84,8 @@ Default is None.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.fLCfile.read_global">
-<tt class="descname">read_global</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_global" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.fLCfile.read_global">
+<tt class="descname">read_global</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.fLCfile.read_global" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the global group.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -94,8 +94,8 @@ Default is None.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.fLCfile.read_header">
-<tt class="descname">read_header</tt><big>(</big><em>fields</em>, <em>ascc=None</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_header" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.fLCfile.read_header">
+<tt class="descname">read_header</tt><big>(</big><em>fields</em>, <em>ascc=None</em><big>)</big><a class="headerlink" href="#mpcubed.IO.fLCfile.read_header" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the specified fields from the header_table.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -110,8 +110,8 @@ ascc (str): List of ascc numbers for which the fields must be</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.fLCfile.read_star">
-<tt class="descname">read_star</tt><big>(</big><em>ascc</em><big>)</big><a class="headerlink" href="#package.IO.fLCfile.read_star" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.fLCfile.read_star">
+<tt class="descname">read_star</tt><big>(</big><em>ascc</em><big>)</big><a class="headerlink" href="#mpcubed.IO.fLCfile.read_star" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the lightcurve of the specified star.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -124,16 +124,16 @@ ascc (str): List of ascc numbers for which the fields must be</p>
 </dd></dl>
 
 <dl class="class">
-<dt id="package.IO.SysFile">
-<em class="property">class </em><tt class="descclassname">package.IO.</tt><tt class="descname">SysFile</tt><big>(</big><em>sysfile</em><big>)</big><a class="headerlink" href="#package.IO.SysFile" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile">
+<em class="property">class </em><tt class="descclassname">mpcubed.IO.</tt><tt class="descname">SysFile</tt><big>(</big><em>sysfile</em><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read data from systematics files.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
 <dd>sysfile (str): The full path to the file.</dd>
 </dl>
 <dl class="method">
-<dt id="package.IO.SysFile.read_clouds">
-<tt class="descname">read_clouds</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_clouds" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_clouds">
+<tt class="descname">read_clouds</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_clouds" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the fitted clouds.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -147,8 +147,8 @@ lstmax: The highest lstseq for which clouds were computed.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_header">
-<tt class="descname">read_header</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_header" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_header">
+<tt class="descname">read_header</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_header" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read all header attributes.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -157,8 +157,8 @@ lstmax: The highest lstseq for which clouds were computed.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_intrapix">
-<tt class="descname">read_intrapix</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_intrapix" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_intrapix">
+<tt class="descname">read_intrapix</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_intrapix" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the fitted intrapixel variations.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -178,8 +178,8 @@ nobs (float): The number of datapoints used to compute the</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_magnitudes">
-<tt class="descname">read_magnitudes</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_magnitudes" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_magnitudes">
+<tt class="descname">read_magnitudes</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_magnitudes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the fitted magnitudes.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -192,8 +192,8 @@ nobs (int): The number of datapoints used to compute each magnitude.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_pointing">
-<tt class="descname">read_pointing</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_pointing" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_pointing">
+<tt class="descname">read_pointing</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_pointing" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the pointing associated with the systematics.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -206,8 +206,8 @@ y0 (float): The pointing center in pixels.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_statistics">
-<tt class="descname">read_statistics</tt><big>(</big><em>mode</em><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_statistics" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_statistics">
+<tt class="descname">read_statistics</tt><big>(</big><em>mode</em><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_statistics" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the quality statistics from the header.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -225,8 +225,8 @@ npars (int): The number of model parameters used.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.IO.SysFile.read_trans">
-<tt class="descname">read_trans</tt><big>(</big><big>)</big><a class="headerlink" href="#package.IO.SysFile.read_trans" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.SysFile.read_trans">
+<tt class="descname">read_trans</tt><big>(</big><big>)</big><a class="headerlink" href="#mpcubed.IO.SysFile.read_trans" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read the fitted transmission.</p>
 <dl class="docutils">
 <dt>Returns:</dt>
@@ -242,8 +242,8 @@ nobs (int): The number of datapoints used to compute each</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="package.IO.make_baseline">
-<tt class="descclassname">package.IO.</tt><tt class="descname">make_baseline</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#package.IO.make_baseline" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.make_baseline">
+<tt class="descclassname">mpcubed.IO.</tt><tt class="descname">make_baseline</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#mpcubed.IO.make_baseline" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merge a list of fLC files.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -253,8 +253,8 @@ outfile (str): The name of the merged file.</dd>
 </dd></dl>
 
 <dl class="function">
-<dt id="package.IO.make_quarter">
-<tt class="descclassname">package.IO.</tt><tt class="descname">make_quarter</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#package.IO.make_quarter" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.IO.make_quarter">
+<tt class="descclassname">mpcubed.IO.</tt><tt class="descname">make_quarter</tt><big>(</big><em>filelist</em>, <em>outfile</em><big>)</big><a class="headerlink" href="#mpcubed.IO.make_quarter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merge a list of reduced data files.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -314,7 +314,7 @@ outfile (str): The name of the merged file.</dd>
         <li class="right" >
           <a href="systematics.html" title="Systematics"
              >previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Coordinates &mdash; MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</title>
+    <title>Coordinates &mdash; mpcubed 1.0.0 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation" href="index.html" />
+    <link rel="top" title="mpcubed 1.0.0 documentation" href="index.html" />
     <link rel="next" title="Systematics" href="systematics.html" />
     <link rel="prev" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!" href="index.html" /> 
   </head>
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="index.html" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -54,11 +54,11 @@
             
   <div class="section" id="coordinates">
 <h1>Coordinates<a class="headerlink" href="#coordinates" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="module-package.coordinates.grids">
-<span id="grids"></span><h2>Grids<a class="headerlink" href="#module-package.coordinates.grids" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-mpcubed.coordinates.grids">
+<span id="grids"></span><h2>Grids<a class="headerlink" href="#module-mpcubed.coordinates.grids" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="package.coordinates.grids.CartesianGrid">
-<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">CartesianGrid</tt><big>(</big><em>nx</em>, <em>ny</em>, <em>Lx=4008</em>, <em>Ly=2672</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.CartesianGrid">
+<em class="property">class </em><tt class="descclassname">mpcubed.coordinates.grids.</tt><tt class="descname">CartesianGrid</tt><big>(</big><em>nx</em>, <em>ny</em>, <em>Lx=4008</em>, <em>Ly=2672</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.CartesianGrid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a cartesian coordinate grid.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
@@ -69,8 +69,8 @@ yedges (float): The binedges of the grid along the y-axis.
 npix (int): The total number of pixels on the grid.</dd>
 </dl>
 <dl class="method">
-<dt id="package.coordinates.grids.CartesianGrid.idx2xy">
-<tt class="descname">idx2xy</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.idx2xy" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.CartesianGrid.idx2xy">
+<tt class="descname">idx2xy</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.CartesianGrid.idx2xy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert the indices of the gridcells to x, y coordinates.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -83,8 +83,8 @@ y (float): The central y-coordinates of the gridcells.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.CartesianGrid.values2grid">
-<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.CartesianGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.CartesianGrid.values2grid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given grid indices and values return an array.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -98,8 +98,8 @@ fill_value (float): Value to fill unspecified cells with.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.CartesianGrid.xy2idx">
-<tt class="descname">xy2idx</tt><big>(</big><em>x</em>, <em>y</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.CartesianGrid.xy2idx" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.CartesianGrid.xy2idx">
+<tt class="descname">xy2idx</tt><big>(</big><em>x</em>, <em>y</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.CartesianGrid.xy2idx" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert x, y coordinates the the indices of gridcells.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -114,8 +114,8 @@ idx2 (int): The indices corresponding to the y-coordinates.</dd>
 </dd></dl>
 
 <dl class="class">
-<dt id="package.coordinates.grids.HealpixGrid">
-<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">HealpixGrid</tt><big>(</big><em>nside</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.HealpixGrid">
+<em class="property">class </em><tt class="descclassname">mpcubed.coordinates.grids.</tt><tt class="descname">HealpixGrid</tt><big>(</big><em>nside</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.HealpixGrid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a Healpix coordinate grid.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
@@ -127,8 +127,8 @@ idx2 (int): The indices corresponding to the y-coordinates.</dd>
 </dd>
 </dl>
 <dl class="method">
-<dt id="package.coordinates.grids.HealpixGrid.idx2radec">
-<tt class="descname">idx2radec</tt><big>(</big><em>idx</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.HealpixGrid.idx2radec">
+<tt class="descname">idx2radec</tt><big>(</big><em>idx</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.HealpixGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
 <dd><p>Converts gridcell indices the the ra, dec of the cell.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -140,8 +140,8 @@ dec (float): The dec coordinates of each of the cells.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.HealpixGrid.radec2idx">
-<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.HealpixGrid.radec2idx">
+<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.HealpixGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert ra, dec coordinates to indices on the grid.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -157,8 +157,8 @@ dec (float): An array of dec coordinates.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.HealpixGrid.values2grid">
-<tt class="descname">values2grid</tt><big>(</big><em>idx</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.HealpixGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.HealpixGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.HealpixGrid.values2grid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given grid indices and values return an array.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -173,8 +173,50 @@ fill_value (float): Value to fill unspecified cells with.</dd>
 </dd></dl>
 
 <dl class="class">
-<dt id="package.coordinates.grids.PolarGrid">
-<em class="property">class </em><tt class="descclassname">package.coordinates.grids.</tt><tt class="descname">PolarGrid</tt><big>(</big><em>nx</em>, <em>ny</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.PolarEAGrid">
+<em class="property">class </em><tt class="descclassname">mpcubed.coordinates.grids.</tt><tt class="descname">PolarEAGrid</tt><big>(</big><em>nrings</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarEAGrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a polar coordinate grid.</p>
+<dl class="docutils">
+<dt>Attributes:</dt>
+<dd>nrings (int): The number of declination rings between the polar caps.
+yedges (float): The binedges of the grid along the dec-axis.
+ncells (int): The number of grid cells in each ring.
+npix (int): The total number of pixels on the grid.</dd>
+</dl>
+<dl class="method">
+<dt id="mpcubed.coordinates.grids.PolarEAGrid.radec2idx">
+<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarEAGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert ra, dec coordinates to indices on the grid.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>ra (float): An array of ra coordinates.
+dec (float): An array of dec coordinates.</dd>
+<dt>Returns:</dt>
+<dd>ring (int): The declination ring the datapoint belongs to.
+cell (int): The cell on the ring the datapoint belongs to.
+idx (int): The pixel on the full grid the datapoint belongs to.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="mpcubed.coordinates.grids.PolarEAGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarEAGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given grid indices and values return an array.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>idx (int): An array of indices.
+values (float): An array of values corresponding to idx. 
+fill_value (float): Value to fill unspecified cells with.</dd>
+<dt>Returns:</dt>
+<dd>array (float): An array corresponding to the grid.</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="mpcubed.coordinates.grids.PolarGrid">
+<em class="property">class </em><tt class="descclassname">mpcubed.coordinates.grids.</tt><tt class="descname">PolarGrid</tt><big>(</big><em>nx</em>, <em>ny</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarGrid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a polar coordinate grid.</p>
 <dl class="docutils">
 <dt>Attributes:</dt>
@@ -185,8 +227,8 @@ yedges (float): The binedges of the grid along the dec-axis.
 npix (int): The total number of pixels on the grid.</dd>
 </dl>
 <dl class="method">
-<dt id="package.coordinates.grids.PolarGrid.idx2radec">
-<tt class="descname">idx2radec</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.PolarGrid.idx2radec">
+<tt class="descname">idx2radec</tt><big>(</big><em>idx1</em>, <em>idx2</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarGrid.idx2radec" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert indices on the grid to gridcell coordinates.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -199,8 +241,8 @@ dec (float): The dec coordinates of the gridcells.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.PolarGrid.radec2idx">
-<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.PolarGrid.radec2idx">
+<tt class="descname">radec2idx</tt><big>(</big><em>ra</em>, <em>dec</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarGrid.radec2idx" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert ra, dec coordinates to indices on the grid.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -213,8 +255,8 @@ idx2 (int): Second index of the cell, corresponds to dec.</dd>
 </dd></dl>
 
 <dl class="method">
-<dt id="package.coordinates.grids.PolarGrid.values2grid">
-<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#package.coordinates.grids.PolarGrid.values2grid" title="Permalink to this definition">¶</a></dt>
+<dt id="mpcubed.coordinates.grids.PolarGrid.values2grid">
+<tt class="descname">values2grid</tt><big>(</big><em>idx1</em>, <em>idx2</em>, <em>values</em>, <em>fill_value=0</em><big>)</big><a class="headerlink" href="#mpcubed.coordinates.grids.PolarGrid.values2grid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given grid indices and values return an array.</p>
 <dl class="docutils">
 <dt>Args:</dt>
@@ -241,7 +283,7 @@ fill_value (float): Value to fill unspecified cells with.</dd>
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Coordinates</a><ul>
-<li><a class="reference internal" href="#module-package.coordinates.grids">Grids</a></li>
+<li><a class="reference internal" href="#module-mpcubed.coordinates.grids">Grids</a></li>
 </ul>
 </li>
 </ul>
@@ -289,7 +331,7 @@ fill_value (float): Value to fill unspecified cells with.</dd>
         <li class="right" >
           <a href="index.html" title="Welcome to MASCARA raw lightcurve reduction and transit detection’s documentation!"
              >previous</a> |</li>
-        <li><a href="index.html">MASCARA raw lightcurve reduction and transit detection 1.0.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">mpcubed 1.0.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

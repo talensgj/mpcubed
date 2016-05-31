@@ -47,7 +47,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'MASCARA raw lightcurve reduction and transit detection'
+project = u'mpcubed'
 copyright = u'2016, Geert Jan Talens'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -180,7 +180,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'MASCARArawlightcurvereductionandtransitdetectiondoc'
+htmlhelp_basename = 'mpcubed'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -200,7 +200,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'MASCARArawlightcurvereductionandtransitdetection.tex', u'MASCARA raw lightcurve reduction and transit detection Documentation',
+  ('index', 'mpcubed.tex', u'MASCARA raw lightcurve reduction and transit detection Documentation',
    u'Geert Jan Talens', 'manual'),
 ]
 
@@ -230,7 +230,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'mascararawlightcurvereductionandtransitdetection', u'MASCARA raw lightcurve reduction and transit detection Documentation',
+    ('index', 'mpcubed', u'MASCARA raw lightcurve reduction and transit detection Documentation',
      [u'Geert Jan Talens'], 1)
 ]
 
@@ -244,8 +244,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'MASCARArawlightcurvereductionandtransitdetection', u'MASCARA raw lightcurve reduction and transit detection Documentation',
-   u'Geert Jan Talens', 'MASCARArawlightcurvereductionandtransitdetection', 'One line description of project.',
+  ('index', 'mpcubed', u'MASCARA raw lightcurve reduction and transit detection Documentation',
+   u'Geert Jan Talens', 'mpcubed', 'One line description of project.',
    'Miscellaneous'),
 ]
 
