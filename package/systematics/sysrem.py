@@ -7,7 +7,28 @@ from collections import namedtuple
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
 def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
+    """ Perform a coarse decorrelation.
 
+    Args:
+        value (float): A 2d-array of values.
+        weights (float): A 2d-array of weights corresponding to value.
+        maxiter (int): The maximum number of iterations to perform. Default
+            is 100.
+        dtol (float): Maximum allowed change in the parameters, iteration
+            terminates if the change falls below this value. Default is 1e-3.
+        verbose (bool): Output the current iteration. Default is True.
+
+    Returns:
+        par1 (float): The parameters corresponding to the first axis of value.
+        par2 (float): The parameters corresponding to the second axis of value.
+        quality: A named tuple with fields niter, chisq, npoints and npars
+            describing the number of iterations, the chi-square value, the
+            number of datapoints and the number of parameters of the fit.
+
+    """
+    
+    print 'Warning: this function has not been extensively tested.'
+    
     # Determine the number of datapoints and parameters to fit.
     npoints = value.size
     npars1 = value.shape[0]
@@ -25,9 +46,6 @@ def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
         # Compute the parameters.
         par1 = np.nansum(weights*value*par2, axis=1, keepdims=True)/np.nansum(weights*par2**2, axis=1, keepdims=True)
         par2 = np.nansum(weights*value*par1, axis=0, keepdims=True)/np.nansum(weights*par1**2, axis=0, keepdims=True)
-    
-        print par1
-        print par2
     
         # Check if the solution has converged.
         if (niter > 0):
@@ -47,9 +65,3 @@ def sysrem(value, weights, maxiter=100, dtol=1e-3, verbose=True):
     chisq = np.nansum(chisq)
     
     return par1, par2, Quality(niter, chisq, npoints, npars)
-
-def main():
-    return
-
-if __name__ == '__main__':
-    main()
