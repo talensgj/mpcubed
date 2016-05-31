@@ -13,7 +13,6 @@ from package.statistics import statistics
 import transit_candidates as tc 
 
 
-
 def inspect_candidates(data, filelist):
 
     ascc = np.array([])
@@ -37,43 +36,26 @@ def inspect_candidates(data, filelist):
     tc.candidates(data, filelist, ascc0=ascc[sel])
     
     return
+ 
+def running_sde(dchisq, window=101):
     
-def running_median(x, hwindow):
-
-    med = np.zeros(len(x))
-    for i in range(hwindow, len(x)-hwindow):
-
-        med[i] = np.median(x[i-hwindow:i+hwindow+1])
+    from scipy.ndimage.filters import median_filter
+    
+    m0 = median_filter(dchisq, [window, 1])
+    m1 = 1.4826*median_filter(np.abs(dchisq - m0), [window, 1])
         
-    return med
+    sde = (dchisq - m0)/m1
     
-def running_mad(x, hwindow):
+    return sde, m0, m1
     
-    mad = np.zeros(len(x))
-    for i in range(hwindow, len(x)-hwindow):
-
-        #mad[i] = statistics.mad(x[i-hwindow:i+hwindow+1])
-        mad[i] = np.median(np.abs(np.diff(x[i-hwindow:i+hwindow+1])))
-        
-    return mad
-    
-def SDE(dchisq):
+def simple_sde(dchisq):
     
     m0 = np.mean(dchisq, axis=0)
     m1 = np.std(dchisq, axis=0)
     
     sde = (dchisq - m0)/m1
     
-    #m0r = np.zeros(dchisq.shape)
-    #m1r = np.zeros(dchisq.shape)
-    
-    #for i in range(dchisq.shape[1]):
-        #m0r[:,i] = running_median(dchisq[:,i], 50)
-        #m1r[:,i] = running_mad(dchisq[:,i] - m0r[:,i], 50)
-    
-    #sde = (dchisq - m0r)/m1r
-    
-    return sde
+    return sde, m0, m1
 
 def main():
     
@@ -87,34 +69,40 @@ def main():
         hdr = f.read_header(['ascc'])
         ascc = hdr['ascc']
         
-        bls = f.read_data(['freq', 'dchisq', 'nt'])
-        freq = bls['freq']
-        dchisq = bls['dchisq']
-        nt = bls['nt']
-    
-        sde = SDE(dchisq)
-        #sde = dchisq
-        
-        arg1 = np.argmax(sde, axis=0)
-        arg2 = np.arange(sde.shape[1])
-        
-        peaks = sde[arg1, arg2]
-        
-        for i in range(sde.shape[1]):
+        if '500717' in ascc:
             
-            if ascc[i] in ['1339109']:
+            bls = f.read_data(['freq', 'dchisq', 'nt'])
+            freq = bls['freq']
+            dchisq = bls['dchisq']
+            nt = bls['nt']
+        
+            ssde, sm0, sm1 = simple_sde(dchisq)
+            msde, mm0, mm1 = running_sde(dchisq)
+            #sde = dchisq
             
-                ax = plt.subplot(311)
-                plt.plot(freq, dchisq[:,i])
+            #arg1 = np.argmax(sde, axis=0)
+            #arg2 = np.arange(sde.shape[1])
+            
+            #peaks = sde[arg1, arg2]
+            
+            for i in range(dchisq.shape[1]):
                 
-                plt.subplot(312, sharex=ax)
-                plt.plot(freq, sde[:,i])
+                if ascc[i] == '500717':
                 
-                plt.subplot(313, sharex=ax)
-                plt.plot(freq, nt[:,i])
-                
-                plt.show()
-                plt.close()
+                    ax = plt.subplot(311)
+                    plt.plot(freq, dchisq[:,i])
+                    plt.plot(freq, mm0[:,i])
+                    
+                    plt.subplot(312, sharex=ax)
+                    plt.plot(freq, dchisq[:,i]-mm0[:,i])
+                    plt.plot(freq, mm1[:,i])
+                    
+                    plt.subplot(313, sharex=ax)
+                    plt.plot(freq, ssde[:,i])
+                    plt.plot(freq, msde[:,i])
+                    
+                    plt.show()
+                    plt.close()
     
         #tc.candidates(data, [filename], outdir='/data3/talens/boxlstsq/2015Q1234/sde_candidates/', ascc0=ascc[peaks > 20])
     
