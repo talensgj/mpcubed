@@ -9,7 +9,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from package.statistics import statistics
+from mpcubed.statistics import statistics
 import transit_candidates as tc 
 
 

@@ -23,8 +23,8 @@ rcParams['image.interpolation'] = 'nearest'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from package.models import transit
-from package.plotting import viridis
+from mpcubed.models import transit
+from mpcubed.plotting import viridis
 
 import boxlstsq
 from transit_search import read_header, read_data

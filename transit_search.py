@@ -8,8 +8,8 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
-from package.coordinates import grids
-from package.statistics import statistics
+from mpcubed.coordinates import grids
+from mpcubed.statistics import statistics
 
 import detrend
 import boxlstsq
