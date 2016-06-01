@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
+from mpcubed import misc
 from mpcubed import boxlstsq
 from mpcubed.coordinates import grids
 from mpcubed.statistics import statistics
@@ -57,20 +58,7 @@ def read_header(filelist):
     jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
     
     return ascc, ra, dec, vmag, sptype, jdmin, jdmax
-
-def find_ns(lstseq):
-    """ Number of sampling points in LST, takes wrapping into account."""
     
-    lstidx = lstseq%270
-    option1 = np.ptp(lstidx) + 1
-    
-    lstidx = np.mod(lstidx + 135, 270)
-    option2 = np.ptp(lstidx) + 1
-    
-    if (option2 >= option1):
-        return option1, False
-    else:
-        return option2, True
     
 def read_data_array(filename, ascc):
     """ Read the lightcurves of a group of stars."""
@@ -121,7 +109,7 @@ def read_data_array(filename, ascc):
             emag = np.append(emag, emag_)
             staridx = np.append(staridx, [i]*len(lstseq_))
             ns[i, 0] = np.ptp(lstseq_) + 1
-            ns[i, 1], wrap[i] = find_ns(lstseq_)
+            ns[i, 1], wrap[i] = misc.find_ns(lstseq_)
 
     ns = np.maximum(ns, 2)
 
@@ -148,25 +136,6 @@ def read_data_array(filename, ascc):
     mask = ~tmp
     
     return lstseq, jdmid, lst, mag, emag, mask, ns, wrap
-
-def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
-    """ Detrend an array of lightcurves."""
-    
-    nstars = mag.shape[0]
-    weights = np.where(mask, 0., 1./emag**2)
-    trend = np.zeros(mag.shape)
-    
-    for i in range(nstars):
-        
-        if wrap[i]:
-            x2 = np.mod(lst+12., 24.)-12.
-        else:
-            x2 = np.copy(lst)
-        
-        freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag[i], weights[i], ns[i])
-        trend[i] = fit1 + fit2
-
-    return trend
 
 def read_data(filelist, ascc):
     """ Read the data from a list of reduced lightcurve files."""
@@ -205,6 +174,25 @@ def read_data(filelist, ascc):
         trend = np.append(trend, trend_, axis=1)
         
     return lstseq, jdmid, lst, mag, emag, mask, trend, cam
+
+def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
+    """ Detrend an array of lightcurves."""
+    
+    nstars = mag.shape[0]
+    weights = np.where(mask, 0., 1./emag**2)
+    trend = np.zeros(mag.shape)
+    
+    for i in range(nstars):
+        
+        if wrap[i]:
+            x2 = np.mod(lst+12., 24.)-12.
+        else:
+            x2 = np.copy(lst)
+        
+        freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag[i], weights[i], ns[i])
+        trend[i] = fit1 + fit2
+
+    return trend
 
 def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     """ Perform the box least-squares and flag non-detections."""
@@ -284,17 +272,6 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         grp.create_dataset('nt', data=nt, dtype='uint32')
 
     return
-
-#def search_skypatch_mp(jobs, nprocs):
-    #""" Use multiprocessing to perform the transit search."""
-    
-    #pool = mp.Pool(processes = nprocs)
-    #for i in range(len(jobs)):
-        #pool.apply_async(search_skypatch, args = jobs[i])
-    #pool.close()
-    #pool.join()
-    
-    #return
     
 def search_skypatch_mp(queue):
     """ Use multiprocessing to perform the transit search."""
@@ -309,72 +286,28 @@ def search_skypatch_mp(queue):
             search_skypatch(*item)
     
     return
-    
-#def transit_search(filelist, outdir, name, nprocs=6):
-    #""" Perform detrending and transit search given reduced lightcurves."""
-    
-    ## Read the combined header of the files.
-    #ascc, ra, dec, vmag, sptype, jdmin, jdmax = read_header(filelist)
-    
-    ## Divide the stars in groups of neighbouring stars.
-    #hg = grids.HealpixGrid(8)
-    #skyidx = hg.radec2idx(ra, dec)
 
-    ## Determine the maximum baseline in each grid cell.
-    #blgrid = np.zeros(hg.npix)
-    #skyuni, idx = np.unique(skyidx, return_inverse=True)
-    #jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
-    #jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
-    #blgrid[skyuni] =  jdmax - jdmin
-        
-    #jobs = []
-    #for i in [59]:#range(hg.npix):
-        
-        ## Do not run if the baseline falls short of 60 days.
-        #if (blgrid[i] < 60.):
-            #print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
-            #continue
-        
-        ## Read the stars in the skypatch.
-        #select = (skyidx == i)
-        #lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(filelist, ascc[select])
-    
-        ## Make sure there was data.
-        #if (len(jdmid) == 0):
-            #continue
-        
-        ## Filename for the output file. 
-        #blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
-        #blsfile = os.path.join(outdir, blsfile)
-        
-        ## Check if multiprocessing was set.
-        #if (nprocs == 1):
-            #search_skypatch(i, ascc[select], jdmid, mag, emag, mask, blsfile)
-        #else:
-            #jobs.append((i, ascc[select], jdmid, mag, emag, mask, blsfile))
-        
-        ## Compute the periodgrams in the joblist.
-        #if (len(jobs) == 5*nprocs):
-            #search_skypatch_mp(jobs, nprocs)
-            #jobs = []
-    
-    ## Compute any remaining periodograms.
-    #if (len(jobs) != 0):
-        #search_skypatch_mp(jobs, nprocs)
-    
-    ## Print a message indicating succes.
-    #print
-    #print 'Succesfully ran the boxlstsq on:'
-    #for filename in filelist:
-        #print ' ', filename
-    #print
-    #print 'The results were writen to:'
-    #print ' ', outdir
-        
-    #return
-
-def transit_search(filelist, outdir, name, nprocs=6):
+def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq', nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
+    
+    print 'Trying to run the box least-squares on:' 
+    for filename in filelist:
+        print ' ', filename
+    
+    # Create directories for the output.
+    outdir = os.path.join(outdir, name)
+    blsdir = os.path.join(outdir, 'bls')
+    misc.ensure_dir(blsdir)
+    
+    if (len(os.listdir(blsdir)) > 0):
+        print 'Error: the output directory {} is not empty.'.format(outdir)
+        exit()
+    else:
+        print 'Writing results to:', outdir
+    
+    # Write the a file containg the reduced data files used.
+    fname = os.path.join(outdir, 'data.txt')
+    np.savetxt(fname, filelist, fmt='%s')
     
     # Read the combined header of the files.
     ascc, ra, dec, vmag, sptype, jdmin, jdmax = read_header(filelist)
@@ -389,11 +322,20 @@ def transit_search(filelist, outdir, name, nprocs=6):
     jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
     jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
     blgrid[skyuni] =  jdmax - jdmin
-       
+    
+    # Dtermine which skypatches to run.
+    if patches is None:
+        patches = range(hg.npix)
+        
+    if np.any(np.array(patches) >= hg.npix):
+        print 'Error: patches greater than {} do not exist.'.format(hg.npix)
+        exit()   
+        
+    # Set up the multiprocessing.
     the_queue = mp.Queue(nprocs)
     the_pool = mp.Pool(nprocs, search_skypatch_mp, (the_queue,))
         
-    for i in range(hg.npix):
+    for i in patches:
         
         # Do not run if the baseline falls short of 60 days.
         if (blgrid[i] < 60.):
@@ -406,36 +348,24 @@ def transit_search(filelist, outdir, name, nprocs=6):
     
         # Make sure there was data.
         if (len(jdmid) == 0):
+            print 'Skipping patch {}/{}, no good data found.'.format(i, hg.npix) 
             continue
         
         # Filename for the output file. 
         blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
-        blsfile = os.path.join(outdir, blsfile)
+        blsfile = os.path.join(blsdir, blsfile)
         
         the_queue.put((i, ascc[select], jdmid, mag, emag, mask, blsfile))
     
+    # End the multiprocessing.
     for i in range(nprocs):
         the_queue.put('DONE')
     
     the_pool.close()
     the_pool.join()
     
-    # Print a message indicating succes.
-    print
-    print 'Succesfully ran the boxlstsq on:'
-    for filename in filelist:
-        print ' ', filename
-    print
-    print 'The results were writen to:'
-    print ' ', outdir
-        
-    return
-
-def ensure_dir(path):
+    print 'Succesfully ran the box least-squares.'
     
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
     return
 
 def main():
@@ -443,10 +373,7 @@ def main():
     data = glob.glob('/data3/talens/2015Q4/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    outdir = '/data3/talens/boxlstsq/test'
-    ensure_dir(outdir)
-    
-    transit_search(data, outdir, '2015Q4', nprocs=16)
+    transit_search(data, 'test', patches=range(260,270), nprocs=16)
     
     return
 
