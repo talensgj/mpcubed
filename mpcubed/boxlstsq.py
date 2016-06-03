@@ -214,13 +214,15 @@ def boxlstsq(time, flux, weights, **options):
         s = s_cum[i2] - s_cum[i1]
         q = q_cum[i2] - q_cum[i1]
         
-        # Find the best fit.
-        dchisq_tmp = s**2*t/(r*(t - r))
-        dchisq_tmp[n < 1] = 0
-        dchisq_tmp[(nmax - n) < 1] = 0
-        
         epoch_tmp = (bins[i1] + bins[i2])/(2*freq[i])
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
+        
+        # Find the best fit.
+        dchisq_tmp = s**2*t/(r*(t - r))
+        
+        nmin = duration_tmp/(320./(24.*3600.))
+        dchisq_tmp[n < nmin[:,None]] = 0
+        dchisq_tmp[(nmax - n) < 1] = 0
         
         # Select the best solution.
         args_1d = np.nanargmax(dchisq_tmp, axis=0)

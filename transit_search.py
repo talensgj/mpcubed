@@ -364,16 +364,14 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
     the_pool.close()
     the_pool.join()
     
-    print 'Succesfully ran the box least-squares.'
-    
     return
 
 def main():
     
-    data = glob.glob('/data3/talens/2015Q4/LP?/red0_vmag_2015Q?LP?.hdf5')
+    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    transit_search(data, 'test', patches=range(260,270), nprocs=16)
+    transit_search(data, 'test', patches=[24, 266], nprocs=2)
     
     return
 
