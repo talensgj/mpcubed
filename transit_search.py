@@ -194,8 +194,89 @@ def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
 
     return trend
 
+#def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
+    #""" Perform the box least-squares and flag non-detections."""
+    
+    #print 'Computing boxlstsq for skypatch', skyidx
+    
+    ## Run the box least-squares search.
+    #weights = np.where(mask, 0., 1./emag**2)
+    #freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T)
+    
+    #if freq is None:
+        #print 'freq = None', skyidx
+        #return 
+    
+    ## Find the peak in the periodogram.
+    #args1 = np.argmax(dchisq, axis=0)
+    #args2 = np.arange(mag.shape[0])
+    
+    #best_freq = freq[args1]
+    #best_chisq = chisq0 - dchisq[args1, args2]
+    #best_depth = depth[args1, args2]
+    #best_epoch = epoch[args1, args2]
+    #best_duration = duration[args1, args2]
+    #best_nt = nt[args1, args2]
+    
+    ## Create flags.
+    #flag = np.zeros(mag.shape[0], dtype='int')
+    
+    ## Check the best fit chi-square.
+    #nobs = np.sum(~mask, axis=1)
+    #quality = best_chisq/nobs
+    #args, = np.where(quality > 4)
+    #flag[args] = flag[args] + 1
+        
+    ## Check the anti-transit ratio.
+    #tmp = dchisq*np.sign(depth)
+    #ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
+    #args, = np.where(ratio < 1.5)
+    #flag[args] = flag[args] + 2
+    
+    ## Check the phase coverage.
+    #q = boxlstsq.phase_duration(best_freq, 1., 1.)
+    #phase = np.outer(jdmid, best_freq)
+    #phase = np.mod(phase, 1.)
+    #phase = np.sort(phase, axis=0)
+    #gapsizes = np.diff(phase, axis=0)
+    #gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
+    #gapsizes = np.amax(gapsizes, axis=0)/q
+    #args, = np.where(gapsizes > 2.5)
+    #flag[args] = flag[args] + 4 
+    
+    ## Check the number of observed transits.
+    #ntransit = best_nt*(319.1262613/(24*3600))/best_duration
+    #args, = np.where(ntransit < 3.)
+    #flag[args] = flag[args] + 8
+    
+    ## Save the results to file.
+    #with h5py.File(blsfile) as f:
+        
+        #grp = f.create_group('header')
+        #grp.create_dataset('ascc', data=ascc)
+        #grp.create_dataset('chisq0', data=chisq0, dtype='float32')
+        #grp.create_dataset('period', data=1./best_freq)
+        #grp.create_dataset('depth', data=best_depth, dtype='float32')
+        #grp.create_dataset('epoch', data=best_epoch)
+        #grp.create_dataset('duration', data=best_duration, dtype='float32')
+        #grp.create_dataset('nt', data=best_nt, dtype='uint32')
+        #grp.create_dataset('flag', data=flag, dtype='uint32')
+        
+        #grp = f.create_group('data')
+        #grp.create_dataset('freq', data=freq)
+        #grp.create_dataset('dchisq', data=dchisq, dtype='float32')
+        #grp.create_dataset('hchisq', data=hchisq, dtype='float32')
+        #grp.create_dataset('depth', data=depth, dtype='float32')
+        #grp.create_dataset('epoch', data=epoch)
+        #grp.create_dataset('duration', data=duration, dtype='float32')
+        #grp.create_dataset('nt', data=nt, dtype='uint32')
+
+    #return
+    
 def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     """ Perform the box least-squares and flag non-detections."""
+    
+    from scipy.ndimage.filters import median_filter
     
     print 'Computing boxlstsq for skypatch', skyidx
     
@@ -207,8 +288,13 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         print 'freq = None', skyidx
         return 
     
+    # Compute the Signal Detection Efficiency.
+    m0 = median_filter(dchisq, [101, 1])
+    m1 = 1.4826*median_filter(np.abs(dchisq - m0), [101, 1])
+    sde = (dchisq - m0)/m1
+    
     # Find the peak in the periodogram.
-    args1 = np.argmax(dchisq, axis=0)
+    args1 = np.argmax(sde, axis=0)
     args2 = np.arange(mag.shape[0])
     
     best_freq = freq[args1]
@@ -221,17 +307,10 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     # Create flags.
     flag = np.zeros(mag.shape[0], dtype='int')
     
-    # Check the best fit chi-square.
-    nobs = np.sum(~mask, axis=1)
-    quality = best_chisq/nobs
-    args, = np.where(quality > 4)
+    # Check the SDE value.
+    sde_peak = sde[args1, args2]
+    args, = np.where(sde_peak < 15)
     flag[args] = flag[args] + 1
-        
-    # Check the anti-transit ratio.
-    tmp = dchisq*np.sign(depth)
-    ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
-    args, = np.where(ratio < 1.5)
-    flag[args] = flag[args] + 2
     
     # Check the phase coverage.
     q = boxlstsq.phase_duration(best_freq, 1., 1.)
@@ -371,7 +450,7 @@ def main():
     data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
     data = np.sort(data)
     
-    transit_search(data, 'test', patches=[24, 266], nprocs=2)
+    transit_search(data, 'sde', patches=[147, 266, 269], nprocs=4)
     
     return
 
