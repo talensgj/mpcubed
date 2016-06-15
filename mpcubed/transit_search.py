@@ -8,11 +8,11 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
-from mpcubed import misc
-from mpcubed import boxlstsq
-from mpcubed.coordinates import grids
-from mpcubed.statistics import statistics
-from mpcubed.systematics import detrend
+import misc
+import boxlstsq
+from coordinates import grids
+from statistics import statistics
+from systematics import detrend
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -289,8 +289,10 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         return 
     
     # Compute the Signal Detection Efficiency.
-    m0 = median_filter(dchisq, [101, 1])
-    m1 = 1.4826*median_filter(np.abs(dchisq - m0), [101, 1])
+    footprint = np.ones((91, 1), dtype='bool')
+    footprint[45] = False
+    m0 = median_filter(dchisq, footprint=footprint)
+    m1 = 1.4826*median_filter(np.abs(dchisq - m0), footprint=footprint)
     sde = (dchisq - m0)/m1
     
     # Find the peak in the periodogram.
@@ -444,15 +446,3 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
     the_pool.join()
     
     return
-
-def main():
-    
-    data = glob.glob('/data3/talens/2015Q?/LP?/red0_vmag_2015Q?LP?.hdf5')
-    data = np.sort(data)
-    
-    transit_search(data, 'sde', patches=[147, 266, 269], nprocs=4)
-    
-    return
-
-if __name__ == '__main__':
-    main()
