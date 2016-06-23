@@ -6,13 +6,11 @@ import glob
 
 import h5py
 import numpy as np
-from numpy.lib.recfunctions import stack_arrays
 
 import misc
 import IO
 from coordinates import grids
 from systematics import cdecor
-from statistics import statistics
 
     
 class CoarseDecorrelation(object):
