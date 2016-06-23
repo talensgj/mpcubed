@@ -239,6 +239,7 @@ class CoarseDecorrelation(object):
         # Read global information.
         with h5py.File(self.LBfile, 'r') as f:
             
+            filelist = f['global/filelist'].value
             station = f['global'].attrs['station']
             camera = f['global'].attrs['camera']
             
@@ -301,6 +302,7 @@ class CoarseDecorrelation(object):
             # Write the header.
             hdr = f.create_group('header')
             
+            hdr.create_dataset('filelist', data=filelist)
             hdr.attrs['station'] = station
             hdr.attrs['camera'] = camera
             

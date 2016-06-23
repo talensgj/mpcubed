@@ -218,8 +218,8 @@ class CorrectLC():
             # Get the binned corrected lightcurve.
             lc = self.binned_corrected_lightcurve(self.ascc[i])
             
-            if len(lc['mag0']) > 0:
-                nobs[i] = len(lc['mag0'])
+            if (len(lc['jdmid']) > 0):
+                nobs[i] = len(lc['jdmid'])
                 lstseqmin[i] = np.amin(lc['lstseq'])
                 lstseqmax[i] = np.amax(lc['lstseq'])
             
