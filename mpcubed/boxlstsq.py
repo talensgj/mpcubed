@@ -221,7 +221,11 @@ def boxlstsq(time, flux, weights, **options):
         dchisq_tmp = s**2*t/(r*(t - r))
         
         nmin = duration_tmp/(320./(24.*3600.))
-        dchisq_tmp[n < nmin[:,None]] = 0
+        if (dchisq.ndim > 1):
+            dchisq_tmp[n < nmin[:,None]] = 0
+        else:
+            dchisq_tmp[n < nmin] = 0
+        
         dchisq_tmp[(nmax - n) < 1] = 0
         
         # Select the best solution.
