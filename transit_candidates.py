@@ -25,7 +25,7 @@ from mpcubed import IO
 from mpcubed import misc
 from mpcubed.models import transit
 
-from transit_search import read_header, read_data
+from mpcubed.transit_search import read_header, read_data
     
 def new_flags(star, pars):
     
@@ -140,29 +140,26 @@ def refine_fit(jdmid, mag, emag, mask, box_pars, display=False):
     box_mod = box_mod + m
     box_pars = np.append(box_pars, m)
     
-    box_chisq = transit.box_chisq(box_pars, jdmid, mag, emag)
-    
     # Initial guess for the refined fit.
     sbox_pars = np.insert(box_pars, -1, 10.)
     
-    # Perform the refined fit.
-    try:
-        time0 = np.amin(jdmid)
-        x = jdmid - time0
-        sbox_pars[1] = sbox_pars[1] - time0
-        sbox_pars, pcov = optimize.curve_fit(transit.softbox, x, mag, sbox_pars, sigma=emag, absolute_sigma=True)
-        sbox_pars[1] = sbox_pars[1] + time0
-    except:
-        flag = 1
-        sbox_mod = box_mod
-        sbox_chisq = box_chisq
-    else:
-        flag = 0
-        sbox_mod = transit.softbox(jdmid, *sbox_pars)
-        sbox_chisq = transit.softbox_chisq(sbox_pars, jdmid, mag, emag)
+    bounds = [(sbox_pars[0] - 2*sbox_pars[3], sbox_pars[0] + 2*sbox_pars[3]),
+              (sbox_pars[1] - sbox_pars[0]/2, sbox_pars[1] + sbox_pars[0]/2),
+              (None, None),
+              (.1*sbox_pars[3], 5*sbox_pars[3]),
+              (None, None),
+              (None, None)]
+              
+    # Perform the refined fit.          
+    res = optimize.minimize(transit.softbox_chisq, sbox_pars, args=(jdmid, mag, emag), bounds=bounds)    
+    sbox_pars = res['x']
+    sbox_chisq = res['fun']     
     
     # Show the result.
     if display:
+        
+        sbox_mod = transit.softbox(jdmid, *sbox_pars)             
+        
         ax = plt.subplot(211)
         ax.invert_yaxis()
         
@@ -193,7 +190,7 @@ def refine_fit(jdmid, mag, emag, mask, box_pars, display=False):
         plt.show()
         plt.close()
     
-    return sbox_pars, sbox_chisq, flag
+    return sbox_pars, sbox_chisq
 
 def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, flag, outdir=None):
     
@@ -212,7 +209,7 @@ def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, f
         line1 = line1 + ', HD {}'.format(star['hd'])
     else:
         line1 = line1 + ', TYC {}-{}-{}'.format(star['tyc1'], star['tyc2'], star['tyc3'])
-    line2 = '\n$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days, $N_t = {:.1f}$, flag={}'.format(pars[2]*100, pars[0], pars[3], Nt, flag)
+    line2 = '\n$\delta={:.1f}$%, $P={:.4f}$ days, $\eta={:.1f}$ hours, $N_t = {:.1f}$, flag={}'.format(pars[2]*100, pars[0], pars[3]*24, Nt, flag)
     
     plt.suptitle(line1 + line2, size='xx-large')
     
@@ -222,7 +219,7 @@ def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, f
     plt.plot(freq, dchisq, c=(0,0,0))
     
     freq = 1/pars[0]
-    plt.axvline(freq, c=(0./255,109./255,219./255), ls='--')
+    plt.axvline(freq, c=(0./255,109./255,219./255))
     for n in range(2, 5):
         plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--')
         plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--')
@@ -263,7 +260,7 @@ def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, f
     # Plot the binned data and the best-fit refined model.
     ax = plt.subplot(gs[3,:])
     
-    sbox_pars, chisq, flag = refine_fit(jdmid, mag, emag, mask, pars)
+    sbox_pars, chisq = refine_fit(jdmid, mag, emag, mask, pars)
     phase = (jdmid - sbox_pars[1])/sbox_pars[0]
     phase = np.mod(phase+.5, 1.)-.5
         
@@ -287,7 +284,7 @@ def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, f
     mod = transit.softbox(jdmid, *sbox_pars)
     mod_bin = transit.softbox(phase_bin*sbox_pars[0]+sbox_pars[1], *sbox_pars) 
         
-    plt.title(r'$\delta={:.1f}$%, $P={:.2f}$ days, $\eta={:.2f}$ days'.format(sbox_pars[2]*100, sbox_pars[0], sbox_pars[3]))
+    plt.title(r'$\delta={:.1f}$%, $P={:.4f}$ days, $\eta={:.1f}$ hours'.format(sbox_pars[2]*100, sbox_pars[0], sbox_pars[3]*24))
     plt.plot(phase, mag, '.', c=(0,0,0), alpha=.5)
     plt.errorbar(phase_bin, mag_bin, emag_bin, fmt='o', c=(0./255,109./255,219./255))
     plt.plot(phase_plot, mod_plot, c=(146./255,0,0), lw=2)
@@ -317,6 +314,13 @@ def plot_candidate(ascc, star, freq, dchisq, jdmid, mag, emag, mask, pars, Nt, f
     plt.close()
     
     return
+    
+def robust_sde(dchisq):
+
+    m0, m1 = misc.sigma_clip(dchisq)
+    sde = (dchisq - m0)/m1
+    
+    return sde
     
 def candidates(directory, outdir='candidates'):
     
@@ -371,7 +375,7 @@ def candidates(directory, outdir='candidates'):
         hdr = f.read_header(fields)
         ascc, flag, period, depth, epoch, duration, nt = tuple(hdr[field] for field in fields)
         
-        if np.all(flag > 0):
+        if np.all(flag > 1):
             continue
         
         fields = ['freq', 'dchisq']
@@ -389,7 +393,7 @@ def candidates(directory, outdir='candidates'):
         
         for i in range(len(ascc)):
             
-            if (flag[i] != 0):
+            if (flag[i] > 1):
                 continue
             
             star = cat.get_star(ascc[i])
@@ -407,8 +411,11 @@ def candidates(directory, outdir='candidates'):
                 new_flag += 8
             
             # Compute signal-to-red-noise.
-            SNr = 0
-            scale = 0
+            sde = robust_sde(dchisq[:,i])
+            sde = np.amax(sde)            
+            
+#            SNr = 0
+#            scale = 0
             #SNr, scale = scale_sigma(jdmid, mag[i], emag[i], mask[i], pars)
             #if (SNr < 5.): 
                 #new_flag += 16
@@ -423,7 +430,7 @@ def candidates(directory, outdir='candidates'):
             fields = ['plx', 'sptype', 'vmag', 'bmag', 'hd', 'tyc1', 'tyc2', 'tyc3']
             row = row + [star[field] for field in fields]   
             row = row + [flag[i], period[i], epoch[i], depth[i], duration[i]]
-            row = row + [new_flag, Rstar, Rplanet, SN[i], SNr, SNe]
+            row = row + [new_flag, Rstar, Rplanet, SN[i], sde, SNe]
 
             # Write the row to file.
             with open(outfile, 'a') as csvfile:
@@ -434,7 +441,7 @@ def candidates(directory, outdir='candidates'):
 
 def main():
     
-    candidates('/data3/talens/boxlstsq/test')
+    candidates('/data3/talens/boxlstsq/2015LPC')
     
     return
 
