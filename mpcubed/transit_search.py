@@ -13,6 +13,7 @@ import boxlstsq
 from coordinates import grids
 from statistics import statistics
 from systematics import detrend
+import transit_statistics as stats
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -201,53 +202,34 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     
     # Run the box least-squares search.
     weights = np.where(mask, 0., 1./emag**2)
-    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T)
+    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T, (~mask).T)
     
     if freq is None:
         print 'freq = None', skyidx
         return 
     
-    # Find the peak in the periodogram.
-    args1 = np.argmax(dchisq, axis=0)
-    args2 = np.arange(mag.shape[0])
+    # Best fit parameters and statistics from the periodogram.
+    freq0, dchisq0, epoch0, depth0, duration0, sde, atr = stats.bls_crit(freq, dchisq, epoch, depth, duration)
     
-    best_freq = freq[args1]
-    best_chisq = chisq0 - dchisq[args1, args2]
-    best_depth = depth[args1, args2]
-    best_epoch = epoch[args1, args2]
-    best_duration = duration[args1, args2]
-    best_nt = nt[args1, args2]
-    
-    # Create flags.
-    flag = np.zeros(mag.shape[0], dtype='int')
-    
-    # Check the best fit chi-square.
-    nobs = np.sum(~mask, axis=1)
-    quality = best_chisq/nobs
-    args, = np.where(quality > 4)
-    flag[args] = flag[args] + 1
-        
-    # Check the anti-transit ratio.
-    tmp = dchisq*np.sign(depth)
-    ratio = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
-    args, = np.where(ratio < 1.5)
-    flag[args] = flag[args] + 2
-    
-    # Check the phase coverage.
-    q = boxlstsq.phase_duration(best_freq, 1., 1.)
-    phase = np.outer(jdmid, best_freq)
-    phase = np.mod(phase, 1.)
-    phase = np.sort(phase, axis=0)
-    gapsizes = np.diff(phase, axis=0)
-    gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
-    gapsizes = np.amax(gapsizes, axis=0)/q
-    args, = np.where(gapsizes > 2.5)
-    flag[args] = flag[args] + 4 
-    
-    # Check the number of observed transits.
-    ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-    args, = np.where(ntransit < 3.)
-    flag[args] = flag[args] + 8
+    # Create arrays.
+    nstars = len(freq0)
+    gap = np.zeros(nstars)
+    sym = np.zeros(nstars)
+    ntr = np.zeros(nstars)
+    ntp = np.zeros(nstars)
+    mst = np.zeros(nstars)
+    eps = np.zeros(nstars)
+    sne = np.zeros(nstars)
+    sw = np.zeros(nstars)
+    sr = np.zeros(nstars)
+    snp = np.zeros(nstars)
+
+    # Statistics from the lightcurve.
+    for i in range(nstars):
+        try:
+            gap[i], sym[i], ntr[i], ntp[i], mst[i], eps[i], sne[i], sw[i], sr[i], snp[i] = stats.lc_crit(jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], freq0[i], epoch0[i], depth0[i], duration0[i])
+        except:
+            pass
     
     # Save the results to file.
     with h5py.File(blsfile) as f:
@@ -255,104 +237,30 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         grp = f.create_group('header')
         grp.create_dataset('ascc', data=ascc)
         grp.create_dataset('chisq0', data=chisq0, dtype='float32')
-        grp.create_dataset('period', data=1./best_freq)
-        grp.create_dataset('depth', data=best_depth, dtype='float32')
-        grp.create_dataset('epoch', data=best_epoch)
-        grp.create_dataset('duration', data=best_duration, dtype='float32')
-        grp.create_dataset('nt', data=best_nt, dtype='uint32')
-        grp.create_dataset('flag', data=flag, dtype='uint32')
+
+        grp.create_dataset('period', data=1./freq0)
+        grp.create_dataset('epoch', data=epoch0)
+        grp.create_dataset('depth', data=depth0, dtype='float32')
+        grp.create_dataset('duration', data=duration0, dtype='float32')
         
+        grp.create_dataset('sde', data=sde, dtype='float32')
+        grp.create_dataset('atr', data=atr, dtype='float32')
+        grp.create_dataset('gap', data=gap, dtype='float32')
+        grp.create_dataset('sym', data=sym, dtype='float32')
+        grp.create_dataset('ntr', data=ntr, dtype='int32')
+        grp.create_dataset('ntp', data=ntp, dtype='int32')
+        grp.create_dataset('mst', data=mst, dtype='float32')
+        grp.create_dataset('eps', data=eps, dtype='float32')
+        grp.create_dataset('sne', data=sne, dtype='float32')
+        grp.create_dataset('sw', data=sw, dtype='float32')
+        grp.create_dataset('sr', data=sr, dtype='float32')
+        grp.create_dataset('snp', data=snp, dtype='float32')
+
         grp = f.create_group('data')
         grp.create_dataset('freq', data=freq)
         grp.create_dataset('dchisq', data=dchisq, dtype='float32')
-        grp.create_dataset('hchisq', data=hchisq, dtype='float32')
-        grp.create_dataset('depth', data=depth, dtype='float32')
-        grp.create_dataset('epoch', data=epoch)
-        grp.create_dataset('duration', data=duration, dtype='float32')
-        grp.create_dataset('nt', data=nt, dtype='uint32')
 
     return
-    
-#def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
-#    """ Perform the box least-squares and flag non-detections."""
-#    
-#    from scipy.ndimage.filters import median_filter
-#    
-#    print 'Computing boxlstsq for skypatch', skyidx
-#    
-#    # Run the box least-squares search.
-#    weights = np.where(mask, 0., 1./emag**2)
-#    freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T)
-#    
-#    if freq is None:
-#        print 'freq = None', skyidx
-#        return 
-#    
-#    # Compute the Signal Detection Efficiency.
-#    footprint = np.ones((91, 1), dtype='bool')
-#    footprint[45] = False
-#    m0 = median_filter(dchisq, footprint=footprint)
-#    m1 = 1.4826*median_filter(np.abs(dchisq - m0), footprint=footprint)
-#    sde = (dchisq - m0)/m1
-#    
-#    # Find the peak in the periodogram.
-#    args1 = np.argmax(sde, axis=0)
-#    args2 = np.arange(mag.shape[0])
-#    
-#    best_freq = freq[args1]
-#    best_chisq = chisq0 - dchisq[args1, args2]
-#    best_depth = depth[args1, args2]
-#    best_epoch = epoch[args1, args2]
-#    best_duration = duration[args1, args2]
-#    best_nt = nt[args1, args2]
-#    
-#    # Create flags.
-#    flag = np.zeros(mag.shape[0], dtype='int')
-#    
-#    # Check the SDE value.
-#    sde_peak = sde[args1, args2]
-#    args, = np.where(sde_peak < 15)
-#    flag[args] = flag[args] + 1
-#    
-#    # Check the phase coverage.
-#    q = boxlstsq.phase_duration(best_freq, 1., 1.)
-#    phase = np.outer(jdmid, best_freq)
-#    phase = np.mod(phase, 1.)
-#    phase = np.sort(phase, axis=0)
-#    gapsizes = np.diff(phase, axis=0)
-#    gapsizes = np.vstack([gapsizes, 1. - np.ptp(phase, axis=0)])
-#    gapsizes = np.amax(gapsizes, axis=0)/q
-#    args, = np.where(gapsizes > 2.5)
-#    flag[args] = flag[args] + 4 
-#    
-#    # Check the number of observed transits.
-#    ntransit = best_nt*(319.1262613/(24*3600))/best_duration
-#    args, = np.where(ntransit < 3.)
-#    flag[args] = flag[args] + 8
-#    
-#    # Save the results to file.
-#    with h5py.File(blsfile) as f:
-#        
-#        grp = f.create_group('header')
-#        grp.create_dataset('ascc', data=ascc)
-#        grp.create_dataset('chisq0', data=chisq0, dtype='float32')
-#        grp.create_dataset('period', data=1./best_freq)
-#        grp.create_dataset('depth', data=best_depth, dtype='float32')
-#        grp.create_dataset('epoch', data=best_epoch)
-#        grp.create_dataset('duration', data=best_duration, dtype='float32')
-#        grp.create_dataset('nt', data=best_nt, dtype='uint32')
-#        grp.create_dataset('flag', data=flag, dtype='uint32')
-#        
-#        grp = f.create_group('data')
-#        grp.create_dataset('freq', data=freq)
-#        grp.create_dataset('dchisq', data=dchisq, dtype='float32')
-#        grp.create_dataset('hchisq', data=hchisq, dtype='float32')
-#        grp.create_dataset('depth', data=depth, dtype='float32')
-#        grp.create_dataset('epoch', data=epoch)
-#        grp.create_dataset('duration', data=duration, dtype='float32')
-#        grp.create_dataset('nt', data=nt, dtype='uint32')
-#
-#    return
     
 def search_skypatch_mp(queue):
     """ Use multiprocessing to perform the transit search."""

@@ -51,39 +51,47 @@ def freqs(fmin, fmax, S, OS, M, R):
     freq = freq*SecInDay
     
     return freq
-    
-def cumsum_to_grid(time, bin_edges, weights):
 
-    nt = len(time)
-    nedges = len(bin_edges)
-    nw = len(weights)
+def cumsum_to_grid(time, bin_edges, flux, weights, mask):
     
-    if (np.diff(bin_edges) < 0).any():
-        raise AttributeError('bins must increase monotonically.')
+    ndim = flux.ndim    
     
-    if (nt != nw):
-        raise ValueError('weights should have the same first dimension as a.')
-    
-    if (weights.ndim > 1):
-        nstars = np.shape(weights)[1]
-        n = np.zeros((nedges,nstars), weights.dtype)
-        zero = np.array([0]*nstars, weights.dtype)
-    else:
-        n = np.zeros((nedges,), weights.dtype)
-        zero = np.array(0, weights.dtype)
-    
-    block = 65536
-    for i in np.arange(0, len(time), block):
-        sa = time[i:i+block]
-        sw = weights[i:i+block]
-        tmp = np.cumsum(sw, axis=0)
-        cw = np.concatenate(([zero,], tmp))
-        bin_index = np.r_[sa.searchsorted(bin_edges[:-1], 'left'), sa.searchsorted(bin_edges[-1], 'right')]
-        n += cw[bin_index]
-    
-    return n
+    if (ndim == 1):
+        flux = np.atleast_2d(flux).T
+        weights = np.atleast_2d(weights).T
+        mask = np.atleast_2d(mask).T
 
-def boxlstsq(time, flux, weights, **options):
+    # Get the sizes of the arrays.
+    nbins = len(bin_edges) 
+    npoints, nstars = flux.shape 
+
+    # Find the bin indices.
+    idx = np.searchsorted(bin_edges, time, 'right') 
+    
+    # Create arrays.
+    r_cum = np.zeros((nbins, nstars))
+    s_cum = np.zeros((nbins, nstars))
+    n_cum = np.zeros((nbins, nstars))
+    
+    # Compute the sums in the bins.
+    for i in range(nstars):
+        r_cum[:,i] = np.bincount(idx, weights[:,i], minlength=nbins)
+        s_cum[:,i] = np.bincount(idx, weights[:,i]*flux[:,i], minlength=nbins) 
+        n_cum[:,i] = np.bincount(idx, mask[:,i], minlength=nbins)
+    
+    # Compute the cumulative sum.
+    r_cum = np.cumsum(r_cum, axis=0)
+    s_cum = np.cumsum(s_cum, axis=0)
+    n_cum = np.cumsum(n_cum, axis=0)
+
+    if (ndim == 1):
+        r_cum = r_cum[:,0]
+        s_cum = s_cum[:,0]
+        n_cum = n_cum[:,0]
+
+    return r_cum, s_cum, n_cum
+
+def boxlstsq(time, flux, weights, mask, **options):
     """ Compute the box least-square periodogram for multiple stars."""
     
     time = np.asarray(time)
@@ -141,11 +149,6 @@ def boxlstsq(time, flux, weights, **options):
         # Compute optimal sampling frequencies in range fmin, fmax.
         freq = freqs(fmin, fmax, S, OS, M, R)
     
-    #print 'Using M=%.2f Msun and R=%.2f Rsun for the stellar parameters.'%(M, R)
-    #print 'Sampling frequencies between fmin=%.2e, fmax=%.2e per day with OS=%i'%(fmin, fmax, OS)
-    #print 'Sampling transit epochs at %.2f time(s) the smallest sampled transit.'%(1./ES)
-    #print 'Sampling transits between %.2f and %.2f time(s) the expected duration in %i steps.'%(1./Qmin, Qmax, NumSteps)
-    
     # Use the transit duration to determine the sampling grid.
     q = phase_duration(freq, M, R)
     nbins = np.ceil((Qmin*ES)/q)
@@ -166,7 +169,6 @@ def boxlstsq(time, flux, weights, **options):
         res_shape = (nfreq, flux.shape[1])
     
     dchisq = np.zeros(res_shape)
-    hchisq = np.zeros(res_shape)
     
     depth = np.zeros(res_shape)
     epoch = np.zeros(res_shape)
@@ -177,20 +179,12 @@ def boxlstsq(time, flux, weights, **options):
     for i in xrange(nfreq):
         
         # Phase fold the lightcurve. 
-        phase = np.mod(time*freq[i], 1.)
-        sort = np.argsort(phase)
-        
-        phase_fold = np.take(phase, sort, axis=0)
-        flux_fold = np.take(flux, sort, axis=0)
-        weights_fold = np.take(weights, sort, axis=0)
+        phase = np.mod(freq[i]*time, 1.)
 
         # Sum the data on a regular grid.
         bins = np.linspace(0., 1., nbins[i] + 1)
-        n_cum = cumsum_to_grid(phase_fold, bins, np.where(weights_fold > 0, 1, 0))
-        r_cum = cumsum_to_grid(phase_fold, bins, weights_fold)
-        s_cum = cumsum_to_grid(phase_fold, bins, weights_fold*flux_fold)
-        q_cum = cumsum_to_grid(phase_fold, bins, weights_fold*flux_fold**2)
-        
+        r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, flux, weights, mask)
+
         nmax = np.amax(n_cum, axis=0)
         
         # Extend the grid to account for all epochs.
@@ -198,7 +192,6 @@ def boxlstsq(time, flux, weights, **options):
         n_cum = np.append(n_cum, n_cum[1:NumSteps*ES] + n_cum[-1], axis=0)
         r_cum = np.append(r_cum, r_cum[1:NumSteps*ES] + r_cum[-1], axis=0)
         s_cum = np.append(s_cum, s_cum[1:NumSteps*ES] + s_cum[-1], axis=0)
-        q_cum = np.append(q_cum, q_cum[1:NumSteps*ES] + q_cum[-1], axis=0)
         
         # Calculate the indices of the start and end of transit for all epochs
         # and durations.
@@ -212,7 +205,6 @@ def boxlstsq(time, flux, weights, **options):
         n = n_cum[i2] - n_cum[i1]
         r = r_cum[i2] - r_cum[i1]
         s = s_cum[i2] - s_cum[i1]
-        q = q_cum[i2] - q_cum[i1]
         
         epoch_tmp = (bins[i1] + bins[i2])/(2*freq[i])
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
@@ -225,7 +217,7 @@ def boxlstsq(time, flux, weights, **options):
             dchisq_tmp[n < nmin[:,None]] = 0
         else:
             dchisq_tmp[n < nmin] = 0
-        
+
         dchisq_tmp[(nmax - n) < 1] = 0
         
         # Select the best solution.
@@ -236,14 +228,12 @@ def boxlstsq(time, flux, weights, **options):
             args_2d = (args_1d, args_2d)
         else:
             args_2d = args_1d
-        
+
         n = n[args_2d]
         r = r[args_2d]
         s = s[args_2d]
-        q = q[args_2d]
         
         dchisq[i] = dchisq_tmp[args_2d]
-        hchisq[i] = chisq0 - s**2/(t - r) - q
         
         depth[i] = s*t/(r*(t - r))
         epoch[i] = epoch_tmp[args_1d]
@@ -252,4 +242,4 @@ def boxlstsq(time, flux, weights, **options):
         
     epoch = epoch + time0
         
-    return freq, chisq0, dchisq, hchisq, depth, epoch, duration, nt
+    return freq, chisq0, dchisq, depth, epoch, duration, nt
