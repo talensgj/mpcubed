@@ -87,8 +87,14 @@ def read_data_array(filename, ascc):
             lstseq_ = grp['lstseq'].value
             jdmid_ = grp['jdmid'].value
             lst_ = grp['lst'].value
-            mag_ = grp['mag0'].value
-            emag_ = grp['emag0'].value
+            
+            try:
+                mag_ = grp['mag0'].value
+                emag_ = grp['emag0'].value
+            except:
+                mag_ = grp['mag1'].value
+                emag_ = grp['emag1'].value
+                
             nobs_ = grp['nobs'].value
             
             emag_ = emag_/np.sqrt(nobs_)
