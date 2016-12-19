@@ -32,7 +32,7 @@ class CoarseDecorrelation(object):
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_pea_ra_'%self.aper
+            prefix = 'sys%i_pea_test_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
@@ -60,9 +60,9 @@ class CoarseDecorrelation(object):
         self.skynx = kwargs.pop('skynx', 23)
     
         # Options to coarse_decor functions.
-        self.maxiter = kwargs.pop('inner_maxiter', 50)
+        self.maxiter = kwargs.pop('maxiter', 20)
         self.dtol = kwargs.pop('dtol', 1e-3)
-        self.verbose = kwargs.pop('verbose', False)
+        self.verbose = kwargs.pop('verbose', True)
     
         # Perform the coarse decorrelation.
         self._calculate()
@@ -181,7 +181,7 @@ class CoarseDecorrelation(object):
         # Perform the coarse decorrelation.
         print 'Performing coarse decorrelation for:', self.LBfile
         for i in range(self.skynx + 2):
-        
+
             here = (ring == i)
             if np.sum(here) == 0:
                 continue
@@ -214,7 +214,7 @@ class CoarseDecorrelation(object):
 
             print 'Computing solution for ring', i
 
-            self.z[camidx], s, self.A[ipxidx], self.sigma1[staridx], sigma2, quality = cdecor_pea.cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=50)
+            self.z[camidx], s, self.A[ipxidx], self.sigma1[staridx], sigma2, quality = cdecor_pea.cdecor(idx1, idx2, idx3, idx4, mag, emag, x, y, maxiter=self.maxiter, dtol=self.dtol, verbose=self.verbose)
         
             widx = np.append(widx, skyidx)
             self.s = np.append(self.s, s)
