@@ -49,6 +49,20 @@ def flux2mag(flux, eflux=None, m0=25.):
     
     return mag
 
+def sigma_clip(array, sigma=5., niter=5):
+    
+    m0 = np.nanmean(array)
+    m1 = np.nanstd(array)
+    
+    mask = np.abs(array - m0) < sigma*m1
+    for i in range(niter):
+        m0 = np.nanmean(array[mask])
+        m1 = np.nanstd(array[mask])
+        
+        mask = np.abs(array - m0) < sigma*m1
+        
+    return m0, m1
+
 def phase(time, period, time_ref=0., fold=True):
     
     phase = (time - time_ref)/period
