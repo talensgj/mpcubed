@@ -98,7 +98,7 @@ class CoarseDecorrelation(object):
         skyidx = np.repeat(skyidx, nobs)
         
         # Remove bad data.
-        here = (flux > 0) & (eflux > 0) & (sky > 0) & (flags < 1)
+        here = (flux > 0) & (eflux > 0) & (flags < 1) & (sky > 0)
         
         flux = flux[here]
         eflux = eflux[here]
@@ -277,8 +277,8 @@ class CoarseDecorrelation(object):
         self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
         
         if self.sigmas:
-            self.sigma1 = np.full(len(self.ascc), fill_value=0)
-            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=0)
+            self.sigma1 = np.full(len(self.ascc), fill_value=0.)
+            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=0.)
         
         self.nobs_m = np.full(len(self.ascc), fill_value=np.nan)
         self.nobs_z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)

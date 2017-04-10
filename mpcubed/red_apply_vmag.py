@@ -69,7 +69,7 @@ class CorrectLC():
         
         # Read data.
         fields = ['x', 'y', 'lst', 'lstseq']
-        x, y, lst, lstseq = self.f.read_data(fields, [ascc], [nobs])
+        x, y, lst, lstseq = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
         lstseq = lstseq.astype('int') - self.lstmin
         
         # Create indices.    
@@ -103,7 +103,7 @@ class CorrectLC():
 
         # Read data.
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
-        flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, [ascc], [nobs])
+        flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
         lstseq = lstseq.astype('int')
         
         # Compute the corrected magnitudes.

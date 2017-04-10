@@ -144,14 +144,14 @@ def boxlstsq(time, flux, weights, mask, **options):
                 
         if (fmax < fmin):
             print 'Error: fmax must be larger than fmin.'
-            return None, None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None
         
         # Compute optimal sampling frequencies in range fmin, fmax.
         freq = freqs(fmin, fmax, S, OS, M, R)
     
     # Use the transit duration to determine the sampling grid.
     q = phase_duration(freq, M, R)
-    nbins = np.ceil((Qmin*ES)/q)
+    nbins = np.ceil((Qmin*ES)/q).astype('int')
     
     # Prepare the data for the loop.
     time0 = np.amin(time)

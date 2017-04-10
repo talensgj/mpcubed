@@ -96,6 +96,8 @@ class fLCfile(object):
         elif nobs is None:
             # If stars are specified but no nobs read nobs from the header.
             nobs, = self.read_header(['nobs'], ascc)
+
+        nobs = nobs.astype('int')            
             
         nstars = len(ascc)
         nfields = len(fields)
