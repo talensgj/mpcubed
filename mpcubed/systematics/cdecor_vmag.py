@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import gc
+
 import numpy as np
 from scipy import linalg
 
@@ -129,8 +131,11 @@ def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verb
         res = value - par2[idx2]
         wsqrt = np.sqrt(weights)
         for i in range(npars3/4):
-            par3[i] = linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
-            ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par3[i])
+            par3[i] = np.linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
+            #ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par3[i])
+            ipx[strides[i]:strides[i+1]] = np.sum(mat[strides[i]:strides[i+1],:]*par3[i], axis=1)
+        
+        gc.collect()        
         
         # Check if the solution has converged.
         if (niter > 0):
