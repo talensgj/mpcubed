@@ -132,6 +132,17 @@ def get_rplanet(depth, Rstar):
     
     return Rplanet
     
+def round_to_significance(value, error1, error2=None):
+    
+    ndigits = -int(np.floor(np.log10(error1)))  
+    
+    if error2 is None:    
+        return ndigits, round(value, ndigits), round(error1, ndigits)
+    
+    ndigits = np.maximum(ndigits, -int(np.floor(np.log10(-error2)))) 
+    
+    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)    
+    
 #def transits(jdmid, pars):
     
     #phase = (jdmid - pars[1])/pars[0]
