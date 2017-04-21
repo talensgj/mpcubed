@@ -16,7 +16,7 @@ from collections import namedtuple
 
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
-def cdecor(idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor(idx2, value, error, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation.
 
     Args:
@@ -72,7 +72,7 @@ def cdecor(idx2, value, error, maxiter=100, dtol=1e-3, verbose=True):
     
     return par2, Quality(niter, chisq, npoints, npars)
 
-def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with intrapixel variations.
     
     Args:
@@ -136,10 +136,7 @@ def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verb
         wsqrt = np.sqrt(weights)
         for i in range(npars3/4):
             par3[i] = np.linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
-            #ipx[strides[i]:strides[i+1]] = np.dot(mat[strides[i]:strides[i+1],:], par3[i])
-            ipx[strides[i]:strides[i+1]] = np.sum(mat[strides[i]:strides[i+1],:]*par3[i], axis=1)
-        
-        gc.collect()        
+            ipx[strides[i]:strides[i+1]] = np.sum(mat[strides[i]:strides[i+1],:]*par3[i], axis=1)   
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -159,7 +156,7 @@ def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verb
     
     return par2, par3, Quality(niter, chisq, npoints, npars)
     
-def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
+def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with extra error terms.
     
     Args:
@@ -189,12 +186,10 @@ def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
-    npars1 = np.amax(idx1) + 1
     npars2 = np.amax(idx2) + 1
     npars = npars2
     
     # Create arrays.
-    par1 = np.zeros(npars1)
     par2 = np.zeros(npars2)
     
     for niter in range(maxiter):
