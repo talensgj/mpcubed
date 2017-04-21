@@ -48,7 +48,7 @@ class SysPlot(object):
         alt0, az0, th0, x0, y0 = f.read_pointing()
         
         # Initialize the coordinate transformations.
-        site = mascara.observer.Site('LaPalma')
+        site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
         #cam = mascara.observer.Camera('east')
         cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
         
@@ -71,7 +71,7 @@ class SysPlot(object):
         alt0, az0, th0, x0, y0 = f.read_pointing()
         
         # Initialize the coordinate transformations.
-        site = mascara.observer.Site('LaPalma')
+        site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
         #cam = mascara.observer.Camera('east')
         cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
         
@@ -94,7 +94,7 @@ class SysPlot(object):
         alt0, az0, th0, x0, y0 = f.read_pointing()
         
         # Initialize the coordinate transformations.
-        site = mascara.observer.Site('LaPalma')
+        site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
         #cam = mascara.observer.Camera('east')
         cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
         
