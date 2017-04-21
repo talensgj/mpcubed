@@ -144,19 +144,14 @@ class CoarseDecorrelation(object):
                 emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
             
             # Create unique indices.
-            staridx, ind1 = np.unique(staridx, return_inverse=True)
             camtransidx, ind2 = np.unique(camtransidx, return_inverse=True)
             intrapixidx, ind3 = np.unique(intrapixidx, return_inverse=True)
             
             # Calculate new spatial correction.
             z, A, quality = cdecor_vmag.cdecor_intrapix(ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
-            # Simple magnitude calibration.
-            #offset = np.nanmedian(m - self.vmag[staridx])
-            
             # Store results.
-            #self.m[staridx] = m - offset
-            self.z[camtransidx, decidx[idx]] = z #+ offset
+            self.z[camtransidx, decidx[idx]] = z
             self.A[intrapixidx, decidx[idx]] = A
             
             self.spatial_niter[idx] = quality.niter
@@ -164,7 +159,6 @@ class CoarseDecorrelation(object):
             self.spatial_npoints[idx] = quality.npoints
             self.spatial_npars[idx] = quality.npars 
             
-            #self.nobs_m[staridx] = np.bincount(ind1)
             self.nobs_z[camtransidx, decidx[idx]] = np.bincount(ind2)
             self.nobs_A[intrapixidx, decidx[idx]] = np.bincount(ind3)
             
@@ -198,12 +192,8 @@ class CoarseDecorrelation(object):
             else:
                 s, quality = cdecor_vmag.cdecor(ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
             
-            # Simple magnitude calibration.
-            #offset = np.nanmedian(m - self.vmag[staridx])
-            
             # Store results.
-            #self.m[staridx] = m - offset
-            self.s[skyidx[idx], lstseq] = s #+ offset
+            self.s[skyidx[idx], lstseq] = s
             
             if self.sigmas:
                 self.sigma1[staridx] = sigma1
@@ -214,7 +204,7 @@ class CoarseDecorrelation(object):
             self.temporal_npoints[idx] = quality.npoints
             self.temporal_npars[idx] = quality.npars 
             
-            #self.nobs_m[staridx] = np.bincount(ind1)
+            self.nobs_m[staridx] = np.bincount(ind1)
             self.nobs_s[skyidx[idx], lstseq] = np.bincount(ind2)
             
         self.got_sky = True
@@ -271,7 +261,7 @@ class CoarseDecorrelation(object):
         self.temporal_npoints = np.full(nbins, fill_value = np.nan)
         self.temporal_npars = np.full(nbins, fill_value = np.nan)
         
-        self.m = np.copy(self.vmag) #np.full(len(self.ascc), fill_value=np.nan)
+        self.m = np.copy(self.vmag)
         self.z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
         self.A = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4), fill_value=np.nan)
         self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
