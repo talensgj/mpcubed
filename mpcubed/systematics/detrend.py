@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from numpy.polynomial import legendre
 
 from ..models import fourier
 
@@ -59,8 +60,8 @@ def psf_variations(jdmid, lst, value, weights, ns, step=(.003693591 ,320./3600.)
     
     # Evaluate the fit.
     n = 2*len(freq1)
-    fit1 = np.dot(mat[:,:n], pars[:n])
-    fit2 = np.dot(mat[:,n:], pars[n:])
+    fit1 = np.sum(mat[:,:n]*pars[:n], axis=1)
+    fit2 = np.sum(mat[:,n:]*pars[n:], axis=1)
     
     # Calculate the chi-square value of the fit.
     chisq = weights*(value - fit1 - fit2)**2
@@ -68,6 +69,56 @@ def psf_variations(jdmid, lst, value, weights, ns, step=(.003693591 ,320./3600.)
 
     return freq1, freq2, pars[:n], pars[n:], fit1, fit2, chisq
 
+def wrap_lst(lst):
+    
+    sort = np.argsort(lst)
+    gap = np.amax(np.diff(lst[sort])) 
+    arg = np.argmax(np.diff(lst[sort]))
+    gap0 = (np.amin(lst) + 24.) - np.amax(lst) # Gap across lst=0.
+    
+    if (gap > gap0):
+        
+        lst = np.mod(lst - lst[sort][arg+1], 24.)
+    
+    return lst
+    
+def scale(x):
+    
+    xmax = np.amax(x)
+    xmin = np.amin(x)    
+    
+    x = (x - xmin)/(xmax - xmin)
+    x = 2.*x - 1.    
+    
+    return x
+
+def detrend_pol(jd, lst, mag, emag, scale0=3., scale1=.25):
+    
+    # Offset.
+    mat = [np.ones(len(mag))]    
+        
+    # Long-term variations.
+    deg0 = int(np.floor(np.ptp(jd)/scale0))
+    x = scale(jd)
+    mat0 = legendre.legvander(x, deg0)[:,1:]
+    mat.append(mat0)        
+        
+    # PSF variations.
+    lst = wrap_lst(lst)
+    deg1 = int(np.floor(np.ptp(lst)/scale1))
+    x = scale(lst)
+    mat1 = legendre.legvander(x, deg1)[:,1:]
+    mat.append(mat1)
+    
+    # Solve.
+    mat = np.column_stack(mat)
+    pars = np.linalg.lstsq(mat/emag[:,None], mag/emag)[0]
+
+    # Evaluate.
+    fit0 = np.sum(pars[:deg0+1]*mat[:,:deg0+1], axis=1)
+    fit1 = np.sum(pars[deg0+1:]*mat[:,deg0+1:], axis=1)
+    
+    return fit0, fit1
 
 #def masc_harmonic(jdmid, lst, value, weights, Pjd, njd, Plst, nlst, cnst=False):
     #""" Compute the best fit model for the long-term and LST trends. """
