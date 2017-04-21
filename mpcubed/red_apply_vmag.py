@@ -112,7 +112,7 @@ class CorrectLC():
         mag = mag - trans - intrapix - clouds
         
         # Remove flagged data.
-        mask = (flux > 0) & (eflux > 0) & (sky > 0) & (flag < 1) & (flags < 1)
+        mask = (flux > 0) & (eflux > 0) & (flag < 1) & (flags < 1) & (sky > 0) 
 
         mag = mag[mask]
         emag = emag[mask]
