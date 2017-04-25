@@ -7,76 +7,21 @@ import glob
 import h5py
 import numpy as np
 
-import misc
-import IO
-from coordinates import grids
-from systematics import sigmas
+import multiprocessing as mp
+
+from . import misc
+from . import IO
+from .coordinates import grids
+from .systematics import sigmas
 
 from collections import namedtuple
 
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
-def cdecor(idx2, value, error, maxiter=100, dtol=1e-3, verbose=False):
-    """ Perform a coarse decorrelation.
-
-    Args:
-        idx1 (int): Indices along which to calculate the first parameter.
-        idx2 (int): Indices along which to calculate the second parameter.
-        value (float): Values to fit.
-        error (float): Measurement errors corresponding to the values.
-        maxiter (int): The maximum number of iterations to perform. Defualt
-            is 100.
-        dtol (float): Maximum allowed change in the parameters, iteration
-            terminates if the cahnge falls below this value. Default is 1e-3.
-        verbose (bool): Output the current iteration. Default is True.
-
-    Returns:
-        par1 (float): The parameters corresponding to idx1.
-        par2 (float): The parameters corresponding to idx2.
-        quality: A named tuple with fields niter, chisq, npoints and npars
-            describing the number of iterations, the chi-square value, the
-            number of datapoints and the number of parameters of the fit.
-
-    """
-    
-    # Determine the number of datapoints and parameters to fit.
-    npoints = len(value)
-    npars2 = np.amax(idx2) + 1
-    npars = npars2
-    
-    # Create arrays.
-    weights = 1./error**2
-    par2 = np.zeros(npars2)
-    
-    for niter in range(maxiter):
-        
-        if verbose:
-            print 'niter = {}'.format(niter)
-        
-        # Compute the parameters.
-        par2 = np.bincount(idx2, weights*value)/np.bincount(idx2, weights)
-        
-        # Check if the solution has converged.
-        if (niter > 0):
-            
-            dcrit2 = np.nanmax(np.abs(par2 - par2_old))
-            
-            if (dcrit2 < dtol):
-                break
-        
-        par2_old = np.copy(par2)
-    
-    # Compute the chi-square of the fit.
-    chisq = weights*(value - par2[idx2])**2        
-    chisq = np.sum(chisq)
-    
-    return par2, Quality(niter, chisq, npoints, npars)
-
-def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=False):
+def cdecor_spatial(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with intrapixel variations.
     
     Args:
-        idx1 (int): Indices along which to calculate the first parameter.
         idx2 (int): Indices along which to calculate the second parameter.
         idx3 (int): Indices along which to calculate the intrapixel variations.
         value (float): Values to fit.
@@ -90,7 +35,6 @@ def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verb
         verbose (bool): Output the current iteration. Default is True.
         
     Returns:
-        par1 (float): The parameters corresponding to idx1.
         par2 (float): The parameters corresponding to idx2.
         par3 (float): The amplitudes of the intrapixel variations corresponding
             to idx3.
@@ -156,7 +100,7 @@ def cdecor_intrapix(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verb
     
     return par2, par3, Quality(niter, chisq, npoints, npars)
     
-def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=False):
+def cdecor_temporal(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e-3, verbose=True):
     """ Perform a coarse decorrelation with extra error terms.
     
     Args:
@@ -174,7 +118,6 @@ def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e
         verbose (bool): Output the current iteration. Default is True.
         
     Returns:
-        par1 (float): The parameters corresponding to idx1.
         par2 (float): The parameters corresponding to idx2.
         sigma1 (float): The extra error corresponding to idx1.
         sigma2 (float): The extra error corresponding to idx2.
@@ -228,6 +171,36 @@ def cdecor_sigmas(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=1e
     
     return par2, sigma1, sigma2, Quality(niter, chisq, npoints, npars)
     
+def spatial_worker(in_queue, out_queue, maxiter, dtol, verbose):
+    
+    while True:
+        
+        item = in_queue.get()
+    
+        if (item == 'DONE'):
+            break
+        else:
+            idx, camtransidx, intrapixidx, idx2, idx4, mag, emag, x, y = item
+            trans, amp, quality = cdecor_spatial(idx2, idx4, mag, emag, x, y, maxiter, dtol, verbose)
+            out_queue.put((idx, camtransidx, intrapixidx, trans, amp, quality))
+
+    return    
+    
+def temporal_worker(in_queue, out_queue, maxiter, dtol, verbose):
+    
+    while True:
+        
+        item = in_queue.get()
+        
+        if (item == 'DONE'):
+            break
+        else:
+            idx, staridx, lstseq, idx1, idx3, mag, emag, sig1, sig2 = item
+            clouds, sig1, sig2, quality = cdecor_temporal(idx1, idx3, mag, emag, sig1, sig2, maxiter, dtol, verbose)
+            out_queue.put((idx, staridx, lstseq, clouds, sig1, sig2, quality))
+
+    return 
+    
 class CoarseDecorrelation(object):
     
     def __init__(self, LBfile, aperture, sysfile = None, **kwargs):
@@ -261,8 +234,8 @@ class CoarseDecorrelation(object):
             print 'Writing results to:', self.sysfile
         
         # Initialize with defualt parameters unless arguments were given.
-        self.sigmas = kwargs.pop('sigmas', True)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
+        self.nprocs = kwargs.pop('nprocs', 4)
         
         self.camgrid = 'polar'
         self.camnx = kwargs.pop('camnx', 13500)
@@ -285,7 +258,7 @@ class CoarseDecorrelation(object):
     
         return
     
-    def _read_data(self, here): # Clean up the funcion call.
+    def _read_data(self, here):
         """ Read a portion of the data, create indices and remove flagged
         datapoints."""
         
@@ -329,8 +302,6 @@ class CoarseDecorrelation(object):
         
         # Convert flux to magnitudes:
         mag, emag = misc.flux2mag(flux, eflux)
-        
-        ### FIXED V
         mag = mag - self.vmag[staridx]
         
         return mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, skyidx, lstseq
@@ -340,87 +311,111 @@ class CoarseDecorrelation(object):
         variations.
         """
         
-        decidx, decuni = np.unique(self.decidx, return_inverse=True)
-    
-        nbins = len(decidx)
-        for idx in range(nbins):
+        mngr = mp.Manager()
+        in_queue = mp.Queue(2*self.nprocs)
+        out_queue = mngr.Queue()
+        the_pool = mp.Pool(self.nprocs, spatial_worker, (in_queue, out_queue, self.inner_maxiter, self.dtol, self.verbose))        
+        
+        decidx = np.unique(self.decidx)
+        
+        for idx in decidx:
             
             # Read data.
-            here = (decuni == idx)
+            here = (self.decidx == idx)
             mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self._read_data(here)
             
             if (len(mag) == 0): continue
             
             # Apply known temporal correction.
             if self.got_sky:
-                mag = mag - self.s[skyidx, lstseq]
-            
-            if self.got_sky & self.sigmas:
-                emag = np.sqrt(emag**2 + self.sigma1[staridx]**2 + self.sigma2[skyidx, lstseq]**2)
+                mag = mag - self.clouds['clouds'][skyidx, lstseq]
+                emag = np.sqrt(emag**2 + self.magnitudes['sigma'][staridx]**2 + self.clouds['sigma'][skyidx, lstseq]**2)
             
             # Create unique indices.
-            camtransidx, ind2 = np.unique(camtransidx, return_inverse=True)
-            intrapixidx, ind3 = np.unique(intrapixidx, return_inverse=True)
+            camtransidx, idx2 = np.unique(camtransidx, return_inverse=True)
+            intrapixidx, idx3 = np.unique(intrapixidx, return_inverse=True)
             
-            # Calculate new spatial correction.
-            z, A, quality = cdecor_intrapix(ind2, ind3, mag, emag, x, y, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+            self.trans['nobs'][camtransidx, idx] = np.bincount(idx2)
+            self.intrapix['nobs'][intrapixidx, idx] = np.bincount(idx3)
+            
+            in_queue.put((idx, camtransidx, intrapixidx, idx2, idx3, mag, emag, x, y))            
+            
+        for i in range(self.nprocs):
+            in_queue.put('DONE')
+            
+        the_pool.close()
+        the_pool.join()
+                        
+        out_queue.put('DONE')            
+            
+        for item in iter(out_queue.get, 'DONE'):
+            
+            idx, camtransidx, intrapixidx, trans, amplitudes, quality = item        
             
             # Store results.
-            self.z[camtransidx, decidx[idx]] = z
-            self.A[intrapixidx, decidx[idx]] = A
+            self.trans['trans'][camtransidx, idx] = trans
+            self.intrapix['amplitudes'][intrapixidx, idx] = amplitudes
             
-            self.spatial_niter[idx] = quality.niter
-            self.spatial_chisq[idx] = quality.chisq
-            self.spatial_npoints[idx] = quality.npoints
-            self.spatial_npars[idx] = quality.npars 
-            
-            self.nobs_z[camtransidx, decidx[idx]] = np.bincount(ind2)
-            self.nobs_A[intrapixidx, decidx[idx]] = np.bincount(ind3)
+            self.spatial['niter'][idx] = quality.niter
+            self.spatial['chisq'][idx] = quality.chisq
+            self.spatial['npoints'][idx] = quality.npoints
+            self.spatial['npars'][idx] = quality.npars 
             
         return
         
     def _temporal(self):
         """ Solve for the time-dependent sky transmission."""
         
-        skyidx, skyuni = np.unique(self.skyidx, return_inverse=True)
+        mngr = mp.Manager()
+        in_queue = mp.Queue(2*self.nprocs)
+        out_queue = mngr.Queue()
+        the_pool = mp.Pool(self.nprocs, temporal_worker, (in_queue, out_queue, self.inner_maxiter, self.dtol, self.verbose))         
         
-        nbins = len(skyidx)
-        for idx in range(nbins):
+        skyidx = np.unique(self.skyidx)
+        
+        for idx in skyidx:
             
             # Read data.
-            here = (skyuni == idx)
+            here = (self.skyidx == idx)
             mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, _, lstseq = self._read_data(here)
             
             if (len(mag) == 0): continue
             
             # Apply known spatial correction.
-            mag = mag - self.z[camtransidx, decidx]
-            mag = mag - np.sum(self.A[intrapixidx, decidx]*np.array([np.sin(2*np.pi*x), np.cos(2*np.pi*x), np.sin(2*np.pi*y), np.cos(2*np.pi*y)]).T, axis=1)
+            mag = mag - self.trans['trans'][camtransidx, decidx]
+            mag = mag - np.sum(self.intrapix['amplitudes'][intrapixidx, decidx]*np.array([np.sin(2*np.pi*x), np.cos(2*np.pi*x), np.sin(2*np.pi*y), np.cos(2*np.pi*y)]).T, axis=1)
             
             # Create unique indices.
-            staridx, ind1 = np.unique(staridx, return_inverse=True)
-            lstseq, ind2 = np.unique(lstseq, return_inverse=True)
+            staridx, idx1 = np.unique(staridx, return_inverse=True)
+            lstseq, idx2 = np.unique(lstseq, return_inverse=True)
             
-            # Calculate new temporal correction.
-            if self.sigmas:
-                s, sigma1, sigma2, quality = cdecor_sigmas(ind1, ind2, mag, emag, self.sigma1[staridx], self.sigma2[skyidx[idx], lstseq], maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
-            else:
-                s, quality = cdecor(ind2, mag, emag, maxiter = self.inner_maxiter, dtol = self.dtol, verbose = self.verbose)
+            self.magnitudes['nobs'][staridx] = np.bincount(idx1)
+            self.clouds['nobs'][idx, lstseq] = np.bincount(idx2)
+
+            in_queue.put((idx, staridx, lstseq, idx1, idx2, mag, emag, self.magnitudes['sigma'][staridx], self.clouds['sigma'][idx, lstseq]))
+            
+        for i in range(self.nprocs):
+            in_queue.put('DONE')
+            
+        the_pool.close()
+        the_pool.join()
+                        
+        out_queue.put('DONE')              
+              
+        for item in iter(out_queue.get, 'DONE'):
+            
+            idx, staridx, lstseq, clouds, sigma1, sigma2, quality = item            
             
             # Store results.
-            self.s[skyidx[idx], lstseq] = s
+            self.magnitudes['sigma'][staridx] = sigma1
             
-            if self.sigmas:
-                self.sigma1[staridx] = sigma1
-                self.sigma2[skyidx[idx], lstseq] = sigma2
+            self.clouds['clouds'][idx, lstseq] = clouds
+            self.clouds['sigma'][idx, lstseq] = sigma2
             
-            self.temporal_niter[idx] = quality.niter
-            self.temporal_chisq[idx] = quality.chisq
-            self.temporal_npoints[idx] = quality.npoints
-            self.temporal_npars[idx] = quality.npars 
-            
-            self.nobs_m[staridx] = np.bincount(ind1)
-            self.nobs_s[skyidx[idx], lstseq] = np.bincount(ind2)
+            self.temporal['niter'][idx] = quality.niter
+            self.temporal['chisq'][idx] = quality.chisq
+            self.temporal['npoints'][idx] = quality.npoints
+            self.temporal['npars'][idx] = quality.npars 
             
         self.got_sky = True
             
@@ -463,32 +458,43 @@ class CoarseDecorrelation(object):
         self.lstmin = lstmin
         lstlen = lstmax - lstmin + 1
         
-        # Create arrays to hold the results.
-        nbins = len(np.unique(self.decidx))
-        self.spatial_niter = np.full(nbins, fill_value = np.nan)
-        self.spatial_chisq = np.full(nbins, fill_value = np.nan)
-        self.spatial_npoints = np.full(nbins, fill_value = np.nan)
-        self.spatial_npars = np.full(nbins, fill_value = np.nan)
+        # The spatial calculation statistics.
+        self.spatial = dict()
+        self.spatial['niter'] = np.zeros(self.camgrid.ny+2, dtype='uint')
+        self.spatial['chisq'] = np.full(self.camgrid.ny+2, fill_value=np.nan)
+        self.spatial['npoints'] = np.zeros(self.camgrid.ny+2, dtype='uint')
+        self.spatial['npars'] = np.zeros(self.camgrid.ny+2, dtype='uint')
         
-        nbins = len(np.unique(self.skyidx))
-        self.temporal_niter = np.full(nbins, fill_value = np.nan)
-        self.temporal_chisq = np.full(nbins, fill_value = np.nan)
-        self.temporal_npoints = np.full(nbins, fill_value = np.nan)
-        self.temporal_npars = np.full(nbins, fill_value = np.nan)
+        # The temporal calculation statistics.
+        self.temporal = dict()
+        self.temporal['niter'] = np.zeros(self.skygrid.npix, dtype='uint')
+        self.temporal['chisq'] = np.full(self.skygrid.npix, fill_value=np.nan)
+        self.temporal['npoints'] = np.zeros(self.skygrid.npix, dtype='uint')
+        self.temporal['npars'] = np.zeros(self.skygrid.npix, dtype='uint')
         
-        self.m = np.copy(self.vmag)
-        self.z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
-        self.A = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4), fill_value=np.nan)
-        self.s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        # The magnitudes.
+        self.magnitudes = dict()
+        self.magnitudes['ascc'] = self.ascc 
+        self.magnitudes['vmag'] = self.vmag
+        self.magnitudes['nobs'] = np.zeros(len(self.ascc), dtype='uint32')
+        self.magnitudes['mag'] = np.copy(self.vmag)
+        self.magnitudes['sigma'] = np.zeros(len(self.ascc))
         
-        if self.sigmas:
-            self.sigma1 = np.full(len(self.ascc), fill_value=0.)
-            self.sigma2 = np.full((self.skygrid.npix, lstlen), fill_value=0.)
+        # The transmission map.
+        self.trans = dict()
+        self.trans['nobs'] = np.zeros((self.camgrid.nx+2, self.camgrid.ny+2), dtype='uint32')
+        self.trans['trans'] = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
         
-        self.nobs_m = np.full(len(self.ascc), fill_value=np.nan)
-        self.nobs_z = np.full((self.camgrid.nx+2, self.camgrid.ny+2), fill_value=np.nan)
-        self.nobs_A = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2), fill_value=np.nan)
-        self.nobs_s = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        # The intrapixel amplitudes.
+        self.intrapix = dict()
+        self.intrapix['nobs'] = np.zeros((self.ipxgrid.nx+2, self.ipxgrid.ny+2), dtype='uint32')
+        self.intrapix['amplitudes'] = np.full((self.ipxgrid.nx+2, self.ipxgrid.ny+2, 4), fill_value=np.nan)
+        
+        # The cloud corrections.
+        self.clouds = dict()
+        self.clouds['nobs'] = np.zeros((self.skygrid.npix, lstlen), dtype='uint32')
+        self.clouds['clouds'] = np.full((self.skygrid.npix, lstlen), fill_value=np.nan)
+        self.clouds['sigma'] = np.zeros((self.skygrid.npix, lstlen))
         
         self.got_sky = False
         
@@ -522,63 +528,59 @@ class CoarseDecorrelation(object):
             
             hdr.attrs['outer_maxiter'] = self.outer_maxiter
             hdr.attrs['inner_maxiter'] = self.inner_maxiter
-            hdr.attrs['sigmas'] = self.sigmas
+            hdr.attrs['sigmas'] = True
             hdr.attrs['dtol'] = self.dtol
            
-            hdr.create_dataset('spatial/niter', data = self.spatial_niter, dtype = 'uint32')
-            hdr.create_dataset('spatial/chisq', data = self.spatial_chisq, dtype = 'float64')
-            hdr.create_dataset('spatial/npoints', data = self.spatial_npoints, dtype = 'uint32')
-            hdr.create_dataset('spatial/npars', data = self.spatial_npars, dtype = 'uint32')
+            idx1 = np.unique(self.decidx)
+            for key in self.spatial.keys():
+                hdr.create_dataset('spatial/' + key, data=self.spatial[key][idx1])
             
-            hdr.create_dataset('temporal/niter', data = self.temporal_niter, dtype = 'uint32')
-            hdr.create_dataset('temporal/chisq', data = self.temporal_chisq, dtype = 'float64')
-            hdr.create_dataset('temporal/npoints', data = self.temporal_npoints, dtype = 'uint32')
-            hdr.create_dataset('temporal/npars', data = self.temporal_npars, dtype = 'uint32')
+            idx1 = np.unique(self.skyidx)
+            for key in self.temporal.keys():
+                hdr.create_dataset('temporal/' + key, data=self.temporal[key][idx1])
             
             # Write the data.
             grp = f.create_group('data')
             
             # Write the magnitudes.
-            grp.create_dataset('magnitudes/ascc', data = self.ascc)
-            grp.create_dataset('magnitudes/vmag', data = self.vmag, dtype = 'float32')
-            grp.create_dataset('magnitudes/nobs', data = self.nobs_m, dtype = 'uint32')
-            grp.create_dataset('magnitudes/mag', data = self.m, dtype = 'float32')
-            if self.sigmas:
-                grp.create_dataset('magnitudes/sigma', data = self.sigma1, dtype = 'float32')
-            
+            grp.create_dataset('magnitudes/ascc', data=self.magnitudes['ascc'])
+            grp.create_dataset('magnitudes/vmag', data=self.magnitudes['vmag'])
+            grp.create_dataset('magnitudes/nobs', data=self.magnitudes['nobs'])
+            grp.create_dataset('magnitudes/mag', data=self.magnitudes['mag'])
+            grp.create_dataset('magnitudes/sigma', data=self.magnitudes['sigma'], dtype='float32')
+
             # Write the camera transmission.
-            idx1, idx2 = np.where(~np.isnan(self.z))
-            grp.create_dataset('trans/idx1', data = idx1, dtype = 'uint32')
-            grp.create_dataset('trans/idx2', data = idx2, dtype = 'uint32')
-            grp.create_dataset('trans/nobs', data = self.nobs_z[idx1, idx2], dtype = 'uint32')
-            grp.create_dataset('trans/trans', data = self.z[idx1, idx2], dtype = 'float32')
+            idx1, idx2 = np.where(self.trans['nobs'] > 0)            
+            grp.create_dataset('trans/idx1', data=idx1, dtype='uint32')
+            grp.create_dataset('trans/idx2', data=idx2, dtype='uint32')          
+            grp.create_dataset('trans/nobs', data=self.trans['nobs'][idx1,idx2])
+            grp.create_dataset('trans/trans', data=self.trans['trans'][idx1,idx2], dtype='float32')
             
             grp['trans'].attrs['grid'] = 'polar'
             grp['trans'].attrs['nx'] = self.camnx
             grp['trans'].attrs['ny'] = self.camny
             
             # Write the intrapixel variations.
-            idx1, idx2 = np.where(~np.isnan(self.A[:,:,0]))
-            grp.create_dataset('intrapix/idx1', data = idx1, dtype = 'uint32')
-            grp.create_dataset('intrapix/idx2', data = idx2, dtype = 'uint32')
-            grp.create_dataset('intrapix/nobs', data = self.nobs_A[idx1, idx2], dtype = 'uint32')
-            grp.create_dataset('intrapix/sinx', data = self.A[idx1, idx2, 0], dtype = 'float32')
-            grp.create_dataset('intrapix/cosx', data = self.A[idx1, idx2, 1], dtype = 'float32')
-            grp.create_dataset('intrapix/siny', data = self.A[idx1, idx2, 2], dtype = 'float32')
-            grp.create_dataset('intrapix/cosy', data = self.A[idx1, idx2, 3], dtype = 'float32')
+            idx1, idx2 = np.where(self.intrapix['nobs'] > 0)            
+            grp.create_dataset('intrapix/idx1', data=idx1, dtype='uint32')
+            grp.create_dataset('intrapix/idx2', data=idx2, dtype='uint32')
+            grp.create_dataset('intrapix/nobs', data=self.intrapix['nobs'][idx1,idx2])
+            grp.create_dataset('intrapix/sinx', data=self.intrapix['amplitudes'][idx1,idx2,0], dtype='float32')
+            grp.create_dataset('intrapix/cosx', data=self.intrapix['amplitudes'][idx1,idx2,1], dtype='float32')
+            grp.create_dataset('intrapix/siny', data=self.intrapix['amplitudes'][idx1,idx2,2], dtype='float32')
+            grp.create_dataset('intrapix/cosy', data=self.intrapix['amplitudes'][idx1,idx2,3], dtype='float32')
             
             grp['intrapix'].attrs['grid'] = 'polar'
             grp['intrapix'].attrs['nx'] = self.ipxnx
             grp['intrapix'].attrs['ny'] = self.ipxny
             
             # Write the sky transmission.
-            idx, lstseq = np.where(~np.isnan(self.s))
-            grp.create_dataset('clouds/idx', data = idx, dtype = 'uint32')
-            grp.create_dataset('clouds/lstseq', data = lstseq + self.lstmin, dtype = 'uint32')
-            grp.create_dataset('clouds/nobs', data = self.nobs_s[idx, lstseq], dtype = 'uint32')
-            grp.create_dataset('clouds/clouds', data = self.s[idx, lstseq], dtype = 'float32')
-            if self.sigmas:
-                grp.create_dataset('clouds/sigma', data = self.sigma2[idx, lstseq], dtype = 'float32')
+            idx, lstseq = np.where(self.clouds['nobs'] > 0)            
+            grp.create_dataset('clouds/idx', data=idx, dtype='uint32')
+            grp.create_dataset('clouds/lstseq', data=lstseq+self.lstmin, dtype='uint32')
+            grp.create_dataset('clouds/nobs', data=self.clouds['nobs'][idx, lstseq])
+            grp.create_dataset('clouds/clouds', data=self.clouds['clouds'][idx, lstseq], dtype='float32')
+            grp.create_dataset('clouds/sigma', data=self.clouds['sigma'][idx, lstseq], dtype='float32')
             
             grp['clouds'].attrs['grid'] = 'healpix'
             grp['clouds'].attrs['nx'] = self.skynx
