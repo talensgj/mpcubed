@@ -97,6 +97,9 @@ class CorrectLC():
 
     def binned_corrected_lightcurve(self, ascc):
         
+        names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
+        formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']        
+        
         # Get the header information for this star.
         i, = np.where(self.ascc == ascc)
         nobs = self.nobs[i]
@@ -127,31 +130,31 @@ class CorrectLC():
         clouds = clouds[mask]
         
         # Compute the final binned lightcurve.
-        binidx = (lstseq // 50)
-        lstseq = np.unique(binidx)
-        nobs = statistics.idxstats(binidx, None, statistic = 'count')
+        lstseq, binidx, nobs = np.unique(lstseq//50, return_inverse=True, return_counts=True)        
         
-        bmag = statistics.idxstats(binidx, mag, statistic = 'mean')
-        emag = statistics.idxstats(binidx, mag, statistic = 'std')
-        bsky = statistics.idxstats(binidx, sky, statistic = 'mean')
-        esky = statistics.idxstats(binidx, sky, statistic = 'std')
-        x = statistics.idxstats(binidx, x, statistic = 'mean')
-        y = statistics.idxstats(binidx, y, statistic = 'mean')
-        jdmid = statistics.idxstats(binidx, jdmid, statistic = 'mean')
-        lst = statistics.idxstats(binidx, lst, statistic = 'mean')
+        lc_bin = np.recarray(len(lstseq), names=names, formats=formats)        
         
-        btrans = statistics.idxstats(binidx, trans, statistic = 'mean')
-        etrans = statistics.idxstats(binidx, trans, statistic = 'std')
-        bclouds = statistics.idxstats(binidx, clouds, statistic = 'mean')
-        eclouds = statistics.idxstats(binidx, clouds, statistic = 'std')
+        lc_bin['lstseq'] = lstseq
+        lc_bin['nobs'] = nobs # Number of raw points used for each binned point.        
         
-        # Create a record array.
-        arlist = [lstseq, nobs, lst, jdmid, x, y, bsky, esky, bmag, emag, btrans, etrans, bclouds, eclouds]
-        names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
-        formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
-        record = np.rec.fromarrays(arlist, names = names, formats = formats)
+        lc_bin['jdmid'] = statistics.idxstats(binidx, jdmid, statistic='mean')
+        lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
+        #lc_bin['exptime'] = idxstats(binidx, exptime, statistic='sum')           
+        
+        lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
+        lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
+        
+        lc_bin['mag{}'.format(self.aper)] = statistics.idxstats(binidx, mag, statistic='mean')
+        lc_bin['emag{}'.format(self.aper)] = statistics.idxstats(binidx, mag, statistic='std')#/np.sqrt(nobs)
+        lc_bin['sky'] = statistics.idxstats(binidx, sky, statistic='mean')
+        lc_bin['esky'] = statistics.idxstats(binidx, sky, statistic='std')#/np.sqrt(nobs)        
+        
+        lc_bin['trans{}'.format(self.aper)] = statistics.idxstats(binidx, trans, statistic='mean')
+        lc_bin['etrans{}'.format(self.aper)] = statistics.idxstats(binidx, trans, statistic='std')#/np.sqrt(nobs)
+        lc_bin['clouds{}'.format(self.aper)] = statistics.idxstats(binidx, clouds, statistic='mean')
+        lc_bin['eclouds{}'.format(self.aper)] = statistics.idxstats(binidx, clouds, statistic='std')#/np.sqrt(nobs)
 
-        return record
+        return lc_bin
 
     def make_redfile(self, outfile=None):
         
