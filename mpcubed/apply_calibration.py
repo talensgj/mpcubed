@@ -12,7 +12,7 @@ from statistics import statistics
 
 class CorrectLC():
     
-    def __init__(self, LBfile, aperture, sysfile = None, outfile = None):
+    def __init__(self, LBfile, aperture, sysfile = None):
         
         # fLC file and aperture to work on.
         self.LBfile = LBfile
