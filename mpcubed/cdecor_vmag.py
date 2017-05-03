@@ -460,17 +460,17 @@ class CoarseDecorrelation(object):
         
         # The spatial calculation statistics.
         self.spatial = dict()
-        self.spatial['niter'] = np.zeros(self.camgrid.ny+2, dtype='uint')
+        self.spatial['niter'] = np.zeros(self.camgrid.ny+2, dtype='uint32')
         self.spatial['chisq'] = np.full(self.camgrid.ny+2, fill_value=np.nan)
-        self.spatial['npoints'] = np.zeros(self.camgrid.ny+2, dtype='uint')
-        self.spatial['npars'] = np.zeros(self.camgrid.ny+2, dtype='uint')
+        self.spatial['npoints'] = np.zeros(self.camgrid.ny+2, dtype='uint32')
+        self.spatial['npars'] = np.zeros(self.camgrid.ny+2, dtype='uint32')
         
         # The temporal calculation statistics.
         self.temporal = dict()
-        self.temporal['niter'] = np.zeros(self.skygrid.npix, dtype='uint')
+        self.temporal['niter'] = np.zeros(self.skygrid.npix, dtype='uint32')
         self.temporal['chisq'] = np.full(self.skygrid.npix, fill_value=np.nan)
-        self.temporal['npoints'] = np.zeros(self.skygrid.npix, dtype='uint')
-        self.temporal['npars'] = np.zeros(self.skygrid.npix, dtype='uint')
+        self.temporal['npoints'] = np.zeros(self.skygrid.npix, dtype='uint32')
+        self.temporal['npars'] = np.zeros(self.skygrid.npix, dtype='uint32')
         
         # The magnitudes.
         self.magnitudes = dict()
@@ -544,9 +544,9 @@ class CoarseDecorrelation(object):
             
             # Write the magnitudes.
             grp.create_dataset('magnitudes/ascc', data=self.magnitudes['ascc'])
-            grp.create_dataset('magnitudes/vmag', data=self.magnitudes['vmag'])
+            grp.create_dataset('magnitudes/vmag', data=self.magnitudes['vmag'], dtype='float32')
             grp.create_dataset('magnitudes/nobs', data=self.magnitudes['nobs'])
-            grp.create_dataset('magnitudes/mag', data=self.magnitudes['mag'])
+            grp.create_dataset('magnitudes/mag', data=self.magnitudes['mag'], dtype='float32')
             grp.create_dataset('magnitudes/sigma', data=self.magnitudes['sigma'], dtype='float32')
 
             # Write the camera transmission.
