@@ -42,9 +42,9 @@ class CorrectLC():
             print 'Reading corrections from:', self.sysfile
         
         # Read the required header data.
-        self.f = IO.fLCfile(self.LBfile)
-        self.ascc, self.ra, self.dec, self.nobs = self.f.read_header(['ascc', 'ra', 'dec', 'nobs'])
-        self.nobs = self.nobs.astype('int')
+        self.f = IO.Photfile(self.LBfile)
+        self.stars = self.f.read_stars(['ascc', 'ra', 'dec', 'nobs'])
+        self.stars['nobs'] = self.stars['nobs'].astype('int')
         
         # Read the correction terms.
         sys = IO.SysFile(self.sysfile)
@@ -54,17 +54,17 @@ class CorrectLC():
         self.hg, self.clouds, self.sigma, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
         
         # Create indices.
-        self.skyidx = self.hg.radec2idx(self.ra, self.dec)
+        self.skyidx = self.hg.radec2idx(self.stars['ra'], self.stars['dec'])
         
         return
         
     def get_correction(self, ascc):
 
         # Get the header information for this star.
-        i, = np.where(self.ascc == ascc)
-        ra = self.ra[i]
-        dec = self.dec[i]
-        nobs = self.nobs[i]
+        i, = np.where(self.stars['ascc'] == ascc)
+        ra = self.stars['ra'][i]
+        dec = self.stars['dec'][i]
+        nobs = self.stars['nobs'][i]
         skyidx = self.skyidx[i]
         
         # Read data.
@@ -101,8 +101,8 @@ class CorrectLC():
         formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']        
         
         # Get the header information for this star.
-        i, = np.where(self.ascc == ascc)
-        nobs = self.nobs[i]
+        i, = np.where(self.stars['ascc'] == ascc)
+        nobs = self.stars['nobs'][i]
 
         # Read data.
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
@@ -212,14 +212,14 @@ class CorrectLC():
             grp.create_dataset('spectype', data = data[5])
         
         # Write the corrected lightcurves.
-        nstars = len(self.ascc)
+        nstars = len(self.stars['ascc'])
         nobs = np.zeros(nstars)
         lstseqmin = np.zeros(nstars)
         lstseqmax = np.zeros(nstars)
         for i in range(nstars):
             
             # Get the binned corrected lightcurve.
-            lc = self.binned_corrected_lightcurve(self.ascc[i])
+            lc = self.binned_corrected_lightcurve(self.stars['ascc'][i])
             
             if (len(lc['jdmid']) > 0):
                 nobs[i] = len(lc['jdmid'])
@@ -228,7 +228,7 @@ class CorrectLC():
             
             # Write the lightcurve.
             with h5py.File(outfile) as f:
-                f.create_dataset('data/' + self.ascc[i], data = lc)
+                f.create_dataset('data/' + self.stars['ascc'][i], data = lc)
             
         with h5py.File(outfile) as f:
             grp = f['header_table']

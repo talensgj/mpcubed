@@ -262,17 +262,27 @@ class CoarseDecorrelation(object):
         """ Read a portion of the data, create indices and remove flagged
         datapoints."""
         
-        ascc = self.ascc[here]
-        ra = self.ra[here]
-        dec = self.dec[here]
-        nobs = self.nobs[here]
+        ascc = self.stars['ascc'][here]
+        ra = self.stars['ra'][here]
+        dec = self.stars['dec'][here]
+        nobs = self.stars['nobs'][here]
         
         staridx = self.staridx[here]
         skyidx = self.skyidx[here]
         
         # Read data.
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag']
-        flux, eflux, sky, x, y, lst, lstseq, flags = self.f.read_data(fields, ascc, nobs)
+        lightcurves = self.f.read_lightcurves(ascc, fields, perstar=False)
+        
+        flux = lightcurves['flux']
+        eflux = lightcurves['eflux']
+        sky = lightcurves['sky']
+        x = lightcurves['x']
+        y = lightcurves['y']
+        lst = lightcurves['lst']
+        lstseq = lightcurves['lstseq']
+        flags = lightcurves['flags'] 
+        
         lstseq = lstseq.astype('int') - self.lstmin
         
         ra = np.repeat(ra, nobs)
@@ -425,19 +435,19 @@ class CoarseDecorrelation(object):
         """ Perform the coarse decorrelation."""
 
         # Set up the IO and coordinate grids.
-        self.f = IO.fLCfile(self.LBfile)
+        self.f = IO.Photfile(self.LBfile)
         self.camgrid = grids.PolarGrid(self.camnx, self.camny)
         self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
         self.skygrid = grids.HealpixGrid(self.skynx)
         
         # Read the required header data.
-        self.ascc, self.ra, self.dec, self.nobs, self.vmag = self.f.read_header(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
-        self.nobs = self.nobs.astype('int')
+        self.stars = self.f.read_stars(['ascc', 'ra', 'dec', 'nobs', 'vmag'])
+        self.stars['nobs'] = self.stars['nobs'].astype('int')
         
         # Create indices.
-        self.staridx = np.arange(len(self.ascc))
-        _, self.decidx = self.camgrid.radec2idx(self.ra, self.dec)
-        self.skyidx = self.skygrid.radec2idx(self.ra, self.dec)
+        self.staridx = np.arange(len(self.stars['ascc']))
+        _, self.decidx = self.camgrid.radec2idx(self.stars['ra'], self.stars['dec'])
+        self.skyidx = self.skygrid.radec2idx(self.stars['ra'], self.stars['dec'])
         
         # Read global information.
         with h5py.File(self.LBfile, 'r') as f:
@@ -474,11 +484,11 @@ class CoarseDecorrelation(object):
         
         # The magnitudes.
         self.magnitudes = dict()
-        self.magnitudes['ascc'] = self.ascc 
-        self.magnitudes['vmag'] = self.vmag
-        self.magnitudes['nobs'] = np.zeros(len(self.ascc), dtype='uint32')
-        self.magnitudes['mag'] = np.copy(self.vmag)
-        self.magnitudes['sigma'] = np.zeros(len(self.ascc))
+        self.magnitudes['ascc'] = self.stars['ascc'] 
+        self.magnitudes['vmag'] = self.stars['vmag']
+        self.magnitudes['nobs'] = np.zeros(len(self.stars['ascc']), dtype='uint32')
+        self.magnitudes['mag'] = np.copy(self.stars['vmag'])
+        self.magnitudes['sigma'] = np.zeros(len(self.stars['ascc']))
         
         # The transmission map.
         self.trans = dict()

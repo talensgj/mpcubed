@@ -7,7 +7,7 @@ import h5py
 import numpy as np
 from numpy.lib.recfunctions import stack_arrays
 
-from fLCfile import fLCfile
+from fLCfile import PhotFile
 from ..statistics import statistics
 
 def verify_filelist(filelist):
@@ -33,12 +33,12 @@ def verify_filelist(filelist):
 def _lstrange(filename):
     
     # Read the lstseq.
-    f = fLCfile(filename)
-    lstseq = f.read_data(['lstseq'])
+    f = PhotFile(filename)
+    curves = f.read_data(fields=['lstseq'], perstar=False)
     
     # Find the minimum and the maximum.
-    lstmin = np.amin(lstseq)
-    lstmax = np.amax(lstseq)
+    lstmin = np.amin(curves['lstseq'])
+    lstmax = np.amax(curves['lstseq'])
     
     return lstmin, lstmax
 
