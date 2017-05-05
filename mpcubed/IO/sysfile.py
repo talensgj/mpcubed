@@ -202,6 +202,7 @@ class SysFile(object):
             try: sigma = grp['sigma'].value
             except: sigma = None
             
+            grid = grp.attrs['grid']
             nx = grp.attrs['nx']
             lstmin = grp.attrs['lstmin']
             lstmax = grp.attrs['lstmax']
@@ -209,7 +210,13 @@ class SysFile(object):
     
         lstseq = lstseq - lstmin
     
-        hg = grids.HealpixGrid(nx)
+        if (grid == 'healpix'):
+            hg = grids.HealpixGrid(nx)
+        elif (grid == 'polarea'):
+            hg = grids.PolarEAGrid(nx)
+        else:
+            print 'Unknown grid.'
+            exit()
         
         tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
         tmp[idx, lstseq] = clouds
