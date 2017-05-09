@@ -1,14 +1,16 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 28 16:56:55 2017
+
+@author: talens
+"""
 
 import os
 
 import h5py
 import numpy as np
-from numpy.lib.recfunctions import stack_arrays
 
-from fLCfile import PhotFile
-from ..statistics import statistics
+import glob
 
 def verify_filelist(filelist):
     
@@ -30,19 +32,72 @@ def verify_filelist(filelist):
     
     return filelist
 
-def _lstrange(filename):
+def _index_files(filelist):
     
-    # Read the lstseq.
-    f = PhotFile(filename)
-    curves = f.read_lightcurves(fields=['lstseq'], perstar=False)
+    nfiles = len(filelist)
     
-    # Find the minimum and the maximum.
-    lstmin = np.amin(curves['lstseq'])
-    lstmax = np.amax(curves['lstseq'])
+    idx1 = np.array([], dtype='uint16')
     
-    return lstmin, lstmax
+    stars = dict()
+    for i in range(nfiles):
+        
+        filename = filelist[i]        
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f['header_table']
+            
+            for key in grp.keys():
+                
+                ascc_ = grp['ascc'].value
+                
+                if key not in stars.keys():
+                    stars[key] = grp[key].value
+                else:
+                    stars[key] = np.append(stars[key], grp[key].value)
 
-def _merge_global(filelist):
+            grp = f['data']
+
+            dtype = grp[ascc_[0]].dtype
+
+        idx1 = np.append(idx1, np.repeat(i, len(ascc_)))
+    
+    ascc, args, idx2 = np.unique(stars['ascc'], return_index=True, return_inverse=True)
+    nstars = len(ascc)    
+    nobs = np.zeros((nfiles, nstars), dtype='uint32')
+    stars['nobs'] = stars['nobs'].astype('uint32')
+    nobs[idx1, idx2] = stars['nobs']
+    
+    for key in stars.keys():
+        stars[key] = stars[key][args]
+    
+    return stars, nobs, dtype
+
+def _read_curves(filelist, ascc, nobs, dtype):
+    
+    nfiles = len(filelist)
+    nstars = len(ascc)
+    
+    strides = np.row_stack([nstars*[0], np.cumsum(nobs, axis=0)]).astype('int')
+    curves = {ascc[i]:np.recarray(strides[-1,i], dtype=dtype) for i in range(nstars)}
+    
+    for i in range(nfiles):
+        
+        filename = filelist[i]
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f['data']
+            
+            for j in range(nstars):
+                
+                if (nobs[i,j] > 0):
+                    
+                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]].value
+                    
+    return curves
+    
+def _read_global(filelist):
     
     nfiles = len(filelist)
     
@@ -83,9 +138,6 @@ def _merge_global(filelist):
                 
                 try: attrdict['aper1'] = grp.attrs['aper1']
                 except: attrdict['aper1'] = grp.attrs['APER1']
-                
-                #try: attrdict['nstaper'] = grp.attrs['nstaper']
-                #except: attrdict['nstaper'] = grp.attrs['NSTAPER']
                 
                 try: attrdict['skyrad0'] = grp.attrs['skyrad0']
                 except: attrdict['skyrad0'] = grp.attrs['SKYRAD0']
@@ -138,128 +190,65 @@ def _merge_global(filelist):
     
     return attrdict, arrdict
 
-def _merge_headers(filelist):
+def combine_photometry(filename, filelist, nsteps=1000):
     
-    nfiles = len(filelist)
-    
-    # Create arrays.
-    ascc = np.array([])
-    ra = np.array([])
-    dec = np.array([])
-    vmag = np.array([])
-    bmag = np.array([])
-    spectype = np.array([])
-    blend = np.array([])
-    blendvalue = np.array([])
-    jdstart = np.array([])
-    nobs = np.array([])
-    
-    # Read data.
-    for i in range(nfiles):
-        with h5py.File(filelist[i], 'r') as f:
-            grp = f['header_table']
-            ascc = np.append(ascc, grp['ascc'].value)
-            ra = np.append(ra, grp['ra'].value)
-            dec = np.append(dec, grp['dec'].value)
-            vmag = np.append(vmag, grp['vmag'].value)
-            bmag = np.append(bmag, grp['bmag'].value)
-            spectype = np.append(spectype, grp['spectype'].value)
-            blend = np.append(blend, grp['blend'].value)
-            blendvalue = np.append(blendvalue, grp['blendvalue'].value)
-            jdstart = np.append(jdstart, grp['jdstart'].value)
-            nobs = np.append(nobs, grp['nobs'].value)
-    
-    # Select unique entries.
-    ascc, args, idx = np.unique(ascc, return_index=True, return_inverse=True)
-    
-    # Put result in dictionary.
-    hdr = {}
-    hdr['ascc'] = ascc
-    hdr['ra'] = ra[args]
-    hdr['dec'] = dec[args]
-    hdr['vmag'] = vmag[args]
-    hdr['bmag'] = bmag[args]
-    hdr['spectype'] = spectype[args]
-    hdr['blend'] = blend[args]
-    hdr['blendvalue'] = blendvalue[args]
-    hdr['jdstart'] = statistics.idxstats(idx, jdstart, statistic=np.amin)
-    hdr['nobs'] = np.bincount(idx, nobs)
-
-    return hdr
-
-def _merge_data(filelist, ascc):
-    
-    nfiles = len(filelist)
-    
-    first = True
-    for i in range(nfiles):
-        
-        with h5py.File(filelist[i], 'r') as f:
-                
-            # Try to read the star.
-            try:
-                tmp = f['data/' + ascc].value
-            except:
-                continue
-            
-        # Add the data to the lightcurve.
-        if first:
-            lc = tmp
-            first = False
-        else:
-            lc = stack_arrays((lc, tmp), asrecarray=True)
-                
-    return lc
-
-def make_baseline(filelist, outfile):
-    """ Merge a list of fLC files.
-    
-    Args:
-        filelist (str): A list of fLC files.
-        outfile (str): The name of the merged file.
-        
-    """
-
-    filelist = np.sort(filelist)
+    filelist = np.sort(filelist)    
     filelist = verify_filelist(filelist)
     
     if len(filelist) == 0:
         return
+        
+    # Read the combined stars field and index the files.
+    stars, nobs, dtype = _index_files(filelist)    
     
+    stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
+    stars['lstsqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')
+    
+    nstars = len(stars['ascc'])
+    for i in range(0, nstars, nsteps):
+        
+        # Read the combined lightcurves for a group of stars.
+        curves = _read_curves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype)
+             
+        # Write the combined lightcurves for a group of stars.
+        with h5py.File(filename) as f:
+            
+            for j in range(i, i+len(stars['ascc'][i:i+nsteps])):
+             
+                tmp = curves[stars['ascc'][j]]
+                
+                stars['nobs'][j] = len(tmp)
+                stars['lstsqmin'][j] = tmp['lstseq'][0]
+                stars['lstsqmax'][j] = tmp['lstseq'][-1]
+                
+                f.create_dataset('data/{}'.format(stars['ascc'][j]), data=tmp)    
+
+    # Write the combined "header_table" field.
+    with h5py.File(filename) as f:
+        
+        grp = f.create_group('header_table')
+        for key in stars.keys():
+            grp.create_dataset(key, data=stars[key])
+            
     # Write the global group.
-    lstmin, _ = _lstrange(filelist[0])
-    _, lstmax = _lstrange(filelist[-1])
-    attrdict, arrdict = _merge_global(filelist)
-    with h5py.File(outfile) as f:
+    lstmin = np.amin(stars['lstsqmin'])
+    lstmax = np.amax(stars['lstsqmax'])
+    
+    attrdict, arrdict = _read_global(filelist)
+    
+    with h5py.File(filename) as f:
+        
         grp = f.create_group('global')
+        
         grp.attrs['lstmin'] = lstmin
         grp.attrs['lstmax'] = lstmax
-        grp.create_dataset('filelist', data = filelist)
+        
+        grp.create_dataset('filelist', data=filelist)
         
         for key, value in attrdict.iteritems():
             grp.attrs[key] = value
             
         for key, value in arrdict.iteritems():
             grp.create_dataset(key, data = value)
-    
-    # Merge the headers.
-    hdr = _merge_headers(filelist)
-    with h5py.File(outfile) as f:
-        grp = f.create_group('header_table')
-        for key, value in hdr.iteritems():
-            grp.create_dataset(key, data = value)
-    
-    # Merge the lightcurves.
-    ascc = hdr['ascc']
-    nstars = len(ascc)
-    for i in range(nstars):
-        
-        # Read the data.
-        lc = _merge_data(filelist, ascc[i])
-        
-        # Write the data.
-        with h5py.File(outfile) as f:
-            f.create_dataset('data/' + ascc[i], data = lc)
-        
+
     return
-    
