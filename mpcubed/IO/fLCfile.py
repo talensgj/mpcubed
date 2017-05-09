@@ -4,7 +4,7 @@
 import h5py
 import numpy as np
 
-class Photfile(object):
+class PhotFile(object):
     
     def __init__(self, filename):
         

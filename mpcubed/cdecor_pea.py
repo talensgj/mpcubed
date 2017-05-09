@@ -274,14 +274,14 @@ class CoarseDecorrelation(object):
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag']
         lightcurves = self.f.read_lightcurves(ascc, fields, perstar=False)
         
-        flux = lightcurves['flux']
-        eflux = lightcurves['eflux']
+        flux = lightcurves['flux%i'%self.aper]
+        eflux = lightcurves['eflux%i'%self.aper]
         sky = lightcurves['sky']
         x = lightcurves['x']
         y = lightcurves['y']
         lst = lightcurves['lst']
         lstseq = lightcurves['lstseq']
-        flags = lightcurves['flags']        
+        flags = lightcurves['flag']      
         
         lstseq = lstseq.astype('int') - self.lstmin
         
@@ -312,7 +312,7 @@ class CoarseDecorrelation(object):
         
         # Convert flux to magnitudes:
         mag, emag = misc.flux2mag(flux, eflux)
-        mag = mag - self.vmag[staridx]
+        mag = mag - self.stars['vmag'][staridx]
         
         return mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, skyidx, lstseq
     
@@ -435,7 +435,7 @@ class CoarseDecorrelation(object):
         """ Perform the coarse decorrelation."""
 
         # Set up the IO and coordinate grids.
-        self.f = IO.Photfile(self.LBfile)
+        self.f = IO.PhotFile(self.LBfile)
         self.camgrid = grids.PolarGrid(self.camnx, self.camny)
         self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
         self.skygrid = grids.PolarEAGrid(self.skynx)

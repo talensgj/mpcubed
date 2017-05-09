@@ -42,7 +42,7 @@ class CorrectLC():
             print 'Reading corrections from:', self.sysfile
         
         # Read the required header data.
-        self.f = IO.Photfile(self.LBfile)
+        self.f = IO.PhotFile(self.LBfile)
         self.stars = self.f.read_stars(['ascc', 'ra', 'dec', 'nobs'])
         self.stars['nobs'] = self.stars['nobs'].astype('int')
         
@@ -69,8 +69,12 @@ class CorrectLC():
         
         # Read data.
         fields = ['x', 'y', 'lst', 'lstseq']
-        x, y, lst, lstseq = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
-        lstseq = lstseq.astype('int') - self.lstmin
+        lc = self.f.read_lightcurves(ascc=ascc, fields=fields)
+        
+        x = lc['x']
+        y = lc['y']
+        lst = lc['lst']
+        lstseq = lc['lstseq'].astype('int') - self.lstmin
         
         # Create indices.    
         ra = np.repeat(ra, nobs)
@@ -106,8 +110,17 @@ class CorrectLC():
 
         # Read data.
         fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
-        flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
-        lstseq = lstseq.astype('int')
+        lc = self.f.read_lightcurves(ascc=ascc, fields=fields)
+        
+        flux = lc['flux%i'%self.aper]
+        eflux = lc['eflux%i'%self.aper]
+        sky = lc['sky']
+        x = lc['x']
+        y = lc['y']
+        jdmid = lc['jdmid']
+        lst = lc['lst']
+        lstseq = lc['lstseq'].astype('int')
+        flag = lc['flag']
         
         # Compute the corrected magnitudes.
         mag, emag = misc.flux2mag(flux, eflux)
@@ -201,16 +214,12 @@ class CorrectLC():
         
         # Write the header_table.
         fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
-        data = self.f.read_header(fields)
+        stars = self.f.read_stars(fields)
         with h5py.File(outfile) as f:
             grp = f.create_group('header_table')
-            grp.create_dataset('ascc', data = data[0])
-            grp.create_dataset('ra', data = data[1])
-            grp.create_dataset('dec', data = data[2])
-            grp.create_dataset('vmag', data = data[3])
-            grp.create_dataset('bmag', data = data[4])
-            grp.create_dataset('spectype', data = data[5])
-        
+            for key in stars.keys():
+                grp.create_dataset(key, data=stars[key])
+                
         # Write the corrected lightcurves.
         nstars = len(self.stars['ascc'])
         nobs = np.zeros(nstars)

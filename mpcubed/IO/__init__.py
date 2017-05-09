@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from fLCfile import Photfile
+from fLCfile import PhotFile
 from sysfile import SysFile
 from redfile import redFile
 from blsfile import blsFile

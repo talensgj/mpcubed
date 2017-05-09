@@ -34,7 +34,7 @@ def _lstrange(filename):
     
     # Read the lstseq.
     f = PhotFile(filename)
-    curves = f.read_data(fields=['lstseq'], perstar=False)
+    curves = f.read_lightcurves(fields=['lstseq'], perstar=False)
     
     # Find the minimum and the maximum.
     lstmin = np.amin(curves['lstseq'])
