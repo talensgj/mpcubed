@@ -4,7 +4,7 @@
 import os
 import multiprocessing as mp
 
-from mpcubed import IO, misc
+from mpcubed import io, misc
 
 def twoweek_baseline(date, camera, mode, filepath, outpath):
 
@@ -28,7 +28,7 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
     filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     
-    IO.combine_photometry(outfile, filelist)
+    io.combine_photometry(outfile, filelist)
     
     return outfile
 

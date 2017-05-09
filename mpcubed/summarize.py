@@ -21,7 +21,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from . import IO
+from . import io
 
 def _hadec2xy(wcspars, ha, dec):
         
@@ -102,7 +102,7 @@ def plot_polar(grid, data, wcspars, **kwargs):
 def fig_transmission(filename, figname):
     
     # Read the transmission map.
-    f = IO.SysFile(filename)
+    f = io.SysFile(filename)
     pg, trans, nobs = f.read_trans()
     wcspars = f.read_pointing()    
     
@@ -137,7 +137,7 @@ def fig_transmission(filename, figname):
 def fig_intrapix(filename, figname):
     
     # Read the intrapixel amplitudes.
-    f = IO.SysFile(filename) 
+    f = io.SysFile(filename) 
     pg, sinx, cosx, siny, cosy, nobs = f.read_intrapix() 
     wcspars = f.read_pointing()       
     
@@ -194,7 +194,7 @@ def fig_intrapix(filename, figname):
 def fig_clouds(filename, figname):
     
     # Read the data.
-    f = IO.SysFile(filename)
+    f = io.SysFile(filename)
     hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
     
     # Plot the clouds.
@@ -234,7 +234,7 @@ def fig_clouds(filename, figname):
 def fig_sigma(filename, figname):
     
     # Read the data.
-    f = IO.SysFile(filename)
+    f = io.SysFile(filename)
     hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
     
     # Plot the clouds.

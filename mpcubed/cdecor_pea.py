@@ -9,8 +9,7 @@ import numpy as np
 
 import multiprocessing as mp
 
-from . import misc
-from . import IO
+from . import io, misc
 from .coordinates import grids
 from .systematics import sigmas
 
@@ -435,7 +434,7 @@ class CoarseDecorrelation(object):
         """ Perform the coarse decorrelation."""
 
         # Set up the IO and coordinate grids.
-        self.f = IO.PhotFile(self.LBfile)
+        self.f = io.PhotFile(self.LBfile)
         self.camgrid = grids.PolarGrid(self.camnx, self.camny)
         self.ipxgrid = grids.PolarGrid(self.ipxnx, self.ipxny)
         self.skygrid = grids.PolarEAGrid(self.skynx)

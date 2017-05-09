@@ -6,9 +6,8 @@ import os
 import h5py
 import numpy as np
 
-import IO
-import misc
-from statistics import statistics
+from . import io, misc
+from .statistics import statistics
 
 class CorrectLC():
     
@@ -42,12 +41,12 @@ class CorrectLC():
             print 'Reading corrections from:', self.sysfile
         
         # Read the required header data.
-        self.f = IO.PhotFile(self.LBfile)
+        self.f = io.PhotFile(self.LBfile)
         self.stars = self.f.read_stars(['ascc', 'ra', 'dec', 'nobs'])
         self.stars['nobs'] = self.stars['nobs'].astype('int')
         
         # Read the correction terms.
-        sys = IO.SysFile(self.sysfile)
+        sys = io.SysFile(self.sysfile)
         ascc, vmag, self.mag, sigma, nobs = sys.read_magnitudes()
         self.pgcam, self.trans, self.nobs_trans = sys.read_trans()
         self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix()
