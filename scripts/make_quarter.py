@@ -11,7 +11,7 @@ def combine_quarter(filelist, outfile):
     filepath = os.path.dirname(filelist[0])
     outfile = os.path.join(filepath, outfile)
     
-    io.make_quarter(filelist, outfile)
+    io.make_quarter(outfile, filelist)
     
     return 
     
