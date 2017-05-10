@@ -28,7 +28,7 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
     filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     
-    io.combine_photometry(outfile, filelist)
+    io.make_baseline(outfile, filelist)
     
     return outfile
 

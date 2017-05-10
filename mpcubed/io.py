@@ -569,7 +569,7 @@ def _read_global(filelist):
     
     return attrdict, arrdict
 
-def combine_photometry(filename, filelist, nsteps=1000):
+def make_baseline(filename, filelist, nsteps=1000):
     
     filelist = np.sort(filelist)    
     filelist = verify_filelist(filelist)
@@ -631,21 +631,17 @@ def combine_photometry(filename, filelist, nsteps=1000):
             grp.create_dataset(key, data = value)
 
     return
-    
-def _merge_global(filelist):
-    
-    with h5py.File(filelist[0]) as f:
-        data = f['global'].attrs.items()
-    
-    return data
 
 def make_quarter(filename, filelist, nsteps=1000):
     
     filelist = np.sort(filelist)
     
     # Write the global group.
-    data = _merge_global(filelist)
+    with h5py.File(filelist[0]) as f:
+        data = f['global'].attrs.items()
+        
     data = dict(data)
+    
     with h5py.File(filename) as f:
         grp = f.create_group('global')
         grp.attrs['station'] = data['station']
@@ -658,6 +654,8 @@ def make_quarter(filename, filelist, nsteps=1000):
     nstars = len(stars['ascc'])
     stars['jdmin'] = np.zeros(nstars)
     stars['jdmax'] = np.zeros(nstars)
+    stars['lstseqmin'] = np.zeros(nstars, dtype='uint32')
+    stars['lstseqmax'] = np.zeros(nstars, dtype='uint32')
     
     for i in range(0, nstars, nsteps):
         
@@ -672,20 +670,25 @@ def make_quarter(filename, filelist, nsteps=1000):
                 tmp = curves[stars['ascc'][j]]
                 
                 stars['nobs'][j] = len(tmp)
+    
+                if (len(tmp) == 0): continue                
+                
                 stars['jdmin'][j] = tmp['jdmid'][0]
                 stars['jdmax'][j] = tmp['jdmid'][-1]
                 stars['lstseqmin'][j] = tmp['lstseq'][0]
                 stars['lstseqmax'][j] = tmp['lstseq'][-1]
                 
-                f.create_dataset('data/{}'.format(stars['ascc'][j]), data=tmp)
+                grp = f.create_group('data/{}'.format(stars['ascc'][j]))                
+                for key in tmp.dtype.names:
+                    grp.create_dataset(key, data=tmp[key])
 
-    select = (nobs > 0)
+    idx, = np.where(stars['nobs'] > 0)
     with h5py.File(filename) as f:
         
         grp = f.create_group('header')
         
         for key, value in stars.iteritems():
-            grp.create_dataset(key, data = value[select])
+            grp.create_dataset(key, data = value[idx])
 
     return
     
