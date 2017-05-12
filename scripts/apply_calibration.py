@@ -11,8 +11,7 @@ def main(filelist, aper):
     
     for filename in filelist:
         
-        f = apply_calibration.CorrectLC(filename, aper)
-        f.make_redfile()
+        apply_calibration.apply_calibration(filename, aper)
     
     return
     
