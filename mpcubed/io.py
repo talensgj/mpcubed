@@ -80,11 +80,13 @@ class PhotFile(object):
         with h5py.File(self.filename, 'r') as f:
             
             grp = f[grpname]
-            ascc0 = set(grp.keys())            
+            
+            if not hasattr(self, 'ascc0'):
+                self.ascc0 = set(grp.keys())            
             
             for i in range(nstars):
                 
-                if ascc[i] in ascc0:
+                if ascc[i] in self.ascc0:
                     try:
                         curves[ascc[i]] = grp[ascc[i]].value
                     except: 
