@@ -53,13 +53,6 @@ class PhotFile(object):
                     
         return stars
     
-    def _dsets2recarray(self, grp):
-        
-        names = grp.keys()
-        arrays = [grp[key].value for key in names]
-        
-        return np.rec.fromarrays(arrays, names=names)
-    
     def read_lightcurves(self, ascc=None, fields=None, perstar=True, grpname='data'):
         
         onestar = False        
@@ -87,10 +80,8 @@ class PhotFile(object):
             for i in range(nstars):
                 
                 if ascc[i] in self.ascc0:
-                    try:
-                        curves[ascc[i]] = grp[ascc[i]].value
-                    except: 
-                        curves[ascc[i]] = self._dsets2recarray(grp[ascc[i]])
+                    curves[ascc[i]] = grp[ascc[i]].value
+                    
                 else:
                     print 'Warning: skipping star {}, star not found.'.format(ascc[i])
                     continue
@@ -680,9 +671,7 @@ def make_quarter(filename, filelist, nsteps=1000):
                 stars['lstseqmin'][j] = tmp['lstseq'][0]
                 stars['lstseqmax'][j] = tmp['lstseq'][-1]
                 
-                grp = f.create_group('data/{}'.format(stars['ascc'][j]))                
-                for key in tmp.dtype.names:
-                    grp.create_dataset(key, data=tmp[key])
+                f.create_dataset('data/{}'.format(stars['ascc'][j]), data=tmp)                
 
     idx, = np.where(stars['nobs'] > 0)
     with h5py.File(filename) as f:
