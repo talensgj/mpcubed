@@ -276,8 +276,8 @@ class CoarseDecorrelation(object):
         flux = lightcurves['flux%i'%self.aper]
         eflux = lightcurves['eflux%i'%self.aper]
         sky = lightcurves['sky']
-        x = lightcurves['x']
-        y = lightcurves['y']
+        x = lightcurves['x'].astype('float64')
+        y = lightcurves['y'].astype('float64')
         lst = lightcurves['lst']
         lstseq = lightcurves['lstseq']
         flags = lightcurves['flag'] 

@@ -212,8 +212,9 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
             continue   
 
         # Compute the corrected lightcurve.
+        x, y = lc['x'].astype('float64'), lc['y'].astype('float64')
         mag, emag = misc.flux2mag(lc['flux{}'.format(aper)], lc['eflux{}'.format(aper)])
-        mag0, trans, ipx, clouds, cflag = sys.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lc['lstseq'], lc['lst'], lc['x'], lc['y'])
+        mag0, trans, ipx, clouds, cflag = sys.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lc['lstseq'], lc['lst'], x, y)
         trans = trans + mag0
         mag = mag - trans - ipx - clouds          
             
@@ -221,6 +222,8 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
         mask = (cflag < 1)         
     
         lc = lc[mask]
+        x = x[mask]
+        y = y[mask]
         mag = mag[mask]
         emag = emag[mask]
         trans = trans[mask]
@@ -243,8 +246,8 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
         lc_bin['lst'] = statistics.idxstats(binidx, lc['lst'], statistic='mean')
         #lc_bin['exptime'] = idxstats(binidx, lc['exptime'], statistic='sum')           
         
-        lc_bin['x'] = statistics.idxstats(binidx, lc['x'], statistic='mean')
-        lc_bin['y'] = statistics.idxstats(binidx, lc['y'], statistic='mean')        
+        lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
+        lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
         
         lc_bin['mag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='mean')
         lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')#/np.sqrt(nobs)
