@@ -244,21 +244,20 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
         
         lc_bin['jdmid'] = statistics.idxstats(binidx, lc['jdmid'], statistic='mean')
         lc_bin['lst'] = statistics.idxstats(binidx, lc['lst'], statistic='mean')
-        #lc_bin['exptime'] = idxstats(binidx, lc['exptime'], statistic='sum')           
         
         lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
         lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
         
         lc_bin['mag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='mean')
-        lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')#/np.sqrt(nobs)
+        lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')/np.sqrt(nobs)
         lc_bin['sky'] = statistics.idxstats(binidx, lc['sky'], statistic='mean')
-        lc_bin['esky'] = statistics.idxstats(binidx, lc['sky'], statistic='std')#/np.sqrt(nobs)        
+        lc_bin['esky'] = statistics.idxstats(binidx, lc['sky'], statistic='std')/np.sqrt(nobs)        
         
         lc_bin['trans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='mean')
-        lc_bin['etrans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='std')#/np.sqrt(nobs)
+        lc_bin['etrans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='std')/np.sqrt(nobs)
         lc_bin['clouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='mean')
-        lc_bin['eclouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='std')#/np.sqrt(nobs)            
-            
+        lc_bin['eclouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='std')/np.sqrt(nobs)            
+        
         lightcurves[stars['ascc'][i]] = lc_bin
     
         stars['nobs'][i] = len(lstseq)
