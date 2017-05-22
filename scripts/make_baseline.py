@@ -4,7 +4,7 @@
 import os
 import multiprocessing as mp
 
-from mpcubed import IO, misc
+from mpcubed import io, misc
 
 def twoweek_baseline(date, camera, mode, filepath, outpath):
 
@@ -28,36 +28,14 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     outfile = os.path.join(outpath, 'fLC_%s%s%s.hdf5'%(date, part, camera))
     filelist = [os.path.join(filepath, '%s/fLC/fLC_%s.hdf5'%(date, date)) for date in dates]
     
-    IO.make_baseline(filelist, outfile)
+    io.make_baseline(outfile, filelist)
     
     return outfile
-    
-def twoweek_baseline_mp(queue):
-    
-    while True:
-        
-        item = queue.get()
-        
-        if (item == 'DONE'):
-            break
-        else:
-            twoweek_baseline(*item)
-            
-    return
 
 def main(date, cameras, mode, filepath, outpath, nprocs=6):
 
-    the_queue = mp.Queue(nprocs)
-    the_pool = mp.Pool(nprocs, twoweek_baseline_mp, (the_queue,))
-
     for cam in cameras:
-        the_queue.put((date, cam, mode, filepath, outpath))
-
-    for i in range(nprocs):
-        the_queue.put('DONE')
-    
-    the_pool.close()
-    the_pool.join()
+        twoweek_baseline(date, cam, mode, filepath, outpath)
         
     return
 

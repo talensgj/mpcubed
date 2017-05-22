@@ -6,234 +6,274 @@ import os
 import h5py
 import numpy as np
 
-import IO
-import misc
-from statistics import statistics
+from . import io, misc
+from .statistics import statistics
 
-class CorrectLC():
+class GetSystematics(object):
+
+    def __init__(self, filename):
+        
+        f = io.SysFile(filename)
     
-    def __init__(self, LBfile, aperture, sysfile = None):
+        ascc, vmag, mag, sigma, nobs = f.read_magnitudes()    
+        self.magnitudes = dict()
+        self.magnitudes['ascc'] = ascc
+        self.magnitudes['nobs'] = nobs
+        self.magnitudes['mag'] = mag
+        self.magnitudes['sigma'] = sigma
+    
+        pg, trans, nobs = f.read_trans()
+        self.pgcam = pg
+        self.transmission = dict()
+        self.transmission['nobs'] = nobs
+        self.transmission['trans'] = trans
         
-        # fLC file and aperture to work on.
-        self.LBfile = LBfile
-        self.aper = aperture
+        pg, sinx, cosx, siny, cosy, nobs = f.read_intrapix()  
+        self.pgipx = pg
+        self.intrapix = dict()
+        self.intrapix['nobs'] = nobs
+        self.intrapix['sinx'] = sinx
+        self.intrapix['cosx'] = cosx
+        self.intrapix['siny'] = siny
+        self.intrapix['cosy'] = cosy
         
-        if not os.path.isfile(self.LBfile):
-            print 'File not found:', self.LBfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Applying corrections to aperture %i of file:'%self.aper, self.LBfile
-        
-        # The systematics file.
-        if sysfile is None:
-            head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_vmag_'%self.aper
-            tail = prefix + tail.rsplit('_')[-1]
-            sysfile = os.path.join(head, tail)
-        
-        self.sysfile = sysfile
-        
-        if not os.path.isfile(self.sysfile):
-            print 'Systematics file not found:', self.sysfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Reading corrections from:', self.sysfile
-        
-        # Read the required header data.
-        self.f = IO.fLCfile(self.LBfile)
-        self.ascc, self.ra, self.dec, self.nobs = self.f.read_header(['ascc', 'ra', 'dec', 'nobs'])
-        self.nobs = self.nobs.astype('int')
-        
-        # Read the correction terms.
-        sys = IO.SysFile(self.sysfile)
-        ascc, vmag, self.mag, sigma, nobs = sys.read_magnitudes()
-        self.pgcam, self.trans, self.nobs_trans = sys.read_trans()
-        self.pgipx, self.a, self.b, self.c, self.d, self.nobs_ipx = sys.read_intrapix()
-        self.hg, self.clouds, self.sigma, self.nobs_clouds, self.lstmin, lstmax = sys.read_clouds()
-        
-        # Create indices.
-        self.skyidx = self.hg.radec2idx(self.ra, self.dec)
+        hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()        
+        self.hg = hg
+        self.clouds = dict()
+        self.clouds['nobs'] = nobs
+        self.clouds['clouds'] = clouds
+        self.clouds['sigma'] = sigma
+        self.lstmin = lstmin        
         
         return
         
-    def get_correction(self, ascc):
+    def get_magnitudes(self, ascc):
 
-        # Get the header information for this star.
-        i, = np.where(self.ascc == ascc)
-        ra = self.ra[i]
-        dec = self.dec[i]
-        nobs = self.nobs[i]
-        skyidx = self.skyidx[i]
-        
-        # Read data.
-        fields = ['x', 'y', 'lst', 'lstseq']
-        x, y, lst, lstseq = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
-        lstseq = lstseq.astype('int') - self.lstmin
-        
-        # Create indices.    
-        ra = np.repeat(ra, nobs)
-        dec = np.repeat(dec, nobs)
-        ha = np.mod(lst*15. - ra, 360.)
-        
-        camidx, decidx = self.pgcam.radec2idx(ha, dec)
-        ipxidx, decidx = self.pgipx.radec2idx(ha, dec)
-        
-        # Get the correction terms.
-        trans = self.trans[camidx, decidx] + self.mag[i]
-        intrapix = self.a[ipxidx, decidx]*np.sin(2*np.pi*x) + self.b[ipxidx, decidx]*np.cos(2*np.pi*x) + self.c[ipxidx, decidx]*np.sin(2*np.pi*y) + self.d[ipxidx, decidx]*np.cos(2*np.pi*y)
-        clouds = self.clouds[skyidx, lstseq]
-        
-        correction = trans + intrapix + clouds
-        
-        # Flag data where the correction may not be good.
-        flags = np.where(np.isnan(correction), 1, 0)
-        flags = flags + np.where((self.nobs_trans[camidx, decidx] < 25) | (self.nobs_ipx[ipxidx, decidx] < 25) | (self.nobs_clouds[skyidx, lstseq] < 25), 2, 0)
-        if self.sigma is not None:
-            flags = flags + np.where((self.sigma[skyidx, lstseq] > .05), 4, 0)
-        
-        return trans, intrapix, clouds, flags
+        mask = self.magnitudes['ascc'] == ascc
+        mag = self.magnitudes['mag'][mask]
+        nobs = self.magnitudes['nobs'][mask]
+        sigma = self.magnitudes['sigma'][mask]
 
-    def binned_corrected_lightcurve(self, ascc):
+        return mag, nobs, sigma        
         
-        names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%self.aper, 'emag%i'%self.aper, 'trans%i'%self.aper, 'etrans%i'%self.aper, 'clouds%i'%self.aper, 'eclouds%i'%self.aper]
-        formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']        
+    def get_transmission(self, ra, dec, lst):
         
-        # Get the header information for this star.
-        i, = np.where(self.ascc == ascc)
-        nobs = self.nobs[i]
+        ha = np.mod(lst*15 - ra, 360.)
+        dec = np.repeat(dec, len(lst))
 
-        # Read data.
-        fields = ['flux%i'%self.aper, 'eflux%i'%self.aper, 'sky', 'x', 'y', 'jdmid', 'lst', 'lstseq', 'flag']
-        flux, eflux, sky, x, y, jdmid, lst, lstseq, flag = self.f.read_data(fields, np.array([ascc]), np.array([nobs]))
-        lstseq = lstseq.astype('int')
-        
-        # Compute the corrected magnitudes.
-        mag, emag = misc.flux2mag(flux, eflux)
-        trans, intrapix, clouds, flags = self.get_correction(ascc)
-        mag = mag - trans - intrapix - clouds
-        
-        # Remove flagged data.
-        mask = (flux > 0) & (eflux > 0) & (flag < 1) & (flags < 1) & (sky > 0) 
+        idx1, idx2 = self.pgcam.radec2idx(ha, dec)
 
-        mag = mag[mask]
-        emag = emag[mask]
-        sky = sky[mask]
+        trans = self.transmission['trans'][idx1,idx2]
+        nobs = self.transmission['nobs'][idx1,idx2]
+
+        return trans, nobs
+        
+    def get_intrapix(self, ra, dec, lst, x, y):
+        
+        ha = np.mod(lst*15 - ra, 360.)
+        dec = np.repeat(dec, len(lst))
+
+        idx1, idx2 = self.pgipx.radec2idx(ha, dec)
+        
+        ipx_x = self.intrapix['sinx'][idx1,idx2]*np.sin(2*np.pi*x) + self.intrapix['cosx'][idx1,idx2]*np.cos(2*np.pi*x)
+        ipx_y = self.intrapix['siny'][idx1,idx2]*np.sin(2*np.pi*y) + self.intrapix['cosy'][idx1,idx2]*np.cos(2*np.pi*y)        
+        nobs = self.intrapix['nobs'][idx1,idx2]        
+        
+        return ipx_x + ipx_y, nobs
+        
+    def get_clouds(self, ra, dec, lstseq):
+      
+        idx1 = self.hg.radec2idx(ra, dec)
+        idx2 = lstseq - self.lstmin
+        
+        clouds = self.clouds['clouds'][idx1,idx2]
+        nobs = self.clouds['nobs'][idx1,idx2]
+        sigma = self.clouds['sigma'][idx1,idx2]
+      
+        return clouds, nobs, sigma
+        
+    def get_systematics(self, ascc, ra, dec, lstseq, lst, x, y):
+
+        flag = np.zeros(len(lstseq), dtype='uint8')
+        
+        mag, nobs, sigma = self.get_magnitudes(ascc)        
+        
+        trans, nobs = self.get_transmission(ra, dec, lst)
+        flag = np.where(nobs < 25, flag+2, flag)
+        
+        ipx, nobs = self.get_intrapix(ra, dec, lst, x, y)
+        flag = np.where(nobs < 25, flag+4, flag)
+        
+        clouds, nobs, sigma = self.get_clouds(ra, dec, lstseq)
+        flag = np.where(nobs < 25, flag+8, flag)
+        flag = np.where(sigma > .05, flag+16, flag)
+        
+        systematics = trans + ipx + clouds
+        flag = np.where(np.isnan(systematics), flag + 1, flag)
+        
+        return mag, trans, ipx, clouds, flag 
+
+def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
+    
+    # fLC file and aperture to work on.
+    if not os.path.isfile(LBfile):
+        print 'File not found:', LBfile
+        print 'exiting...'
+        exit()
+    else:
+        print 'Applying corrections to aperture %i of file:'%aper, LBfile
+    
+    # The systematics file.
+    if sysfile is None:
+        head, tail = os.path.split(LBfile)
+        prefix = 'sys%i_vmag_'%aper
+        tail = prefix + tail.rsplit('_')[-1]
+        sysfile = os.path.join(head, tail)
+    
+    if not os.path.isfile(sysfile):
+        print 'Systematics file not found:', sysfile
+        print 'exiting...'
+        exit()
+    else:
+        print 'Reading corrections from:', sysfile    
+    
+    # The output file.
+    if outfile is None:
+        head, tail = os.path.split(LBfile)
+        prefix = 'red%i_vmag_'%aper
+        tail = prefix + tail.rsplit('_')[-1]
+        outfile = os.path.join(head, tail)
+    
+    if os.path.isfile(outfile):
+        print 'Output file already exists:', outfile
+        print 'exiting...'
+        exit()
+    else:
+        print 'Writing results to:', outfile
+    
+    # Read the stars 
+    f = io.PhotFile(LBfile) 
+    
+    # Write the global.
+    data = f.read_global()
+    data = dict(data)
+    
+    with h5py.File(LBfile, 'r') as f:
+        grp = f['global']
+        filelist = grp['filelist'].value
+        aversion = grp['aversion'].value
+        rversion = grp['rversion'].value
+        cversion = grp['cversion'].value
+    
+    with h5py.File(outfile) as f:
+        grp = f.create_group('global')
+        grp.attrs['station'] = data['station']
+        grp.attrs['camera'] = data['camera']
+        grp.attrs['exptime'] = 6.4 # Hardcoded ...
+        grp.attrs['naper'] = data['naper']
+        grp.attrs['aper0'] = data['aper0']
+        grp.attrs['aper1'] = data['aper1']
+        grp.attrs['skyrad0'] = data['skyrad0']
+        grp.attrs['skyrad1'] = data['skyrad1']
+        
+        grp.create_dataset('filelist', data=filelist)
+        grp.create_dataset('aversion', data=aversion)
+        grp.create_dataset('rversion', data=rversion)
+        grp.create_dataset('cversion', data=cversion)
+        grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+    
+    # Read the stars field from the photometry.
+    f = io.PhotFile(LBfile)
+
+    fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
+    stars = f.read_stars(fields)
+    stars['nobs'] = np.zeros(len(stars['ascc']), dtype='uint32')  
+    stars['lstseqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')     
+    stars['lstseqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')         
+       
+    # Open the systematics file.
+    sys = GetSystematics(sysfile)       
+       
+    # Fields and datatypes for the binned lightcurves.
+    lightcurves = dict()
+    names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%aper, 'emag%i'%aper, 'trans%i'%aper, 'etrans%i'%aper, 'clouds%i'%aper, 'eclouds%i'%aper]
+    formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']            
+            
+    for i in range(len(stars['ascc'])):                    
+            
+        # Read the lightcurve.
+        lc = f.read_lightcurves(ascc=stars['ascc'][i])
+
+        mask = (lc['flux{}'.format(aper)] > 0) & (lc['eflux{}'.format(aper)] > 0) & (lc['flag'] < 1) & (lc['sky'] > 0)
+        lc = lc[mask]
+
+        if (len(lc) == 0):
+            stars['nobs'][i] = 0
+            continue   
+
+        # Compute the corrected lightcurve.
+        x, y = lc['x'].astype('float64'), lc['y'].astype('float64')
+        mag, emag = misc.flux2mag(lc['flux{}'.format(aper)], lc['eflux{}'.format(aper)])
+        mag0, trans, ipx, clouds, cflag = sys.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lc['lstseq'], lc['lst'], x, y)
+        trans = trans + mag0
+        mag = mag - trans - ipx - clouds          
+            
+        # Mask values.
+        mask = (cflag < 1)         
+    
+        lc = lc[mask]
         x = x[mask]
         y = y[mask]
-        jdmid = jdmid[mask]
-        lst = lst[mask]
-        lstseq = lstseq[mask]
-        
+        mag = mag[mask]
+        emag = emag[mask]
         trans = trans[mask]
-        clouds = clouds[mask]
-        
+        ipx = ipx[mask]
+        clouds = clouds[mask]            
+            
+        if (len(lc) == 0):
+            stars['nobs'][i] = 0
+            continue            
+            
         # Compute the final binned lightcurve.
-        lstseq, binidx, nobs = np.unique(lstseq//50, return_inverse=True, return_counts=True)        
+        lstseq, binidx, nobs = np.unique(lc['lstseq']//50, return_inverse=True, return_counts=True)        
         
         lc_bin = np.recarray(len(lstseq), names=names, formats=formats)        
         
         lc_bin['lstseq'] = lstseq
         lc_bin['nobs'] = nobs # Number of raw points used for each binned point.        
         
-        lc_bin['jdmid'] = statistics.idxstats(binidx, jdmid, statistic='mean')
-        lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
-        #lc_bin['exptime'] = idxstats(binidx, exptime, statistic='sum')           
+        lc_bin['jdmid'] = statistics.idxstats(binidx, lc['jdmid'], statistic='mean')
+        lc_bin['lst'] = statistics.idxstats(binidx, lc['lst'], statistic='mean')
         
         lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
         lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
         
-        lc_bin['mag{}'.format(self.aper)] = statistics.idxstats(binidx, mag, statistic='mean')
-        lc_bin['emag{}'.format(self.aper)] = statistics.idxstats(binidx, mag, statistic='std')#/np.sqrt(nobs)
-        lc_bin['sky'] = statistics.idxstats(binidx, sky, statistic='mean')
-        lc_bin['esky'] = statistics.idxstats(binidx, sky, statistic='std')#/np.sqrt(nobs)        
+        lc_bin['mag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='mean')
+        lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')/np.sqrt(nobs)
+        lc_bin['sky'] = statistics.idxstats(binidx, lc['sky'], statistic='mean')
+        lc_bin['esky'] = statistics.idxstats(binidx, lc['sky'], statistic='std')/np.sqrt(nobs)        
         
-        lc_bin['trans{}'.format(self.aper)] = statistics.idxstats(binidx, trans, statistic='mean')
-        lc_bin['etrans{}'.format(self.aper)] = statistics.idxstats(binidx, trans, statistic='std')#/np.sqrt(nobs)
-        lc_bin['clouds{}'.format(self.aper)] = statistics.idxstats(binidx, clouds, statistic='mean')
-        lc_bin['eclouds{}'.format(self.aper)] = statistics.idxstats(binidx, clouds, statistic='std')#/np.sqrt(nobs)
-
-        return lc_bin
-
-    def make_redfile(self, outfile=None):
+        lc_bin['trans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='mean')
+        lc_bin['etrans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='std')/np.sqrt(nobs)
+        lc_bin['clouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='mean')
+        lc_bin['eclouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='std')/np.sqrt(nobs)            
         
-        # The output file.
-        if outfile is None:
-            head, tail = os.path.split(self.LBfile)
-            prefix = 'red%i_vmag_'%self.aper
-            tail = prefix + tail.rsplit('_')[-1]
-            outfile = os.path.join(head, tail)
-        
-        if os.path.isfile(outfile):
-            print 'Output file already exists:', outfile
-            print 'exiting...'
-            exit()
-        else:
-            print 'Writing results to:', outfile
-        
-        # Write the global.
-        data = self.f.read_global()
-        data = dict(data)
-        with h5py.File(self.LBfile, 'r') as f:
-            grp = f['global']
-            filelist = grp['filelist'].value
-            aversion = grp['aversion'].value
-            rversion = grp['rversion'].value
-            cversion = grp['cversion'].value
-        
-        with h5py.File(outfile) as f:
-            grp = f.create_group('global')
-            grp.attrs['station'] = data['station']
-            grp.attrs['camera'] = data['camera']
-            grp.attrs['exptime'] = 6.4 # Hardcoded ...
-            grp.attrs['naper'] = data['naper']
-            grp.attrs['aper0'] = data['aper0']
-            grp.attrs['aper1'] = data['aper1']
-            grp.attrs['skyrad0'] = data['skyrad0']
-            grp.attrs['skyrad1'] = data['skyrad1']
+        lightcurves[stars['ascc'][i]] = lc_bin
+    
+        stars['nobs'][i] = len(lstseq)
+        stars['lstseqmin'][i] = lstseq[0]
+        stars['lstseqmax'][i] = lstseq[-1]            
             
-            grp.create_dataset('filelist', data=filelist)
-            grp.create_dataset('aversion', data=aversion)
-            grp.create_dataset('rversion', data=rversion)
-            grp.create_dataset('cversion', data=cversion)
-            grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+    with h5py.File(outfile) as f:
         
-        # Write the header_table.
-        fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
-        data = self.f.read_header(fields)
-        with h5py.File(outfile) as f:
-            grp = f.create_group('header_table')
-            grp.create_dataset('ascc', data = data[0])
-            grp.create_dataset('ra', data = data[1])
-            grp.create_dataset('dec', data = data[2])
-            grp.create_dataset('vmag', data = data[3])
-            grp.create_dataset('bmag', data = data[4])
-            grp.create_dataset('spectype', data = data[5])
+        idx, = np.where(stars['nobs'] > 0)            
         
-        # Write the corrected lightcurves.
-        nstars = len(self.ascc)
-        nobs = np.zeros(nstars)
-        lstseqmin = np.zeros(nstars)
-        lstseqmax = np.zeros(nstars)
-        for i in range(nstars):
+        grp = f.create_group('header_table')
+        for key in stars.keys():
+            grp.create_dataset(key, data=stars[key][idx])
             
-            # Get the binned corrected lightcurve.
-            lc = self.binned_corrected_lightcurve(self.ascc[i])
-            
-            if (len(lc['jdmid']) > 0):
-                nobs[i] = len(lc['jdmid'])
-                lstseqmin[i] = np.amin(lc['lstseq'])
-                lstseqmax[i] = np.amax(lc['lstseq'])
-            
-            # Write the lightcurve.
-            with h5py.File(outfile) as f:
-                f.create_dataset('data/' + self.ascc[i], data = lc)
-            
-        with h5py.File(outfile) as f:
-            grp = f['header_table']
-            grp.create_dataset('nobs', data = nobs)
-            grp.create_dataset('lstseqmin', data = lstseqmin)
-            grp.create_dataset('lstseqmax', data = lstseqmax)
-            
-        return outfile
+        grp = f.create_group('data')
+        for key in lightcurves.keys():
+            grp.create_dataset(key, data=lightcurves[key])
+        
+    return outfile
