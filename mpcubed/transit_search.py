@@ -8,12 +8,29 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
-import misc
+import io, misc
 import boxlstsq
 from coordinates import grids
-from statistics import statistics
 from systematics import detrend
 import transit_statistics as stats
+
+###############################################################################
+### Functions for reading the reduced lightcurves.
+###############################################################################
+
+def fit_trend(jdmid, lst, mag, emag, ns, wrap):
+    """ Detrend an array of lightcurves."""
+    
+    weights = 1./emag**2
+        
+    if wrap:
+        x2 = np.mod(lst+12., 24.)-12.
+    else:
+        x2 = np.copy(lst)
+    
+    freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag, weights, ns)
+
+    return fit1 + fit2
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -24,111 +41,80 @@ def read_header(filelist):
     dec = np.array([])
     vmag = np.array([])
     sptype = np.array([])
-    jdmin = np.array([])
-    jdmax = np.array([])
     
     for filename in filelist:
         
-        # Read the headers.
-        with h5py.File(filename, 'r') as f:
+        f = io.PhotFile(filename)
+        stars = f.read_stars(fields=['ascc', 'ra', 'dec', 'vmag', 'spectype'], grpname='header')
             
-            grp = f['header']
-            ascc_ = grp['ascc'].value
-            ra_ = grp['ra'].value
-            dec_ = grp['dec'].value
-            vmag_ = grp['vmag'].value
-            sptype_ = grp['spectype'].value
-            jdmin_ = grp['jdmin'].value
-            jdmax_ = grp['jdmax'].value
-            
-        ascc = np.append(ascc, ascc_)
-        ra = np.append(ra, ra_)
-        dec = np.append(dec, dec_)
-        vmag = np.append(vmag, vmag_)
-        sptype = np.append(sptype, sptype_)
-        jdmin = np.append(jdmin, jdmin_)
-        jdmax = np.append(jdmax, jdmax_)
+        ascc = np.append(ascc, stars['ascc'])
+        ra = np.append(ra, stars['ra'])
+        dec = np.append(dec, stars['dec'])
+        vmag = np.append(vmag, stars['vmag'])
+        sptype = np.append(sptype, stars['spectype'])
     
     # Obtain the unique entries.
-    ascc, args, idx = np.unique(ascc, return_index=True, return_inverse=True)
+    ascc, args = np.unique(ascc, return_index=True)
     ra = ra[args]
     dec = dec[args]
     vmag = vmag[args]
     sptype = sptype[args]
-    jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
-    jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
     
-    return ascc, ra, dec, vmag, sptype, jdmin, jdmax
+    return ascc, ra, dec, vmag, sptype
     
-    
-def read_data_array(filename, ascc):
+def detrended_lightcurves(filename, ascc, aper=0):
     """ Read the lightcurves of a group of stars."""
     
     # Create arrays.
+    staridx = np.array([])
     lstseq = np.array([])
     jdmid = np.array([])
     lst = np.array([])
     mag = np.array([])
     emag = np.array([])
-    staridx = np.array([])
-    ns = 2*np.ones((len(ascc), 2), dtype='int')
-    wrap = np.zeros(len(ascc), dtype='bool')
+    trend = np.array([])
     
     # Read the lightcurves.
-    with h5py.File(filename, 'r') as f:
+    f = io.PhotFile(filename)
+    data = f.read_lightcurves(ascc=ascc, verbose=False)
         
-        for i in range(len(ascc)):
+    # Detrend and flatten the lightcurves.
+    for i in range(len(ascc)):       
         
-            try:
-                grp = f['data/' + ascc[i]]
-            except:
-                continue
-            
-            lstseq_ = grp['lstseq'].value
-            jdmid_ = grp['jdmid'].value
-            lst_ = grp['lst'].value
-            
-            try:
-                mag_ = grp['mag0'].value
-                emag_ = grp['emag0'].value
-            except:
-                mag_ = grp['mag1'].value
-                emag_ = grp['emag1'].value
-                
-            nobs_ = grp['nobs'].value
-            
-            emag_ = emag_/np.sqrt(nobs_)
-            
-            select = (nobs_ == 50)
-            lstseq_ = lstseq_[select]
-            jdmid_ = jdmid_[select]
-            lst_ = lst_[select]
-            mag_ = mag_[select]
-            emag_ = emag_[select]
-            
-            if (len(jdmid_) == 0):
-                continue
-            
-            lstseq = np.append(lstseq, lstseq_)
-            jdmid = np.append(jdmid, jdmid_)
-            lst = np.append(lst, lst_)
-            mag = np.append(mag, mag_)
-            emag = np.append(emag, emag_)
-            staridx = np.append(staridx, [i]*len(lstseq_))
-            ns[i, 0] = np.ptp(lstseq_) + 1
-            ns[i, 1], wrap[i] = misc.find_ns(lstseq_)
-
-    ns = np.maximum(ns, 2)
-
-    # Get the array indices of the data.
+        try:
+            lc = data[ascc[i]]
+        except:
+            continue
+        
+        mask = (lc['nobs'] == 50)
+        lc = lc[mask]
+        
+        if (len(lc) < 1):
+            continue
+        
+        # Detrend the lightcurves.
+        ns = [0,0]
+        ns[0] = np.ptp(lc['lstseq']) + 1
+        ns[1], wrap = misc.find_ns(lc['lstseq'])
+        ns = np.maximum(ns, 2)
+        trend_ = fit_trend(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
+        
+        # Add the results to the arrays.
+        staridx = np.append(staridx, [i]*len(lc))
+        lstseq = np.append(lstseq, lc['lstseq'])
+        jdmid = np.append(jdmid, lc['jdmid'])
+        lst = np.append(lst, lc['lst'])
+        mag = np.append(mag, lc['mag%i'%aper] - trend_)
+        emag = np.append(emag, lc['emag%i'%aper])
+        trend = np.append(trend, trend_)
+    
+    # Convert the lightcurves to 2D arrays.
     staridx = staridx.astype('int')
     lstseq, args, idx = np.unique(lstseq, return_index=True, return_inverse=True)
     
-    # Get the time arrays.
     jdmid = jdmid[args]
     lst = lst[args]
     
-    # Cast the data to arrays.
     tmp = np.zeros((len(ascc), len(lstseq)))
     tmp[staridx, idx] = mag
     mag = tmp
@@ -137,69 +123,47 @@ def read_data_array(filename, ascc):
     tmp[staridx, idx] = emag
     emag = tmp
     
-    # Create a mask.
+    tmp = np.zeros((len(ascc), len(lstseq)))
+    tmp[staridx, idx] = trend
+    trend = tmp
+    
     tmp = np.zeros((len(ascc), len(lstseq)), dtype='bool')
     tmp[staridx, idx] = True
     mask = ~tmp
     
-    return lstseq, jdmid, lst, mag, emag, mask, ns, wrap
+    return jdmid, lst, mag, emag, trend, mask
 
 def read_data(filelist, ascc):
     """ Read the data from a list of reduced lightcurve files."""
     
     # Create arrays.
-    lstseq = np.array([])
-    jdmid = np.array([])
-    lst = np.array([])
-    mag = np.array([[]]*len(ascc))
-    emag = np.array([[]]*len(ascc))
-    mask = np.array([[]]*len(ascc), dtype='bool')
-    trend = np.array([[]]*len(ascc))
-    cam = np.array([])
-    
-    camid = {'LPN':0, 'LPE':1, 'LPS':2, 'LPW':3, 'LPC':4}
+    jdmid = np.empty((0,))
+    lst = np.empty((0,))
+    mag = np.empty((len(ascc), 0))
+    emag = np.empty((len(ascc), 0))
+    trend = np.empty((len(ascc), 0))
+    mask = np.empty((len(ascc), 0), dtype='bool')
     
     for filename in filelist:
 
         # Read the data.
-        lstseq_, jdmid_, lst_, mag_, emag_, mask_, ns_, wrap_ = read_data_array(filename, ascc)
+        jdmid_, lst_, mag_, emag_, trend_, mask_ = detrended_lightcurves(filename, ascc)
         
-        if len(jdmid_) == 0:
+        if (len(jdmid_) < 1):
             continue
         
-        # Detrend the lightcurves.
-        trend_ = fit_trend(jdmid_, lst_, mag_, emag_, mask_, ns_, wrap_)
-        mag_ = mag_ - trend_
-        
-        lstseq = np.append(lstseq, lstseq_)
         jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lst_)
-        cam = np.append(cam, [camid[filename[-8:-5]]]*len(jdmid_))
         mag = np.append(mag, mag_, axis=1)
         emag = np.append(emag, emag_, axis=1)
-        mask = np.append(mask, mask_, axis=1)
         trend = np.append(trend, trend_, axis=1)
+        mask = np.append(mask, mask_, axis=1)
         
-    return lstseq, jdmid, lst, mag, emag, mask, trend, cam
+    return jdmid, lst, mag, emag, trend, mask
 
-def fit_trend(jdmid, lst, mag, emag, mask, ns, wrap):
-    """ Detrend an array of lightcurves."""
-    
-    nstars = mag.shape[0]
-    weights = np.where(mask, 0., 1./emag**2)
-    trend = np.zeros(mag.shape)
-    
-    for i in range(nstars):
-        
-        if wrap[i]:
-            x2 = np.mod(lst+12., 24.)-12.
-        else:
-            x2 = np.copy(lst)
-        
-        freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag[i], weights[i], ns[i])
-        trend[i] = fit1 + fit2
-
-    return trend
+###############################################################################
+### Functions for running the box least-squares algorithm.
+###############################################################################
 
 def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     """ Perform the box least-squares and flag non-detections."""
@@ -305,18 +269,11 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
     np.savetxt(fname, filelist, fmt='%s')
     
     # Read the combined header of the files.
-    ascc, ra, dec, vmag, sptype, jdmin, jdmax = read_header(filelist)
+    ascc, ra, dec, vmag, sptype = read_header(filelist)
     
     # Divide the stars in groups of neighbouring stars.
     hg = grids.HealpixGrid(8)
     skyidx = hg.radec2idx(ra, dec)
-
-    # Determine the maximum baseline in each grid cell.
-    blgrid = np.zeros(hg.npix)
-    skyuni, idx = np.unique(skyidx, return_inverse=True)
-    jdmax = statistics.idxstats(idx, jdmax, statistic=np.amax)
-    jdmin = statistics.idxstats(idx, jdmin, statistic=np.amin)
-    blgrid[skyuni] =  jdmax - jdmin
     
     # Dtermine which skypatches to run.
     if patches is None:
@@ -332,19 +289,19 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
         
     for i in patches:
         
-        # Do not run if the baseline falls short of 60 days.
-        if (blgrid[i] < 60.):
-            print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
-            continue
-        
         # Read the stars in the skypatch.
         select = (skyidx == i)
-        lstseq, jdmid, lst, mag, emag, mask, trend, cam = read_data(filelist, ascc[select])
+        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select])
     
         # Make sure there was data.
         if (len(jdmid) == 0):
             print 'Skipping patch {}/{}, no good data found.'.format(i, hg.npix) 
             continue
+        
+        # Do not run if the baseline falls short of 60 days.
+        if (np.ptp(jdmid) < 60.):
+            print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
+            continue        
         
         # Filename for the output file. 
         blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)

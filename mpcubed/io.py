@@ -53,7 +53,7 @@ class PhotFile(object):
                     
         return stars
     
-    def read_lightcurves(self, ascc=None, fields=None, perstar=True, grpname='data'):
+    def read_lightcurves(self, ascc=None, fields=None, perstar=True, grpname='data', verbose=True):
         
         onestar = False        
         
@@ -83,7 +83,8 @@ class PhotFile(object):
                     curves[ascc[i]] = grp[ascc[i]].value
                     
                 else:
-                    print 'Warning: skipping star {}, star not found.'.format(ascc[i])
+                    if verbose:
+                        print 'Warning: skipping star {}, star not found.'.format(ascc[i])
                     continue
                 
                 nobs[i] = len(curves[ascc[i]])
