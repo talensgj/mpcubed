@@ -49,29 +49,6 @@ def flux2mag(flux, eflux=None, m0=25.):
     
     return mag
 
-def sigma_clip(array, sigma=5., niter=5):
-    
-    m0 = np.nanmean(array)
-    m1 = np.nanstd(array)
-    
-    mask = np.abs(array - m0) < sigma*m1
-    for i in range(niter):
-        m0 = np.nanmean(array[mask])
-        m1 = np.nanstd(array[mask])
-        
-        mask = np.abs(array - m0) < sigma*m1
-        
-    return m0, m1
-
-def phase(time, period, time_ref=0., fold=True):
-    
-    phase = (time - time_ref)/period
-    
-    if fold:
-        phase = np.mod(phase, 1.)
-        
-    return phase
-
 def ensure_dir(path):
     
     if not os.path.exists(path):
@@ -92,27 +69,6 @@ def find_ns(lstseq):
         return option1, False
     else:
         return option2, True
-
-def transits(jdmid, period, epoch, duration):
-    
-    phase = (jdmid - epoch)/period
-    cycle = np.floor(phase+.5)
-    
-    phase = np.mod(phase+.5, 1.)-.5
-    condition = np.abs(phase) < .5*duration/period
-    
-    cycles = np.unique(cycle)
-    
-    length = []
-    for i in cycles:
-        
-        sel = (cycle == i)
-        nt = np.sum(condition[sel])
-
-        if (nt > 0):
-            length.append(nt)
-
-    return length
     
 def get_absmag(mag, d):
     
@@ -142,16 +98,3 @@ def round_to_significance(value, error1, error2=None):
     ndigits = np.maximum(ndigits, -int(np.floor(np.log10(-error2)))) 
     
     return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)    
-    
-#def transits(jdmid, pars):
-    
-    #phase = (jdmid - pars[1])/pars[0]
-    #orbit = np.floor(phase + .5).astype('int')
-    
-    #phase = np.mod(phase+.5, 1.)-.5
-    #sel = (np.abs(phase) < .5*pars[3]/pars[0])
-    
-    #intransit = np.bincount(orbit[sel])
-    #intransit = intransit[intransit > 0]
-    
-    #return intransit
