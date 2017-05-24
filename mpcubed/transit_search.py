@@ -89,7 +89,7 @@ def detrended_lightcurves(filename, ascc, aper=0):
         mask = (lc['nobs'] == 50)
         lc = lc[mask]
         
-        if (len(lc) < 1):
+        if (len(lc) < 2):
             continue
         
         # Detrend the lightcurves.
@@ -170,19 +170,27 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     
     print 'Computing boxlstsq for skypatch', skyidx
     
-    # Run the box least-squares search.
-    weights = np.where(mask, 0., 1./emag**2)
+    # Convert the uncertainties to weights.
+    with np.errstate(divide='ignore'):
+        weights = np.where(mask, 0., 1./emag**2)
+        
+    # Run the box least-squares search.    
     freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq.boxlstsq(jdmid, mag.T, weights.T, (~mask).T)
     
-    if freq is None:
-        print 'freq = None', skyidx
-        return 
-    
-    # Best fit parameters and statistics from the periodogram.
-    freq0, dchisq0, epoch0, depth0, duration0, sde, atr = stats.bls_crit(freq, dchisq, epoch, depth, duration)
-    
     # Create arrays.
-    nstars = len(freq0)
+    nstars = len(ascc)
+
+    # Parameters.
+    freq0 = np.ones(nstars)
+    epoch0 = np.zeros(nstars)
+    depth0 = np.zeros(nstars)
+    duration0 = np.zeros(nstars)
+    
+    # Box-least squares statistics.
+    sde = np.zeros(nstars)
+    atr = np.zeros(nstars)    
+    
+    # Lightcurve statistics.
     gap = np.zeros(nstars)
     sym = np.zeros(nstars)
     ntr = np.zeros(nstars)
@@ -194,12 +202,19 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     sr = np.zeros(nstars)
     snp = np.zeros(nstars)
 
-    # Statistics from the lightcurve.
     for i in range(nstars):
-        try:
-            gap[i], sym[i], ntr[i], ntp[i], mst[i], eps[i], sne[i], sw[i], sr[i], snp[i] = stats.lc_crit(jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], freq0[i], epoch0[i], depth0[i], duration0[i])
-        except:
-            pass
+        
+        # Best-fit parameters.
+        arg = np.argmax(dchisq[:,i])
+        freq0[i] = freq[arg]
+        epoch0[i] = epoch[arg,i]
+        depth0[i] = depth[arg,i]
+        duration0[i] = duration[arg,i]        
+
+        if (sum(~mask[i]) > 1) & (dchisq[arg,i] > 0):
+            # Statistics.
+            sde[i], atr[i] = stats.boxlstsq_criteria(dchisq[:,i], depth[:,i])
+            gap[i], sym[i], ntr[i], ntp[i], mst[i], eps[i], sne[i], sw[i], sr[i], snp[i] = stats.lightcurve_criteria(jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], freq0[i], epoch0[i], depth0[i], duration0[i])
     
     # Save the results to file.
     with h5py.File(blsfile) as f:
@@ -215,6 +230,7 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         
         grp.create_dataset('sde', data=sde, dtype='float32')
         grp.create_dataset('atr', data=atr, dtype='float32')
+        
         grp.create_dataset('gap', data=gap, dtype='float32')
         grp.create_dataset('sym', data=sym, dtype='float32')
         grp.create_dataset('ntr', data=ntr, dtype='int32')
@@ -277,7 +293,7 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
     
     # Dtermine which skypatches to run.
     if patches is None:
-        patches = range(hg.npix)
+        patches = np.unique(skyidx)
         
     if np.any(np.array(patches) >= hg.npix):
         print 'Error: patches greater than {} do not exist.'.format(hg.npix)
@@ -287,27 +303,27 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
     the_queue = mp.Queue(nprocs)
     the_pool = mp.Pool(nprocs, search_skypatch_mp, (the_queue,))
         
-    for i in patches:
+    for idx in patches:
         
         # Read the stars in the skypatch.
-        select = (skyidx == i)
+        select = (skyidx == idx)
         jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select])
     
         # Make sure there was data.
         if (len(jdmid) == 0):
-            print 'Skipping patch {}/{}, no good data found.'.format(i, hg.npix) 
+            print 'Skipping skypatch {}, no good data found.'.format(idx) 
             continue
         
         # Do not run if the baseline falls short of 60 days.
         if (np.ptp(jdmid) < 60.):
-            print 'Skipping patch {}/{}, insufficient baseline.'.format(i, hg.npix) 
+            print 'Skipping skypatch {}, insufficient baseline.'.format(idx) 
             continue        
         
         # Filename for the output file. 
-        blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, i)
+        blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, idx)
         blsfile = os.path.join(blsdir, blsfile)
         
-        the_queue.put((i, ascc[select], jdmid, mag, emag, mask, blsfile))
+        the_queue.put((idx, ascc[select], jdmid, mag, emag, mask, blsfile))
     
     # End the multiprocessing.
     for i in range(nprocs):
