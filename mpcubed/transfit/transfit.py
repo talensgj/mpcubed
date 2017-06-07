@@ -11,6 +11,8 @@ import batman
 import emcee
 #from scipy import optimize
 
+from mpcubed.systematics import detrend
+
 ###############################################################################
 ### Parameter helper functions.
 ###############################################################################
@@ -78,8 +80,9 @@ def transit_circ(lc_pars, ld_pars, time=None):
     
     return phase, model
  
-def lnlike_circ(lc_pars, ld_pars, time, mag, emag):
+def lnlike_circ(lc_pars, ld_pars, time, mag, emag, lst=None):
 
+    # Priors on the parameters.
     if (lc_pars[0] < 0):
         return -np.inf
         
@@ -95,8 +98,15 @@ def lnlike_circ(lc_pars, ld_pars, time, mag, emag):
     if (lc_pars[5] < 0) | (lc_pars[5] > (1 + lc_pars[4])):
         return -np.inf
 
+    # Evaluate the model.
     phase, model = transit_circ(lc_pars, ld_pars, time)
-    lnlike = -.5*np.sum(((mag - model)/emag)**2 + np.log(2*np.pi*emag**2))
+
+    # If LST is given fit the residuals with the long term and LST trend.
+    if lst is not None:
+        fit0, fit1 = detrend.detrend_pol(time, lst, mag - model, emag)
+    
+    # Compute the log-likelihood.
+    lnlike = -.5*np.sum(((mag - model - fit0 - fit1)/emag)**2 + np.log(2*np.pi*emag**2))
 
     return lnlike    
     
