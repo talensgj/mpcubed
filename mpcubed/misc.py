@@ -97,4 +97,33 @@ def round_to_significance(value, error1, error2=None):
     
     ndigits = np.maximum(ndigits, -int(np.floor(np.log10(-error2)))) 
     
-    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)    
+    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)   
+
+def bin_data_noerr(x, y, bins):
+    
+    npbin, bins = np.histogram(x, bins=bins)
+    y_sum, bins = np.histogram(x, weights=y, bins=bins)
+    ysq_sum, bins = np.histogram(x, weights=y**2., bins=bins)
+
+    x_bin = (bins[:-1] + bins[1:])/2.
+    y_bin = y_sum/npbin
+    ey_bin = np.sqrt(ysq_sum/npbin - (y_sum/npbin)**2)/np.sqrt(npbin)
+
+    mask = np.isfinite(y_bin)
+
+    return x_bin[mask], y_bin[mask], ey_bin[mask]
+
+def bin_data_err(x, y, yerr, bins):
+    
+    weights = 1./yerr**2
+
+    w_sum, bins = np.histogram(x, weights=weights, bins=bins)
+    wy_sum, bins = np.histogram(x, weights=weights*y, bins=bins)
+    
+    x_bin = (bins[:-1] + bins[1:])/2.
+    y_bin = wy_sum/w_sum    
+    ey_bin = 1/np.sqrt(w_sum)    
+    
+    mask = np.isfinite(y_bin)    
+    
+    return x_bin[mask], y_bin[mask], ey_bin[mask]
