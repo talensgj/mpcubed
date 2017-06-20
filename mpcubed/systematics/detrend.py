@@ -118,7 +118,7 @@ def detrend_pol(jd, lst, mag, emag, scale0=3., scale1=.25):
     fit0 = np.sum(pars[:deg0+1]*mat[:,:deg0+1], axis=1)
     fit1 = np.sum(pars[deg0+1:]*mat[:,deg0+1:], axis=1)
     
-    return fit0, fit1
+    return mat, fit0, fit1
 
 #def masc_harmonic(jdmid, lst, value, weights, Pjd, njd, Plst, nlst, cnst=False):
     #""" Compute the best fit model for the long-term and LST trends. """
