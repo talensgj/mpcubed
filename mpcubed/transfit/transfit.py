@@ -89,19 +89,19 @@ def lnlike_circ(lc_pars, ld_pars, time, mag, emag, mat=None):
 
     # Priors on the parameters.
     if (lc_pars[0] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[2] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[3] < 0) | (lc_pars[3] > lc_pars[2]):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[4] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[5] < 0) | (lc_pars[5] > (1 + lc_pars[4])):
-        return -np.inf
+        return -np.inf, np.inf
 
     # Evaluate the model.
     phase, model = transit_circ(lc_pars, ld_pars, time)
@@ -112,12 +112,14 @@ def lnlike_circ(lc_pars, ld_pars, time, mag, emag, mat=None):
         pars, fit = baseline(mag, emag, model, mat)
         
         # Compute the log-likelihood.
+        chisq = np.sum(((mag - model - fit)/emag)**2)
         lnlike = -.5*np.sum(((mag - model - fit)/emag)**2 + np.log(2*np.pi*emag**2))
 
     else:
+        chisq = np.sum(((mag - model)/emag)**2)
         lnlike = -.5*np.sum(((mag - model)/emag)**2 + np.log(2*np.pi*emag**2))
 
-    return lnlike    
+    return lnlike, chisq   
     
 def emcee_circ(lc_pars, ld_pars, time, mag, emag, nwalkers, nsteps, nthreads=4):
     

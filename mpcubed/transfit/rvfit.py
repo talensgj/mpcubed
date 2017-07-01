@@ -118,9 +118,10 @@ def lnlike_circ(rv_pars, time, vel, evel):
         return -np.inf
     
     phase, model = rv_circ(rv_pars, time)
+    chisq = np.sum(((vel - model)/evel)**2)
     lnlike = -.5*np.sum(((vel - model)/evel)**2 + np.log(2*np.pi*evel**2))
-    
-    return lnlike
+
+    return lnlike, chisq
     
 def emcee_circ(rv_pars, time, vel, evel, nwalkers, nsteps, nthreads=4):
     
