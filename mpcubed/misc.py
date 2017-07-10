@@ -39,6 +39,21 @@ sptype_OCinp = {'O5':(13.4, -5.1), 'O6':(12.2, -5.1), 'O7':(11., -4.9),
                 'M2':(.48, 10.4), 'M3':(.41, 11.1), 'M4':(.35, 11.9),
                 'M5':(.29, 12.8), 'M6':(.24, 13.8), 'M7':(.20, 14.7)}
 
+def barycentric_dates(jdmid, ra, dec, site='Roque de los Muchachos'):
+    
+    from astropy import time, coordinates, units    
+    
+    star = coordinates.SkyCoord(ra, dec, frame='icrs', unit=[units.deg, units.deg])
+    site = coordinates.EarthLocation.of_site(site)
+    
+    times = time.Time(jdmid, format='jd', scale='utc', location=site)
+    
+    ltt_bary = times.light_travel_time(star)
+    times_barycentre = times.tdb + ltt_bary
+    jdbar = times_barycentre.jd
+    
+    return jdbar
+
 def flux2mag(flux, eflux=None, m0=25.):
     
     mag = m0 - 2.5*np.log10(flux)

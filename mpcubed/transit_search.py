@@ -8,29 +8,14 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
-import io, misc
-import boxlstsq
-from coordinates import grids
-from systematics import detrend
-import transit_statistics as stats
+from . import io, misc, boxlstsq
+from .coordinates import grids
+from .systematics import detrend
+from . import transit_statistics as stats
 
 ###############################################################################
 ### Functions for reading the reduced lightcurves.
 ###############################################################################
-
-def fit_trend(jdmid, lst, mag, emag, ns, wrap):
-    """ Detrend an array of lightcurves."""
-    
-    weights = 1./emag**2
-        
-    if wrap:
-        x2 = np.mod(lst+12., 24.)-12.
-    else:
-        x2 = np.copy(lst)
-    
-    freq1, freq2, pars1, pars2, fit1, fit2, chisq = detrend.psf_variations(jdmid, x2, mag, weights, ns)
-
-    return fit1 + fit2
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -62,7 +47,7 @@ def read_header(filelist):
     
     return ascc, ra, dec, vmag, sptype
     
-def detrended_lightcurves(filename, ascc, aper=0):
+def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     """ Read the lightcurves of a group of stars."""
     
     # Create arrays.
@@ -93,11 +78,23 @@ def detrended_lightcurves(filename, ascc, aper=0):
             continue
         
         # Detrend the lightcurves.
-        ns = [0,0]
-        ns[0] = np.ptp(lc['lstseq']) + 1
-        ns[1], wrap = misc.find_ns(lc['lstseq'])
-        ns = np.maximum(ns, 2)
-        trend_ = fit_trend(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
+        if method == 'legendre':        
+        
+            mat, fit0, fit1 = detrend.detrend_legendre(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper])        
+            trend_ = fit0 + fit1 
+        
+        elif method == 'fourier':        
+        
+            ns = [0,0]
+            ns[0] = np.ptp(lc['lstseq']) + 1
+            ns[1], wrap = misc.find_ns(lc['lstseq'])
+            ns = np.maximum(ns, 2)
+            
+            mat, fit0, fit1 = detrend.detrend_fourier(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
+            trend_ = fit0 + fit1 
+            
+        else:
+            raise ValueError('Unknown detrending method "{}"'.format(method))
         
         # Add the results to the arrays.
         staridx = np.append(staridx, [i]*len(lc))
@@ -133,7 +130,7 @@ def detrended_lightcurves(filename, ascc, aper=0):
     
     return jdmid, lst, mag, emag, trend, mask
 
-def read_data(filelist, ascc):
+def read_data(filelist, ascc, aper=0, method='legendre'):
     """ Read the data from a list of reduced lightcurve files."""
     
     # Create arrays.
@@ -147,7 +144,7 @@ def read_data(filelist, ascc):
     for filename in filelist:
 
         # Read the data.
-        jdmid_, lst_, mag_, emag_, trend_, mask_ = detrended_lightcurves(filename, ascc)
+        jdmid_, lst_, mag_, emag_, trend_, mask_ = detrended_lightcurves(filename, ascc, aper, method)
         
         if (len(jdmid_) < 1):
             continue
@@ -262,15 +259,15 @@ def search_skypatch_mp(queue):
     
     return
 
-def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq', nprocs=6):
+def transit_search(filelist, name, patches=None, aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
     
-    print 'Trying to run the box least-squares on:' 
+    print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
     for filename in filelist:
         print ' ', filename
     
     # Create directories for the output.
-    outdir = os.path.join(outdir, name)
+    outdir = os.path.join(outdir, name + method)
     blsdir = os.path.join(outdir, 'bls')
     misc.ensure_dir(blsdir)
     
@@ -307,7 +304,7 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
         
         # Read the stars in the skypatch.
         select = (skyidx == idx)
-        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select])
+        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select], aper, method)
     
         # Make sure there was data.
         if (len(jdmid) == 0):
@@ -319,11 +316,15 @@ def transit_search(filelist, name, patches=None, outdir='/data3/talens/boxlstsq'
             print 'Skipping skypatch {}, insufficient baseline.'.format(idx) 
             continue        
         
+        # Barycentric correction.
+        ra, dec = hg.idx2radec(idx)
+        jdbar = misc.barycentric_dates(jdmid, ra, dec)
+
         # Filename for the output file. 
-        blsfile = 'bls0_{}_patch{:03d}.hdf5'.format(name, idx)
+        blsfile = 'bls{}_{}{}_patch{:03d}.hdf5'.format(aper, name, method, idx)
         blsfile = os.path.join(blsdir, blsfile)
         
-        the_queue.put((idx, ascc[select], jdmid, mag, emag, mask, blsfile))
+        the_queue.put((idx, ascc[select], jdbar, mag, emag, mask, blsfile))
     
     # End the multiprocessing.
     for i in range(nprocs):
