@@ -25,27 +25,24 @@ def read_header(filelist):
     ra = np.array([])
     dec = np.array([])
     vmag = np.array([])
-    sptype = np.array([])
     
     for filename in filelist:
         
         f = io.PhotFile(filename)
-        stars = f.read_stars(fields=['ascc', 'ra', 'dec', 'vmag', 'spectype'], grpname='header')
+        stars = f.read_stars(fields=['ascc', 'ra', 'dec', 'vmag'], grpname='header')
             
         ascc = np.append(ascc, stars['ascc'])
         ra = np.append(ra, stars['ra'])
         dec = np.append(dec, stars['dec'])
         vmag = np.append(vmag, stars['vmag'])
-        sptype = np.append(sptype, stars['spectype'])
     
     # Obtain the unique entries.
     ascc, args = np.unique(ascc, return_index=True)
     ra = ra[args]
     dec = dec[args]
     vmag = vmag[args]
-    sptype = sptype[args]
     
-    return ascc, ra, dec, vmag, sptype
+    return ascc, ra, dec, vmag
     
 def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     """ Read the lightcurves of a group of stars."""
@@ -61,7 +58,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     
     # Read the lightcurves.
     f = io.PhotFile(filename)
-    data = f.read_lightcurves(ascc=ascc, verbose=False)
+    data = f.read_lightcurves(ascc=ascc, verbose=False, grpname='data')
         
     # Detrend and flatten the lightcurves.
     for i in range(len(ascc)):       
@@ -92,6 +89,11 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
             
             mat, fit0, fit1 = detrend.detrend_fourier(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
             trend_ = fit0 + fit1 
+            
+        elif method == 'snellen':
+            
+            fit0, fit1 = detrend.detrend_snellen(lc['jdmid'], lc['lstseq'], lc['mag%i'%aper], lc['emag%i'%aper], lc['sky'])
+            trend_ = fit0 + fit1
             
         else:
             raise ValueError('Unknown detrending method "{}"'.format(method))
@@ -282,7 +284,7 @@ def transit_search(filelist, name, patches=None, aper=0, method='legendre', outd
     np.savetxt(fname, filelist, fmt='%s')
     
     # Read the combined header of the files.
-    ascc, ra, dec, vmag, sptype = read_header(filelist)
+    ascc, ra, dec, vmag = read_header(filelist)
     
     # Divide the stars in groups of neighbouring stars.
     hg = grids.HealpixGrid(8)
