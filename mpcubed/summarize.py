@@ -10,6 +10,8 @@ import glob
 
 import numpy as np
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import rcParams
@@ -99,7 +101,12 @@ def plot_polar(grid, data, wcspars, **kwargs):
 
     return im
 
-def fig_transmission(filename, figname):
+def fig_transmission(filename, figname=None):
+    
+    if figname is None:
+        head, tail = os.path.split(filename)
+        figname = tail.rsplit('.')[0] + '_trans.png'
+        figname = os.path.join(head, figname) 
     
     # Read the transmission map.
     f = io.SysFile(filename)
@@ -134,7 +141,12 @@ def fig_transmission(filename, figname):
     
     return
     
-def fig_intrapix(filename, figname):
+def fig_intrapix(filename, figname=None):
+    
+    if figname is None:
+        head, tail = os.path.split(filename)
+        figname = tail.rsplit('.')[0] + '_ipx.png'
+        figname = os.path.join(head, figname)   
     
     # Read the intrapixel amplitudes.
     f = io.SysFile(filename) 
@@ -191,7 +203,12 @@ def fig_intrapix(filename, figname):
     
     return
     
-def fig_clouds(filename, figname):
+def fig_clouds(filename, figname=None):
+    
+    if figname is None:
+        head, tail = os.path.split(filename)
+        figname = tail.rsplit('.')[0] + '_clouds.png'
+        figname = os.path.join(head, figname)
     
     # Read the data.
     f = io.SysFile(filename)
@@ -231,7 +248,12 @@ def fig_clouds(filename, figname):
     
     return
     
-def fig_sigma(filename, figname):
+def fig_sigma(filename, figname=None):
+    
+    if figname is None:
+        head, tail = os.path.split(filename)
+        figname = tail.rsplit('.')[0] + '_sigma.png'
+        figname = os.path.join(head, figname)
     
     # Read the data.
     f = io.SysFile(filename)
@@ -272,31 +294,9 @@ def fig_sigma(filename, figname):
     
 def calibration_summary(filename):
     
-    # Split the filepath.
-    head, tail = os.path.split(filename)
-    
-    # Make figure showing the transmission.
-    figname = tail.rsplit('.')[0] + '_trans.png'
-    figname = os.path.join(head, figname)   
-    
-    fig_transmission(filename, figname)
-    
-    # Make a figure showing the intrapixel variations.
-    figname = tail.rsplit('.')[0] + '_ipx.png'
-    figname = os.path.join(head, figname)  
-    
-    fig_intrapix(filename, figname)
-    
-    # Make a figure showing the clouds.
-    figname = tail.rsplit('.')[0] + '_clouds.png'
-    figname = os.path.join(head, figname)  
-    
-    fig_clouds(filename, figname)
-    
-    # Make a figure showing the additional uncertainties.
-    figname = tail.rsplit('.')[0] + '_sigma.png'
-    figname = os.path.join(head, figname)      
-    
-    fig_sigma(filename, figname)
+    fig_transmission(filename)
+    fig_intrapix(filename)
+    fig_clouds(filename)
+    fig_sigma(filename)
     
     return
