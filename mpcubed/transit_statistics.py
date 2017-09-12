@@ -10,46 +10,21 @@ import numpy as np
 from models import transit
 from mpcubed.statistics import statistics
 
-def sigma_clip(array, axis=None, sigma=5., niter=5):
-    """ Compute a robust mean and standard deviation."""  
+def boxlstsq_criteria(dchisq, depth):
 
-    weights = np.ones(array.shape)
-    for i in range(niter):
+    arg = np.argmax(dchisq)
+
+    with np.errstate(invalid='ignore', divide='ignore'):
+
+        # Signal Detection Efficiency (SDE).    
+        mu, sigma = statistics.sigma_clip(dchisq)
+        sde = (dchisq[arg] - mu)/sigma    
         
-        m0 = np.sum(weights*array, axis=axis)/np.sum(weights, axis=axis)
-        m1 = np.sum(weights*(array - m0)**2., axis=axis)/np.sum(weights, axis=axis)
-        m1 = np.sqrt(m1)
-    
-        weights = np.where(np.abs(array - m0) < sigma*m1, 1., 0.)
-        
-    return m0, m1
+        # Anti-transit ratio.
+        tmp = dchisq*np.sign(depth)
+        atr = -np.amax(tmp)/np.amin(tmp)
 
-def bls_crit(freq, dchisq, epoch, depth, duration):
-
-    # Optimal parameters.
-    args_1d = np.argmax(dchisq, axis=0)
-    
-    if (np.ndim(dchisq) == 2):
-        args_2d = np.arange(dchisq.shape[1])
-        args_2d = (args_1d, args_2d)
-    else:
-        args_2d = args_1d
-        
-    freq0 = freq[args_1d]
-    dchisq0 = dchisq[args_2d]
-    epoch0 = epoch[args_2d]
-    depth0 = depth[args_2d]
-    duration0 = duration[args_2d]
-
-    # Signal Detection Efficiency (SDE).    
-    mu, sigma = sigma_clip(dchisq, axis=0)
-    sde = (dchisq0 - mu)/sigma    
-    
-    # Anti-transit ratio.
-    tmp = dchisq*np.sign(depth)
-    atr = -np.amax(tmp, axis=0)/np.amin(tmp, axis=0)
-
-    return freq0, dchisq0, epoch0, depth0, duration0, sde, atr  
+    return sde, atr  
 
 def phase_gap(jdmid, freq, epoch, duration):
     
@@ -125,15 +100,16 @@ def pink_noise(jdmid, mag, freq, epoch, depth, duration):
    
     npbin, edges = np.histogram(jdmid, bins=bins)
     resbin, edges = np.histogram(jdmid, bins=bins, weights=residuals)
-    resbin = resbin/npbin
-    resbin = resbin[npbin > 0]    
+
+    mask = (npbin > 0)    
+    resbin = resbin[mask]/npbin[mask]
     
     # The red noise term.
     sigma_red = statistics.mad(resbin)    
     
     return sigma_white, sigma_red
 
-def lc_crit(jdmid, mag, emag, freq, epoch, depth, duration):
+def lightcurve_criteria(jdmid, mag, emag, freq, epoch, depth, duration):
     
     # Phase coverage.
     gap, sym = phase_gap(jdmid, freq, epoch, duration)

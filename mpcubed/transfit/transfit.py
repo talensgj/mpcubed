@@ -77,28 +77,49 @@ def transit_circ(lc_pars, ld_pars, time=None):
     model =  -2.5*np.log10(F0*m.light_curve(params))
     
     return phase, model
- 
-def lnlike_circ(lc_pars, ld_pars, time, mag, emag):
 
+def baseline(mag, emag, model, mat):  
+    
+    pars = np.linalg.lstsq(mat/emag[:,None], (mag - model)/emag)[0]
+    fit = np.sum(mat*pars, axis=1)    
+    
+    return pars, fit
+
+def lnlike_circ(lc_pars, ld_pars, time, mag, emag, mat=None):
+
+    # Priors on the parameters.
     if (lc_pars[0] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[2] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[3] < 0) | (lc_pars[3] > lc_pars[2]):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[4] < 0):
-        return -np.inf
+        return -np.inf, np.inf
         
     if (lc_pars[5] < 0) | (lc_pars[5] > (1 + lc_pars[4])):
-        return -np.inf
+        return -np.inf, np.inf
 
+    # Evaluate the model.
     phase, model = transit_circ(lc_pars, ld_pars, time)
-    lnlike = -.5*np.sum(((mag - model)/emag)**2 + np.log(2*np.pi*emag**2))
 
-    return lnlike    
+    # If LST is given fit the residuals with the long term and LST trend.
+    if mat is not None:
+        # Evaluate the baseline model.
+        pars, fit = baseline(mag, emag, model, mat)
+        
+        # Compute the log-likelihood.
+        chisq = np.sum(((mag - model - fit)/emag)**2)
+        lnlike = -.5*np.sum(((mag - model - fit)/emag)**2 + np.log(2*np.pi*emag**2))
+
+    else:
+        chisq = np.sum(((mag - model)/emag)**2)
+        lnlike = -.5*np.sum(((mag - model)/emag)**2 + np.log(2*np.pi*emag**2))
+
+    return lnlike, chisq   
     
 def emcee_circ(lc_pars, ld_pars, time, mag, emag, nwalkers, nsteps, nthreads=4):
     

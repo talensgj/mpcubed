@@ -32,7 +32,7 @@ def twoweek_baseline(date, camera, mode, filepath, outpath):
     
     return outfile
 
-def main(date, cameras, mode, filepath, outpath, nprocs=6):
+def main(date, cameras, mode, filepath, outpath):
 
     for cam in cameras:
         twoweek_baseline(date, cam, mode, filepath, outpath)
@@ -54,8 +54,6 @@ if __name__ == '__main__':
                         help='path to the data', dest='filepath')
     parser.add_argument('-c', '--cam', type=str, nargs='+', default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC'],
                         help ='the camera(s) to perform the combination for', dest='cameras')
-    parser.add_argument('-n', '--nprocs', type=int, default=6,
-                        help='the number of processes to use', dest='nprocs')
     args = parser.parse_args()
     
-    main(args.date, args.cameras, args.mode, args.filepath, args.outpath, args.nprocs)
+    main(args.date, args.cameras, args.mode, args.filepath, args.outpath)

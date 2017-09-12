@@ -69,18 +69,19 @@ def rv_model(rv_pars, time=None):
 def lnlike_rv(rv_pars, time, vel, evel):
     
     if (rv_pars[1] < 0):
-        return -np.inf
+        return -np.inf, np.inf
     
     if (rv_pars[2] < 0):
-        return -np.inf
+        return -np.inf, np.inf
     
     if ((rv_pars[4]**2 + rv_pars[5]**2) > 1):
-        return -np.inf
+        return -np.inf, np.inf
 
     phase, model = rv_model(rv_pars, time)
+    chisq = np.sum((vel - model)**2/evel**2)
     lnlike = -.5*np.sum(((vel - model)/evel)**2 + np.log(2*np.pi*evel**2))
     
-    return lnlike
+    return lnlike, chisq
     
 def emcee_rv(rv_pars, time, vel, evel, nwalkers, nsteps, nthreads=4):
     
@@ -114,13 +115,10 @@ def rv_circ(rv_pars, time=None):
     
 def lnlike_circ(rv_pars, time, vel, evel):
     
-    if (rv_pars[1] < 0):
-        return -np.inf
+    rv_pars = np.asarray(rv_pars)
+    rv_pars = np.append(rv_pars, [0., 0.])
     
-    phase, model = rv_circ(rv_pars, time)
-    lnlike = -.5*np.sum(((vel - model)/evel)**2 + np.log(2*np.pi*evel**2))
-    
-    return lnlike
+    return lnlike_rv(rv_pars, time, vel, evel)
     
 def emcee_circ(rv_pars, time, vel, evel, nwalkers, nsteps, nthreads=4):
     
@@ -138,19 +136,10 @@ def emcee_circ(rv_pars, time, vel, evel, nwalkers, nsteps, nthreads=4):
     sampler.run_mcmc(pos, nsteps)
     
     return sampler
+    
+def main():
 
-def main(): 
-    
-    import matplotlib.pyplot as plt    
-    
-    rv_pars = np.array([0, 3.5, 10., 0])   
-    
-    phase, model = rv_circ(rv_pars)
-    
-    plt.plot(phase, model)
-    plt.show()
-    
-    return
+    return    
     
 if __name__ == '__main__':
     

@@ -22,6 +22,19 @@ def mad(data, K = 1.4826, axis = None):
     mad = np.nanmedian(np.abs(data - med), axis = axis)
     
     return K*mad
+    
+def sigma_clip(array, axis=None, ndev=5., niter=5):
+    """ Compute a robust mean and standard deviation."""  
+
+    weights = np.ones(array.shape)
+    for i in range(niter):
+        
+        mu = np.sum(weights*array, axis=axis)/np.sum(weights, axis=axis)
+        sigma = np.sqrt(np.sum(weights*(array - mu)**2., axis=axis)/np.sum(weights, axis=axis))
+    
+        weights = np.where(np.abs(array - mu) < ndev*sigma, 1., 0.)
+        
+    return mu, sigma
 
 def idxstats(indices, values, statistic='mean', keeplength=False):
     """ Compute a statistic for all values with the same index.

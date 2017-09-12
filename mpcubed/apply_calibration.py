@@ -222,6 +222,11 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
         mask = (cflag < 1)         
     
         lc = lc[mask]
+        
+        if (len(lc) == 0):
+            stars['nobs'][i] = 0
+            continue 
+        
         x = x[mask]
         y = y[mask]
         mag = mag[mask]
@@ -229,10 +234,6 @@ def apply_calibration(LBfile, aper, sysfile=None, outfile=None):
         trans = trans[mask]
         ipx = ipx[mask]
         clouds = clouds[mask]            
-            
-        if (len(lc) == 0):
-            stars['nobs'][i] = 0
-            continue            
             
         # Compute the final binned lightcurve.
         lstseq, binidx, nobs = np.unique(lc['lstseq']//50, return_inverse=True, return_counts=True)        

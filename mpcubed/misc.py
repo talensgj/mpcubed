@@ -39,6 +39,21 @@ sptype_OCinp = {'O5':(13.4, -5.1), 'O6':(12.2, -5.1), 'O7':(11., -4.9),
                 'M2':(.48, 10.4), 'M3':(.41, 11.1), 'M4':(.35, 11.9),
                 'M5':(.29, 12.8), 'M6':(.24, 13.8), 'M7':(.20, 14.7)}
 
+def barycentric_dates(jdmid, ra, dec, site='Roque de los Muchachos'):
+    
+    from astropy import time, coordinates, units    
+    
+    star = coordinates.SkyCoord(ra, dec, frame='icrs', unit=[units.deg, units.deg])
+    site = coordinates.EarthLocation.of_site(site)
+    
+    times = time.Time(jdmid, format='jd', scale='utc', location=site)
+    
+    ltt_bary = times.light_travel_time(star)
+    times_barycentre = times.tdb + ltt_bary
+    jdbar = times_barycentre.jd
+    
+    return jdbar
+
 def flux2mag(flux, eflux=None, m0=25.):
     
     mag = m0 - 2.5*np.log10(flux)
@@ -48,29 +63,6 @@ def flux2mag(flux, eflux=None, m0=25.):
         return mag, emag
     
     return mag
-
-def sigma_clip(array, sigma=5., niter=5):
-    
-    m0 = np.nanmean(array)
-    m1 = np.nanstd(array)
-    
-    mask = np.abs(array - m0) < sigma*m1
-    for i in range(niter):
-        m0 = np.nanmean(array[mask])
-        m1 = np.nanstd(array[mask])
-        
-        mask = np.abs(array - m0) < sigma*m1
-        
-    return m0, m1
-
-def phase(time, period, time_ref=0., fold=True):
-    
-    phase = (time - time_ref)/period
-    
-    if fold:
-        phase = np.mod(phase, 1.)
-        
-    return phase
 
 def ensure_dir(path):
     
@@ -92,27 +84,6 @@ def find_ns(lstseq):
         return option1, False
     else:
         return option2, True
-
-def transits(jdmid, period, epoch, duration):
-    
-    phase = (jdmid - epoch)/period
-    cycle = np.floor(phase+.5)
-    
-    phase = np.mod(phase+.5, 1.)-.5
-    condition = np.abs(phase) < .5*duration/period
-    
-    cycles = np.unique(cycle)
-    
-    length = []
-    for i in cycles:
-        
-        sel = (cycle == i)
-        nt = np.sum(condition[sel])
-
-        if (nt > 0):
-            length.append(nt)
-
-    return length
     
 def get_absmag(mag, d):
     
@@ -141,17 +112,33 @@ def round_to_significance(value, error1, error2=None):
     
     ndigits = np.maximum(ndigits, -int(np.floor(np.log10(-error2)))) 
     
-    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)    
+    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)   
+
+def bin_data_noerr(x, y, bins):
     
-#def transits(jdmid, pars):
+    npbin, bins = np.histogram(x, bins=bins)
+    y_sum, bins = np.histogram(x, weights=y, bins=bins)
+    ysq_sum, bins = np.histogram(x, weights=y**2., bins=bins)
+
+    x_bin = (bins[:-1] + bins[1:])/2.
+    y_bin = y_sum/npbin
+    ey_bin = np.sqrt(ysq_sum/npbin - (y_sum/npbin)**2)/np.sqrt(npbin)
+
+    mask = np.isfinite(y_bin)
+
+    return x_bin[mask], y_bin[mask], ey_bin[mask]
+
+def bin_data_err(x, y, yerr, bins):
     
-    #phase = (jdmid - pars[1])/pars[0]
-    #orbit = np.floor(phase + .5).astype('int')
+    weights = 1./yerr**2
+
+    w_sum, bins = np.histogram(x, weights=weights, bins=bins)
+    wy_sum, bins = np.histogram(x, weights=weights*y, bins=bins)
     
-    #phase = np.mod(phase+.5, 1.)-.5
-    #sel = (np.abs(phase) < .5*pars[3]/pars[0])
+    x_bin = (bins[:-1] + bins[1:])/2.
+    y_bin = wy_sum/w_sum    
+    ey_bin = 1/np.sqrt(w_sum)    
     
-    #intransit = np.bincount(orbit[sel])
-    #intransit = intransit[intransit > 0]
+    mask = np.isfinite(y_bin)    
     
-    #return intransit
+    return x_bin[mask], y_bin[mask], ey_bin[mask]

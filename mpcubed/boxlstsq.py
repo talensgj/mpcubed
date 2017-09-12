@@ -119,7 +119,7 @@ def boxlstsq(time, flux, weights, mask, **options):
     fmax = options.pop('fmax', None)
     OS = options.pop('OS', 3)
     
-    # Dtermine the baseline of the data.
+    # Determine the baseline of the data.
     S = np.ptp(time)
     
     # Frequency sampling.
@@ -143,8 +143,7 @@ def boxlstsq(time, flux, weights, mask, **options):
             print 'Warning: maximum frequency is inside the Hill radius.'
                 
         if (fmax < fmin):
-            print 'Error: fmax must be larger than fmin.'
-            return None, None, None, None, None, None, None
+            raise ValueError('fmax must be larger than fmin.')
         
         # Compute optimal sampling frequencies in range fmin, fmax.
         freq = freqs(fmin, fmax, S, OS, M, R)
@@ -157,7 +156,8 @@ def boxlstsq(time, flux, weights, mask, **options):
     time0 = np.amin(time)
     time = time - time0
     t = np.nansum(weights, axis=0) # Sum of weights.
-    flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
+    with np.errstate(invalid='ignore'):
+        flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
     chisq0 = np.nansum(weights*flux**2., axis=0) # Best fit constant model.
     
     # Create arrays.
@@ -201,7 +201,7 @@ def boxlstsq(time, flux, weights, mask, **options):
         i1 = i1.ravel()
         i2 = i2.ravel()
        
-        # Compute arrays of n, r, s and q values.
+        # Compute arrays of n, r and s values.
         n = n_cum[i2] - n_cum[i1]
         r = r_cum[i2] - r_cum[i1]
         s = s_cum[i2] - s_cum[i1]
@@ -210,16 +210,20 @@ def boxlstsq(time, flux, weights, mask, **options):
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
         
         # Find the best fit.
-        dchisq_tmp = s**2*t/(r*(t - r))
+        with np.errstate(invalid='ignore', divide='ignore'):
+            dchisq_tmp = s**2*t/(r*(t - r))
         
-        nmin = duration_tmp/(320./(24.*3600.))
+        # Set dchisq to zero if all data is out-of-transit or in-transit.
+        dchisq_tmp[n < 1] = 0
+        dchisq_tmp[(nmax - n) < 1] = 0
+        
+        # Set dchisq to zero if too few points are in-transit.
+        nmin = duration_tmp/(320./(24.*3600.)) # TODO hard coded numbers.
         if (dchisq.ndim > 1):
             dchisq_tmp[n < nmin[:,None]] = 0
         else:
             dchisq_tmp[n < nmin] = 0
 
-        dchisq_tmp[(nmax - n) < 1] = 0
-        
         # Select the best solution.
         args_1d = np.nanargmax(dchisq_tmp, axis=0)
         
@@ -235,7 +239,9 @@ def boxlstsq(time, flux, weights, mask, **options):
         
         dchisq[i] = dchisq_tmp[args_2d]
         
-        depth[i] = s*t/(r*(t - r))
+        with np.errstate(invalid='ignore', divide='ignore'):
+            depth[i] = s*t/(r*(t - r))
+            
         epoch[i] = epoch_tmp[args_1d]
         duration[i] = duration_tmp[args_1d]
         nt[i] = n

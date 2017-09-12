@@ -33,13 +33,20 @@ class PhotFile(object):
         
         return data
         
-    def read_stars(self, fields=None, grpname='header_table'):
+    def read_stars(self, fields=None):
         
         stars = dict()        
             
         with h5py.File(self.filename, 'r') as f:
             
-            grp = f[grpname]
+            if 'stars' in f.keys():
+                grp = f['stars']
+            elif 'header_table' in f.keys():
+                grp = f['header_table']
+            elif 'header' in f.keys():
+                grp = f['header']
+            else:
+                raise IOError('No valid stars field found.')
 
             if fields is None:
                 fields = grp.keys()
@@ -53,7 +60,7 @@ class PhotFile(object):
                     
         return stars
     
-    def read_lightcurves(self, ascc=None, fields=None, perstar=True, grpname='data'):
+    def read_lightcurves(self, ascc=None, fields=None, perstar=True, verbose=True):
         
         onestar = False        
         
@@ -72,7 +79,10 @@ class PhotFile(object):
         # Read the data.
         with h5py.File(self.filename, 'r') as f:
             
-            grp = f[grpname]
+            try:
+                grp = f['data'] # La Palma
+            except:
+                grp = f['lightcurves'] # bRing, La Silla
             
             if not hasattr(self, 'ascc0'):
                 self.ascc0 = set(grp.keys())            
@@ -83,7 +93,8 @@ class PhotFile(object):
                     curves[ascc[i]] = grp[ascc[i]].value
                     
                 else:
-                    print 'Warning: skipping star {}, star not found.'.format(ascc[i])
+                    if verbose:
+                        print 'Warning: skipping star {}, star not found.'.format(ascc[i])
                     continue
                 
                 nobs[i] = len(curves[ascc[i]])
