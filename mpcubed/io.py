@@ -39,10 +39,14 @@ class PhotFile(object):
             
         with h5py.File(self.filename, 'r') as f:
             
-            try:
-                grp = f['header_table'] # La Palma
-            except:
-                grp = f['stars'] # bRing, La Silla
+            if 'stars' in f.keys():
+                grp = f['stars']
+            elif 'header_table' in f.keys():
+                grp = f['header_table']
+            elif 'header' in f.keys():
+                grp = f['header']
+            else:
+                raise IOError('No valid stars field found.')
 
             if fields is None:
                 fields = grp.keys()
