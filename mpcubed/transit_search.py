@@ -29,7 +29,7 @@ def read_header(filelist):
     for filename in filelist:
         
         f = io.PhotFile(filename)
-        stars = f.read_stars(fields=['ascc', 'ra', 'dec', 'vmag'], grpname='header')
+        stars = f.read_stars(fields=['ascc', 'ra', 'dec', 'vmag'])
             
         ascc = np.append(ascc, stars['ascc'])
         ra = np.append(ra, stars['ra'])
@@ -58,7 +58,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     
     # Read the lightcurves.
     f = io.PhotFile(filename)
-    data = f.read_lightcurves(ascc=ascc, verbose=False, grpname='data')
+    data = f.read_lightcurves(ascc=ascc, verbose=False)
         
     # Detrend and flatten the lightcurves.
     for i in range(len(ascc)):       
@@ -73,11 +73,16 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
         
         if (len(lc) < 2):
             continue
+
+        try:
+            jdmid_ = lc['jdmid'] # La Palma
+        except:
+            jdmid_ = lc['jd'] # bRing, La Silla
         
         # Detrend the lightcurves.
         if method == 'legendre':        
         
-            mat, fit0, fit1 = detrend.detrend_legendre(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper])        
+            mat, fit0, fit1 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper])        
             trend_ = fit0 + fit1 
         
         elif method == 'fourier':        
@@ -87,12 +92,12 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
             ns[1], wrap = misc.find_ns(lc['lstseq'])
             ns = np.maximum(ns, 2)
             
-            mat, fit0, fit1 = detrend.detrend_fourier(lc['jdmid'], lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
+            mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
             trend_ = fit0 + fit1 
             
         elif method == 'snellen':
             
-            fit0, fit1 = detrend.detrend_snellen(lc['jdmid'], lc['lstseq'], lc['mag%i'%aper], lc['emag%i'%aper], lc['sky'])
+            fit0, fit1 = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['mag%i'%aper], lc['emag%i'%aper], lc['sky'])
             trend_ = fit0 + fit1
             
         else:
@@ -101,7 +106,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
         # Add the results to the arrays.
         staridx = np.append(staridx, [i]*len(lc))
         lstseq = np.append(lstseq, lc['lstseq'])
-        jdmid = np.append(jdmid, lc['jdmid'])
+        jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lc['lst'])
         mag = np.append(mag, lc['mag%i'%aper] - trend_)
         emag = np.append(emag, lc['emag%i'%aper])

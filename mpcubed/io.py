@@ -33,13 +33,16 @@ class PhotFile(object):
         
         return data
         
-    def read_stars(self, fields=None, grpname='header_table'):
+    def read_stars(self, fields=None):
         
         stars = dict()        
             
         with h5py.File(self.filename, 'r') as f:
             
-            grp = f[grpname]
+            try:
+                grp = f['header_table'] # La Palma
+            except:
+                grp = f['stars'] # bRing, La Silla
 
             if fields is None:
                 fields = grp.keys()
@@ -53,7 +56,7 @@ class PhotFile(object):
                     
         return stars
     
-    def read_lightcurves(self, ascc=None, fields=None, perstar=True, grpname='data', verbose=True):
+    def read_lightcurves(self, ascc=None, fields=None, perstar=True, verbose=True):
         
         onestar = False        
         
@@ -72,7 +75,10 @@ class PhotFile(object):
         # Read the data.
         with h5py.File(self.filename, 'r') as f:
             
-            grp = f[grpname]
+            try:
+                grp = f['data'] # La Palma
+            except:
+                grp = f['lightcurves'] # bRing, La Silla
             
             if not hasattr(self, 'ascc0'):
                 self.ascc0 = set(grp.keys())            
