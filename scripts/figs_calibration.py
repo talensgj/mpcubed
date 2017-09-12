@@ -19,7 +19,7 @@ if __name__ == '__main__':
     
     import argparse
 
-    parser = argparse.ArgumentParser(description='Perform the coarse decorrelation on a baseline.')
+    parser = argparse.ArgumentParser(description='Make figures of calibration terms.')
     parser.add_argument('files', type=str, nargs='+',
                         help='the file(s) to create the figures for')
     args = parser.parse_args()

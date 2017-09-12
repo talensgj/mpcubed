@@ -23,7 +23,8 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from . import io
+from . import io, misc
+from . import transit_search as ts
 
 def _hadec2xy(wcspars, ha, dec):
         
@@ -299,4 +300,161 @@ def calibration_summary(filename):
     fig_clouds(filename)
     fig_sigma(filename)
     
+    return
+
+def plot_periodogram(freq, dchisq, period, zoom=False):
+    """ Plot the box least-squares periodogram. """
+
+    plt.annotate(r'$P = {:.5f}$'.format(period), (0, 1), xytext=(10, -10), xycoords='axes fraction', textcoords='offset points', va='top', ha='left', size='x-large', backgroundcolor='w')    
+    
+    # Plot the box least-squares periodogram.
+    plt.plot(freq, dchisq, c='k')
+    if zoom:
+        plt.xlim(.95/period, 1.05/period)
+    else:
+        plt.xlim(0, 1.8)
+    plt.xlabel(r'Frequency [day$^{-1}$]')
+    plt.ylabel(r'$\Delta\chi^2$')
+    
+    # Add lines indicating the peak, and integer harmonics.
+    freq = 1/period
+    plt.axvline(freq, c=(0./255,109./255,219./255))
+    for n in range(2, 5):
+        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--')
+        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--')
+        
+    # Add lines indicating the 1 day systematic and harmonics.
+    freq = 1/.9972
+    plt.axvline(freq, c=(146./255,0,0), lw=2, ymax=.1)
+    for n in range(2, 5):
+        plt.axvline(n*freq, c=(146./255,0,0), lw=2, ymax=.1)
+        plt.axvline(freq/n, c=(146./255,0,0), lw=2, ymax=.1)
+        
+    for n in range(1, 5):
+        plt.axvline(n*freq/(n+1), c=(146./255,0,0), lw=2, ymax=.1)
+        plt.axvline((n+1)*freq/n, c=(146./255,0,0), lw=2, ymax=.1)     
+    
+    return  
+    
+def plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, binned=True, zoom=False):
+    """ Plot a lightcurve with the box least-squares best fit overplotted. """    
+    
+    factor = np.ceil(np.abs(depth)/.05)   
+
+    # Plot the phase-folded lightcurve.
+    phase = (jdmid - epoch)/period    
+    phase = np.mod(phase+.5, 1.)-.5
+    plt.scatter(phase, mag, color='black', marker='.', alpha=.5, edgecolor='none')
+    
+    # Add phase-binned data.
+    if binned:
+        nbins = np.ceil(9*period/duration)
+        bins = np.linspace(-.5, .5, nbins+1)   
+        xbin, ybin, eybin = misc.bin_data_err(phase, mag, emag, bins)
+        plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
+    
+    if zoom:
+        plt.xlim(-1.5*duration/period, 1.5*duration/period)
+        plt.ylim(2*np.abs(depth), -2*np.abs(depth))
+    else:
+        plt.xlim(-.5, .5)
+        plt.ylim(factor*.05, factor*-.03)
+    
+    plt.xlabel('Phase')
+    plt.ylabel(r'$\Delta m$') 
+    
+    return
+    
+def plot_boxcurve(period, depth, duration):
+    
+    # Compute x and y values for plotting a boxfit.
+    x = .5*duration/period        
+    x = np.array([-.5, -x, -x, x, x, .5])
+    y = np.array([0, 0, depth, depth, 0, 0,])
+    
+    plt.plot(x, y, c=(146./255,0,0), lw=2, zorder=20)    
+    
+    return
+
+def fig_candidate(ascc, freq, dchisq, jdmid, mag, emag, period, epoch, depth, duration, figdir):
+    
+    # Create the figure.
+    fig = plt.figure(figsize=(16.5, 11.7))
+    
+    plt.suptitle('ASCC {}'.format(ascc), size='xx-large')    
+    
+    gs = gridspec.GridSpec(6, 6, height_ratios = [.5, 10, 10, .5, 10, .5])
+    
+    # Plot the periodogram.
+    ax = plt.subplot(gs[1,:4])
+    
+    plt.title('Periodogram')
+    plot_periodogram(freq, dchisq, period)                     
+    
+    ax = plt.subplot(gs[1,4:])
+    
+    plt.title('Periodogram zoom')
+    plot_periodogram(freq, dchisq, period, zoom=True)    
+    
+    # Plot the data and the best-fit box-model.
+    ax = plt.subplot(gs[2:4,:4])
+
+    plt.title('Photometry')
+    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration)
+    plot_boxcurve(period, depth, duration)
+    
+    ax = plt.subplot(gs[2:4,4:])
+
+    plt.title('Photometry zoom')
+    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, zoom=True)
+    plot_boxcurve(period, depth, duration)
+
+    ax = plt.subplot(gs[4,:3])
+
+    plt.title(r'Half-period, $P = {:.5f}$'.format(.5*period))
+    plot_lightcurve(jdmid, mag, emag, .5*period, epoch, depth, duration, binned=False)
+
+    ax = plt.subplot(gs[4,3:])
+
+    plt.title(r'Double-period, $P = {:.5f}$'.format(2.*period))
+    plot_lightcurve(jdmid, mag, emag, 2.*period, epoch, depth, duration, binned=False)        
+        
+    plt.tight_layout()
+    plt.savefig(os.path.join(figdir, 'ASCC{}.png'.format(ascc)))
+    plt.close()    
+    
+    return
+ 
+  
+def boxlstsq_summary(blsdir, aper=0, method='legendre'): 
+
+    blsfiles = glob.glob(os.path.join(blsdir, 'bls/*'))
+    blsfiles = np.sort(blsfiles)
+    
+    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S') 
+
+    figdir = os.path.join(blsdir, 'figures')
+    misc.ensure_dir(figdir)
+
+    for blsfile in blsfiles:
+        
+        print blsfile
+
+        # Read the box least-squares results.
+        f = io.blsFile(blsfile)
+        hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration'])  
+        data = f.read_data(['freq', 'dchisq'])
+    
+        # Select stars.
+        args, = np.where(hdr['depth'] > 0)
+        
+        # Read the lightcurves.
+        jdmid, lst, mag, emag, trend, mask = ts.read_data(filelist, hdr['ascc'], aper=aper, method=method)
+        mask = ~mask
+        
+        for i in args:
+            
+            # Make the figure.
+            fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], jdmid[mask[i]], mag[i,mask[i]], emag[i,mask[i]], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)     
+
     return
