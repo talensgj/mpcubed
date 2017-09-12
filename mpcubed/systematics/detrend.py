@@ -131,3 +131,45 @@ def detrend_legendre(jd, lst, mag, emag, scale0=3., scale1=.25):
     fit1 = np.sum(pars[deg0+1:]*mat[:,deg0+1:], axis=1)
     
     return mat, fit0, fit1
+
+def psfsky(lstidx, mag, emag, sky):
+    
+    _, idx = np.unique(lstidx, return_inverse=True)
+    
+    nobs = np.bincount(idx)
+    
+    xbar = np.bincount(idx, sky/emag**2)/np.bincount(idx, 1/emag**2)
+    ybar = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
+    
+    b = np.bincount(idx, (sky - xbar[idx])*(mag - ybar[idx])/emag**2)/np.bincount(idx, (sky - xbar[idx])**2/emag**2)
+    b = np.where(nobs > 1, b, 0.)
+    a = ybar - b*xbar
+
+    fit = a[idx] + b[idx]*sky
+    
+    return fit
+
+def moving_mean(jd, mag, emag, window=3.):
+
+    start = np.searchsorted(jd, jd - window/2.)
+    stop = np.searchsorted(jd, jd + window/2.)
+
+    sum1 = np.append(0, np.cumsum(mag/emag**2))
+    sum2 = np.append(0, np.cumsum(1/emag**2))
+
+    fit = (sum1[stop] - sum1[start])/(sum2[stop] - sum2[start])
+    
+    return fit    
+    
+def detrend_snellen(jd, lstseq, mag, emag, sky, window=3., maxiter=5):
+    
+    lstidx = (lstseq % 270)
+    fit0 = np.zeros(len(jd))
+    fit1 = np.zeros(len(jd)) 
+    
+    for niter in range(maxiter):
+            
+        fit1 = psfsky(lstidx, mag - fit0, emag, sky)
+        fit0 = moving_mean(jd, mag - fit1, emag, window)
+        
+    return fit0, fit1        
