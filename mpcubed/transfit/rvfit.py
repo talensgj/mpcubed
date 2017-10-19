@@ -38,7 +38,7 @@ def true_anomaly(E, e):
 
 def rv_model(rv_pars, time=None):
     
-    T0, P, K, gamma, esinw, ecosw = rv_pars   
+    T0, P, K, gamma, sig_j, esinw, ecosw = rv_pars   
     
     #
     e = ecosw**2 + esinw**2
@@ -68,18 +68,23 @@ def rv_model(rv_pars, time=None):
     
 def lnlike_rv(rv_pars, time, vel, evel):
     
-    if (rv_pars[1] < 0):
+    T0, P, K, gamma, sig_j, esinw, ecosw = rv_pars    
+    
+    if (P < 0):
         return -np.inf, np.inf
     
-    if (rv_pars[2] < 0):
+#    if (K < 0):
+#        return -np.inf, np.inf
+    
+    if (sig_j < 0):
         return -np.inf, np.inf
     
-    if ((rv_pars[4]**2 + rv_pars[5]**2) > 1):
+    if ((esinw**2 + ecosw**2) > 1):
         return -np.inf, np.inf
 
     phase, model = rv_model(rv_pars, time)
-    chisq = np.sum((vel - model)**2/evel**2)
-    lnlike = -.5*np.sum(((vel - model)/evel)**2 + np.log(2*np.pi*evel**2))
+    chisq = np.sum((vel - model)**2/(evel**2 + sig_j**2))
+    lnlike = -.5*np.sum((vel - model)**2/(evel**2 + sig_j**2) + np.log(2*np.pi*(evel**2 + sig_j**2)))
     
     return lnlike, chisq
     
