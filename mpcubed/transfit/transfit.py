@@ -41,15 +41,23 @@ def axis2dens(a, P):
     
     G = 498.211    
     
-    dens = (3.*np.pi*a**3)/(G*P**2)
+    rho = (3.*np.pi*a**3)/(G*P**2)
     
-    return dens
+    return rho
+    
+def dens2axis(rho, P):
+    
+    G = 498.211      
+    
+    a = (rho*G*P**2/(3.*np.pi))**(1./3)
+    
+    return a
 
 ###############################################################################
 ### Transit model.
 ###############################################################################
 
-def transit_circ(lc_pars, ld_pars, time=None):        
+def transit_circ(lc_pars, ld_pars, time=None, log=True):        
     
     F0, T0, P, T14, p, b = lc_pars    
     
@@ -69,12 +77,16 @@ def transit_circ(lc_pars, ld_pars, time=None):
     params.u = ld_pars[1]
     
     if time is None:
-        time = params.t0 + np.linspace(0, params.per, 500)
+        time = params.t0 + np.linspace(0, params.per, 5000)
     
     m = batman.TransitModel(params, time)        
     
-    phase = (time - params.t0)/params.per    
-    model =  -2.5*np.log10(F0*m.light_curve(params))
+    phase = (time - params.t0)/params.per 
+    
+    if log:
+        model = -2.5*np.log10(F0*m.light_curve(params))
+    else:
+        model = F0*m.light_curve(params)
     
     return phase, model
 
