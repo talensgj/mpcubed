@@ -12,6 +12,7 @@ from . import io, misc, boxlstsq
 from .coordinates import grids
 from .systematics import detrend
 from . import transit_statistics as stats
+from .statistics import statistics
 
 ###############################################################################
 ### Functions for reading the reduced lightcurves.
@@ -56,6 +57,10 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     emag = np.array([])
     trend = np.array([])
     
+    # Set the aperture.
+    magstr = 'mag{}'.format(aper)
+    emagstr = 'emag{}'.format(aper)
+    
     # Read the lightcurves.
     f = io.PhotFile(filename)
     data = f.read_lightcurves(ascc=ascc, verbose=False)
@@ -63,28 +68,41 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     # Detrend and flatten the lightcurves.
     for i in range(len(ascc)):       
         
+        # See if there was data.
         try:
             lc = data[ascc[i]]
         except:
             continue
         
+        # Select data binned from 50 exposures.
         mask = (lc['nobs'] == 50)
         lc = lc[mask]
         
+        # Check that there are at least 2 points.
         if (len(lc) < 2):
             continue
 
+        # Get the julian date.
         try:
             jdmid_ = lc['jdmid'] # La Palma
         except:
             jdmid_ = lc['jd'] # bRing, La Silla
         
         # Detrend the lightcurves.
-        if method == 'legendre':        
+        if method is 'none':
+            
+            trend_ = np.zeros(len(jdmid_))
         
-            mat, fit0, fit1 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper])        
-            trend_ = fit0 + fit1 
+        elif method == 'legendre':        
         
+            mat, fit0, fit1, fit2 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['sky'], lc[magstr], lc[emagstr])        
+            trend_ = fit0 + fit1 + fit2
+            
+        elif method == 'snellen':
+            
+            fit0, fit1, fit2 = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['sky'], lc[magstr], lc[emagstr])
+            trend_ = fit0 + fit1 + fit2
+            
         elif method == 'fourier':        
         
             ns = [0,0]
@@ -92,24 +110,19 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
             ns[1], wrap = misc.find_ns(lc['lstseq'])
             ns = np.maximum(ns, 2)
             
-            mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc['mag%i'%aper], lc['emag%i'%aper], ns, wrap)
+            mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc[magstr], lc[emagstr], ns, wrap)
             trend_ = fit0 + fit1 
             
-        elif method == 'snellen':
-            
-            fit0, fit1 = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['mag%i'%aper], lc['emag%i'%aper], lc['sky'])
-            trend_ = fit0 + fit1
-            
         else:
-            raise ValueError('Unknown detrending method "{}"'.format(method))
+            raise ValueError('Unknown detrending method "{}"'.format(method))   
         
         # Add the results to the arrays.
         staridx = np.append(staridx, [i]*len(lc))
         lstseq = np.append(lstseq, lc['lstseq'])
         jdmid = np.append(jdmid, jdmid_)
         lst = np.append(lst, lc['lst'])
-        mag = np.append(mag, lc['mag%i'%aper] - trend_)
-        emag = np.append(emag, lc['emag%i'%aper])
+        mag = np.append(mag, lc[magstr] - trend_)
+        emag = np.append(emag, lc[emagstr])
         trend = np.append(trend, trend_)
     
     # Convert the lightcurves to 2D arrays.
