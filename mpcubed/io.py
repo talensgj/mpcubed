@@ -440,8 +440,9 @@ def _index_files(filelist):
                     stars[key] = np.append(stars[key], grp[key].value)
 
             grp = f['data']
-
-            dtype = grp[ascc_[0]].dtype
+            
+            if len(ascc_) > 0:
+                dtype = grp[ascc_[0]].dtype
 
         idx1 = np.append(idx1, np.repeat(i, len(ascc_)))
     
