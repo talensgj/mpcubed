@@ -9,9 +9,8 @@ import os
 
 import h5py
 import numpy as np
-from numpy.lib.recfunctions import stack_arrays
 
-from .coordinates import grids
+from .calibration import grids
 
 ###############################################################################
 ### Code for reading files.

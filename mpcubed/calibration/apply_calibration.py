@@ -6,8 +6,7 @@ import os
 import h5py
 import numpy as np
 
-from . import io, misc
-from .statistics import statistics
+from .. import io, misc, statistics
 
 class GetSystematics(object):
 

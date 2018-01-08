@@ -4,6 +4,7 @@
 import numpy as np
 from numpy.polynomial import legendre
 
+from .. import statistics
 from ..models import fourier
 
 ###############################################################################
@@ -78,9 +79,7 @@ def detrend_legendre(jd, lst, sky, mag, emag, scale0=3., scale1=.25, sig=3., max
         fit1 (float): The best-fitting long-term variations.
         fit2 (float): The best fitting psf-variations.
         
-    """    
-    
-    from ..statistics import statistics    
+    """       
     
     mat = []    
         

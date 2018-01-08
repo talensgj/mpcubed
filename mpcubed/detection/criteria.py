@@ -7,8 +7,8 @@ Created on Fri Sep 30 13:42:00 2016
 
 import numpy as np
 
-from models import transit
-from mpcubed.statistics import statistics
+from .. import statistics
+from ..models import transit
 
 def boxlstsq_criteria(dchisq, depth):
 

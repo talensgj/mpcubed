@@ -8,11 +8,9 @@ import h5py
 import numpy as np
 import multiprocessing as mp
 
-from . import io, misc, boxlstsq
-from .coordinates import grids
-from .systematics import detrend
-from . import transit_statistics as stats
-from .statistics import statistics
+from .. import io, misc
+from . import detrend, boxlstsq, criteria
+from ..calibration import grids
 
 ###############################################################################
 ### Functions for reading the reduced lightcurves.
@@ -230,8 +228,8 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
 
         if (sum(~mask[i]) > 1) & (dchisq[arg,i] > 0):
             # Statistics.
-            sde[i], atr[i] = stats.boxlstsq_criteria(dchisq[:,i], depth[:,i])
-            gap[i], sym[i], ntr[i], ntp[i], mst[i], eps[i], sne[i], sw[i], sr[i], snp[i] = stats.lightcurve_criteria(jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], freq0[i], epoch0[i], depth0[i], duration0[i])
+            sde[i], atr[i] = criteria.boxlstsq_criteria(dchisq[:,i], depth[:,i])
+            gap[i], sym[i], ntr[i], ntp[i], mst[i], eps[i], sne[i], sw[i], sr[i], snp[i] = criteria.lightcurve_criteria(jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]], freq0[i], epoch0[i], depth0[i], duration0[i])
     
     # Save the results to file.
     with h5py.File(blsfile) as f:

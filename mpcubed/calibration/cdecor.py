@@ -9,9 +9,8 @@ import numpy as np
 
 import multiprocessing as mp
 
-from . import io, misc
-from .coordinates import grids
-from .systematics import sigmas
+from .. import io, misc
+from . import grids, sigmas
 
 from collections import namedtuple
 

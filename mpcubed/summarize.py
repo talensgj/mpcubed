@@ -24,7 +24,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from . import io, misc
-from . import transit_search as ts
+from .detection import transit_search as ts
 
 def _hadec2xy(wcspars, ha, dec):
         
