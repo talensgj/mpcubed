@@ -13,6 +13,32 @@ import numpy as np
 from .calibration import grids
 
 ###############################################################################
+### Code for writing files.
+###############################################################################
+
+def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq):
+    
+    with h5py.File(filename) as f:
+        
+        # Write the header.
+        grp = f.create_group('header')
+        grp.create_dataset('ascc', data=ascc)
+        grp.create_dataset('chisq0', data=chisq0, dtype='float32')
+
+        for key in boxpars.dtype.names:
+            grp.create_dataset(key, data=boxpars[key])
+        
+        for key in criteria.dtype.names:
+            grp.create_dataset(key, data=criteria[key])
+
+        # Write the data.
+        grp = f.create_group('data')
+        grp.create_dataset('freq', data=freq)
+        grp.create_dataset('dchisq', data=dchisq, dtype='float32')
+    
+    return
+
+###############################################################################
 ### Code for reading files.
 ###############################################################################
 

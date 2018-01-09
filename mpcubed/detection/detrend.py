@@ -17,7 +17,7 @@ def wrap_lst(lst):
     sort = np.argsort(lst)
     gap = np.amax(np.diff(lst[sort])) 
     arg = np.argmax(np.diff(lst[sort]))
-    gap0 = (np.amin(lst) + 24.) - np.amax(lst) # Gap across lst=0.
+    gap0 = 24. - np.ptp(lst) # Gap across lst=0.
     
     if (gap > gap0):
         
