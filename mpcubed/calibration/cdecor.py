@@ -14,8 +14,8 @@ from . import grids, sigmas
 
 from collections import namedtuple
 
-Quality = namedtuple('Quality', 'niter chisq npoints npars')
-    
+Quality = namedtuple('Quality', 'niter chisq npoints npars') 
+
 def cdecor_spatial(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with intrapixel variations.
     
@@ -78,7 +78,7 @@ def cdecor_spatial(idx2, idx3, value, error, x, y, maxiter=100, dtol=1e-3, verbo
         wsqrt = np.sqrt(weights)
         for i in range(npars3/4):
             par3[i] = np.linalg.lstsq(mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
-            ipx[strides[i]:strides[i+1]] = np.sum(mat[strides[i]:strides[i+1],:]*par3[i], axis=1)
+            ipx[strides[i]:strides[i+1]] = np.sum(mat[strides[i]:strides[i+1],:]*par3[i], axis=1)   
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -116,7 +116,6 @@ def cdecor_temporal(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=
         verbose (bool): Output the current iteration. Default is True.
         
     Returns:
-        par1 (float): The parameters corresponding to idx1.
         par2 (float): The parameters corresponding to idx2.
         sigma1 (float): The extra error corresponding to idx1.
         sigma2 (float): The extra error corresponding to idx2.
@@ -128,9 +127,8 @@ def cdecor_temporal(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(value)
-    npars1 = np.amax(idx1) + 1
     npars2 = np.amax(idx2) + 1
-    npars = npars1 + npars2
+    npars = npars2
     
     # Create arrays.
     par2 = np.zeros(npars2)
@@ -141,39 +139,35 @@ def cdecor_temporal(idx1, idx2, value, error, sigma1, sigma2, maxiter=100, dtol=
             print 'niter = {}'.format(niter)
             
         # Compute the parameters.
-        par1, sigma1 = sigmas.find_par_sigma(idx1, value - par2[idx2], error**2 + (sigma2**2)[idx2])
-        par2, sigma2 = sigmas.find_par_sigma(idx2, value - par1[idx1], error**2 + (sigma1**2)[idx1])
+        sigma1 = sigmas.find_sigma(idx1, value - par2[idx2], error**2 + (sigma2**2)[idx2])
+        par2, sigma2 = sigmas.find_par_sigma(idx2, value, error**2 + (sigma1**2)[idx1])
         
         # Check if the solution has converged.
         if (niter > 0):
             
-            dcrit1 = np.nanmax(np.abs(par1 - par1_old))
             dcrit2 = np.nanmax(np.abs(par2 - par2_old))
             
-            if (dcrit1 < dtol) & (dcrit2 < dtol):
+            if (dcrit2 < dtol):
                 break
         
         # Check if the solution is oscillating?
         if (niter > 1):
             
-            dcrit1 = np.nanmax(np.abs(par1 - par1_older))
             dcrit2 = np.nanmax(np.abs(par2 - par2_older))
             
-            if (dcrit1 < dtol) & (dcrit2 < dtol):
+            if (dcrit2 < dtol):
                 break
         
         if (niter > 0):
-            par1_older = np.copy(par1_old)
             par2_older = np.copy(par2_old)
         
-        par1_old = np.copy(par1)
         par2_old = np.copy(par2)
         
     # Compute the chi-square of the fit.
-    chisq = (value - par1[idx1] - par2[idx2])**2/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])     
+    chisq = (value - par2[idx2])**2/(error**2 + (sigma1**2)[idx1] + (sigma2**2)[idx2])     
     chisq = np.sum(chisq)
     
-    return par1, par2, sigma1, sigma2, Quality(niter, chisq, npoints, npars)
+    return par2, sigma1, sigma2, Quality(niter, chisq, npoints, npars)
     
 def spatial_worker(in_queue, out_queue, maxiter, dtol, verbose):
     
@@ -200,8 +194,8 @@ def temporal_worker(in_queue, out_queue, maxiter, dtol, verbose):
             break
         else:
             idx, staridx, lstseq, idx1, idx3, mag, emag, sig1, sig2 = item
-            mag, clouds, sig1, sig2, quality = cdecor_temporal(idx1, idx3, mag, emag, sig1, sig2, maxiter, dtol, verbose)
-            out_queue.put((idx, staridx, lstseq, mag, clouds, sig1, sig2, quality))
+            clouds, sig1, sig2, quality = cdecor_temporal(idx1, idx3, mag, emag, sig1, sig2, maxiter, dtol, verbose)
+            out_queue.put((idx, staridx, lstseq, clouds, sig1, sig2, quality))
 
     return 
     
@@ -224,7 +218,7 @@ class CoarseDecorrelation(object):
         # The systematics file.
         if sysfile is None:
             head, tail = os.path.split(self.LBfile)
-            prefix = 'sys%i_'%self.aper
+            prefix = 'sys%i_vmag_'%self.aper
             tail = prefix + tail.rsplit('_')[-1]
             sysfile = os.path.join(head, tail)
         
@@ -285,7 +279,7 @@ class CoarseDecorrelation(object):
         y = lightcurves['y'].astype('float64')
         lst = lightcurves['lst']
         lstseq = lightcurves['lstseq']
-        flags = lightcurves['flag']        
+        flags = lightcurves['flag'] 
         
         lstseq = lstseq.astype('int') - self.lstmin
         
@@ -316,6 +310,7 @@ class CoarseDecorrelation(object):
         
         # Convert flux to magnitudes:
         mag, emag = misc.flux2mag(flux, eflux)
+        mag = mag - self.stars['vmag'][staridx]
         
         return mag, emag, x, y, staridx, decidx, camtransidx, intrapixidx, skyidx, lstseq
     
@@ -338,8 +333,6 @@ class CoarseDecorrelation(object):
             mag, emag, x, y, staridx, _, camtransidx, intrapixidx, skyidx, lstseq = self._read_data(here)
             
             if (len(mag) == 0): continue
-            
-            mag = mag - self.magnitudes['mag'][staridx]
             
             # Apply known temporal correction.
             if self.got_sky:
@@ -374,7 +367,7 @@ class CoarseDecorrelation(object):
             self.spatial['niter'][idx] = quality.niter
             self.spatial['chisq'][idx] = quality.chisq
             self.spatial['npoints'][idx] = quality.npoints
-            self.spatial['npars'][idx] = quality.npars
+            self.spatial['npars'][idx] = quality.npars 
             
         return
         
@@ -419,10 +412,9 @@ class CoarseDecorrelation(object):
               
         for item in iter(out_queue.get, 'DONE'):
             
-            idx, staridx, lstseq, mag, clouds, sigma1, sigma2, quality = item            
+            idx, staridx, lstseq, clouds, sigma1, sigma2, quality = item            
             
             # Store results.
-            self.magnitudes['mag'][staridx] = mag
             self.magnitudes['sigma'][staridx] = sigma1
             
             self.clouds['clouds'][idx, lstseq] = clouds
