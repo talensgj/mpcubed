@@ -16,6 +16,139 @@ from .calibration import grids
 ### Code for writing files.
 ###############################################################################
 
+def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, intrapix, clouds):
+    
+    with h5py.File(filename) as f:
+
+        # Write the header.
+        hdr = f.create_group('header')
+        
+        hdr.create_dataset('filelist', data=settings['filelist'])
+        hdr.attrs['station'] = settings['station']
+        hdr.attrs['camera'] = settings['camera']
+        
+        hdr.attrs['alt0'] = settings['alt0']
+        hdr.attrs['az0'] = settings['az0']
+        hdr.attrs['th0'] = settings['th0']
+        hdr.attrs['x0'] = settings['x0']
+        hdr.attrs['y0'] = settings['y0']
+        
+        hdr.attrs['outer_maxiter'] = settings['outer_maxiter']
+        hdr.attrs['inner_maxiter'] = settings['inner_maxiter']
+        hdr.attrs['sigmas'] = True
+        hdr.attrs['dtol'] = settings['dtol']
+       
+        # Write the spatial quality checks.
+        idx = spatial['n']
+        
+        subhdr = hdr.create_group('spatial')
+        subhdr.create_dataset('niter', data=spatial['niter'][idx])
+        subhdr.create_dataset('chisq', data=spatial['chisq'][idx])
+        subhdr.create_dataset('npoints', data=spatial['npoints'][idx])
+        subhdr.create_dataset('npars', data=spatial['npars'][idx])
+        
+        # Write the temporal quality checks.
+        idx = temporal['q']
+        
+        subhdr = hdr.create_group('temporal')
+        subhdr.create_dataset('niter', data=temporal['niter'][idx])
+        subhdr.create_dataset('chisq', data=temporal['chisq'][idx])
+        subhdr.create_dataset('npoints', data=temporal['npoints'][idx])
+        subhdr.create_dataset('npars', data=temporal['npars'][idx])
+        
+        # Write the data.
+        grp = f.create_group('data')
+        
+        # Write the magnitudes.
+        subgrp = grp.create_group('magnitudes')
+        subgrp.create_dataset('ascc', data=magnitudes['ascc'])
+        subgrp.create_dataset('vmag', data=magnitudes['vmag'], dtype='float32')
+        subgrp.create_dataset('nobs', data=magnitudes['nobs'])
+        subgrp.create_dataset('mag', data=magnitudes['mag'], dtype='float32')
+        subgrp.create_dataset('sigma', data=magnitudes['sigma'], dtype='float32')
+
+        # Write the camera transmission.
+        idx1, idx2 = np.where(trans['nobs'] > 0)  
+        
+        subgrp = grp.create_group('trans')          
+        subgrp.create_dataset('idx1', data=idx1, dtype='uint32')
+        subgrp.create_dataset('idx2', data=idx2, dtype='uint32')          
+        subgrp.create_dataset('nobs', data=trans['nobs'][idx1,idx2])
+        subgrp.create_dataset('trans', data=trans['trans'][idx1,idx2], dtype='float32')
+        
+        subgrp.attrs['grid'] = trans['grid']
+        subgrp.attrs['nx'] = trans['num_k']
+        subgrp.attrs['ny'] = trans['num_n']
+        
+        # Write the intrapixel variations.
+        idx1, idx2 = np.where(intrapix['nobs'] > 0) 
+
+        subgrp = grp.create_group('intrapix')           
+        subgrp.create_dataset('idx1', data=idx1, dtype='uint32')
+        subgrp.create_dataset('idx2', data=idx2, dtype='uint32')
+        subgrp.create_dataset('nobs', data=intrapix['nobs'][idx1,idx2])
+        subgrp.create_dataset('sinx', data=intrapix['amplitudes'][idx1,idx2,0], dtype='float32')
+        subgrp.create_dataset('cosx', data=intrapix['amplitudes'][idx1,idx2,1], dtype='float32')
+        subgrp.create_dataset('siny', data=intrapix['amplitudes'][idx1,idx2,2], dtype='float32')
+        subgrp.create_dataset('cosy', data=intrapix['amplitudes'][idx1,idx2,3], dtype='float32')
+        
+        subgrp.attrs['grid'] = intrapix['grid']
+        subgrp.attrs['nx'] = intrapix['num_l']
+        subgrp.attrs['ny'] = intrapix['num_n']
+        
+        # Write the sky transmission.
+        idx, lstseq = np.where(clouds['nobs'] > 0)
+
+        subgrp = grp.create_group('clouds')            
+        subgrp.create_dataset('idx', data=idx, dtype='uint32')
+        subgrp.create_dataset('lstseq', data=clouds['lstmin'] + lstseq, dtype='uint32')
+        subgrp.create_dataset('nobs', data=clouds['nobs'][idx, lstseq])
+        subgrp.create_dataset('clouds', data=clouds['clouds'][idx, lstseq], dtype='float32')
+        subgrp.create_dataset('sigma', data=clouds['sigma'][idx, lstseq], dtype='float32')
+        
+        subgrp.attrs['grid'] = clouds['grid']
+        subgrp.attrs['nx'] = clouds['nside']
+        subgrp.attrs['lstmin'] = clouds['lstmin']
+        subgrp.attrs['lstmax'] = clouds['lstmax']
+        subgrp.attrs['lstlen'] = clouds['lstlen']
+
+    return
+
+def write_reduced(filename, settings, stars, lightcurves):
+    
+    with h5py.File(filename) as f:
+            
+        # Write the global information.
+        grp = f.create_group('global')
+        grp.attrs['station'] = settings['station']
+        grp.attrs['camera'] = settings['camera']
+        grp.attrs['exptime'] = 6.4 # Hardcoded ...
+        grp.attrs['naper'] = settings['naper']
+        grp.attrs['aper0'] = settings['aper0']
+        grp.attrs['aper1'] = settings['aper1']
+        grp.attrs['skyrad0'] = settings['skyrad0']
+        grp.attrs['skyrad1'] = settings['skyrad1']
+        
+        grp.create_dataset('filelist', data=settings['filelist'])
+        grp.create_dataset('aversion', data=settings['aversion'])
+        grp.create_dataset('rversion', data=settings['rversion'])
+        grp.create_dataset('cversion', data=settings['cversion'])
+        grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+        
+        # Write the header_table.
+        idx, = np.where(stars['nobs'] > 0)            
+        
+        grp = f.create_group('header_table')
+        for key in stars.keys():
+            grp.create_dataset(key, data=stars[key][idx])
+            
+        # Write the reduced lightcurves.
+        grp = f.create_group('data')
+        for key in lightcurves.keys():
+            grp.create_dataset(key, data=lightcurves[key])
+            
+    return
+
 def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq):
     
     with h5py.File(filename) as f:
@@ -54,7 +187,13 @@ class PhotFile(object):
         
         with h5py.File(self.filename, 'r') as f:
             
-            data = f['global'].attrs.items()
+            grp = f['global']
+            
+            data = grp.attrs.items()
+            data = dict(data)
+            
+            for key in grp.keys():
+                data[key] = grp[key].value
         
         return data
         
