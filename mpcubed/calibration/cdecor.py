@@ -579,7 +579,7 @@ class CoarseDecorrelation(object):
         
         # The transmission map.
         self.trans = dict()
-        self.trans['grid'] = 'polar'
+        self.trans['gridtype'] = 'polar'
         self.trans['num_k'] = self.camgrid.nx
         self.trans['num_n'] = self.camgrid.ny
         self.trans['nobs'] = np.zeros((self.camgrid.nx+2, self.camgrid.ny+2), dtype='uint32')
@@ -587,7 +587,7 @@ class CoarseDecorrelation(object):
         
         # The intrapixel amplitudes.
         self.intrapix = dict()
-        self.intrapix['grid'] = 'polar'
+        self.intrapix['gridtype'] = 'polar'
         self.intrapix['num_l'] = self.ipxgrid.nx
         self.intrapix['num_n'] = self.ipxgrid.ny
         self.intrapix['nobs'] = np.zeros((self.ipxgrid.nx+2, self.ipxgrid.ny+2), dtype='uint32')
@@ -595,8 +595,8 @@ class CoarseDecorrelation(object):
         
         # The cloud corrections.
         self.clouds = dict()
-        self.clouds['grid'] = 'healpix'
-        self.clouds['nside'] = self.skygrid.nside
+        self.clouds['gridtype'] = 'healpix'
+        self.clouds['num_q'] = self.skygrid.nside
         self.clouds['lstmin'] = lstmin
         self.clouds['lstmax'] = lstmax
         self.clouds['lstlen'] = lstmax - lstmin + 1
@@ -633,35 +633,10 @@ class ApplyDecorrelation(object):
         
         f = io.SysFile(self.sysfile)
     
-        ascc, vmag, mag, sigma, nobs = f.read_magnitudes()    
-        self.magnitudes = dict()
-        self.magnitudes['ascc'] = ascc
-        self.magnitudes['nobs'] = nobs
-        self.magnitudes['mag'] = mag
-        self.magnitudes['sigma'] = sigma
-    
-        camgrid, trans, nobs = f.read_trans()
-        self.camgrid = camgrid
-        self.transmission = dict()
-        self.transmission['nobs'] = nobs
-        self.transmission['trans'] = trans
-        
-        ipxgrid, sinx, cosx, siny, cosy, nobs = f.read_intrapix()  
-        self.ipxgrid = ipxgrid
-        self.intrapix = dict()
-        self.intrapix['nobs'] = nobs
-        self.intrapix['sinx'] = sinx
-        self.intrapix['cosx'] = cosx
-        self.intrapix['siny'] = siny
-        self.intrapix['cosy'] = cosy
-        
-        skygrid, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()        
-        self.skygrid = skygrid
-        self.clouds = dict()
-        self.clouds['nobs'] = nobs
-        self.clouds['clouds'] = clouds
-        self.clouds['sigma'] = sigma
-        self.lstmin = lstmin        
+        self.magnitudes = f.read_magnitudes()    
+        self.camgrid, self.trans = f.read_trans()
+        self.ipxgrid, self.intrapix = f.read_intrapix()  
+        self.skygrid, self.clouds = f.read_clouds()        
         
         return
         
@@ -669,10 +644,10 @@ class ApplyDecorrelation(object):
 
         mask = self.magnitudes['ascc'] == ascc
         mag = self.magnitudes['mag'][mask]
-        nobs = self.magnitudes['nobs'][mask]
         sigma = self.magnitudes['sigma'][mask]
-
-        return mag, nobs, sigma        
+        nobs = self.magnitudes['nobs'][mask]
+        
+        return mag, sigma, nobs        
         
     def get_transmission(self, ra, dec, lst):
         
@@ -681,9 +656,9 @@ class ApplyDecorrelation(object):
 
         k, n = self.camgrid.radec2idx(ha, dec)
 
-        trans = self.transmission['trans'][k,n]
-        nobs = self.transmission['nobs'][k,n]
-
+        trans = self.trans['trans'][k,n]
+        nobs = self.trans['nobs'][k,n]
+        
         return trans, nobs
         
     def get_intrapix(self, ra, dec, lst, x, y):
@@ -691,30 +666,33 @@ class ApplyDecorrelation(object):
         ha = np.mod(lst*15 - ra, 360.)
         dec = np.repeat(dec, len(lst))
 
+        sinx, cosx = np.sin(2*np.pi*x), np.cos(2*np.pi*x)
+        siny, cosy = np.sin(2*np.pi*y), np.cos(2*np.pi*y)
+        b_mat = np.column_stack([sinx, cosx, siny, cosy])
+
         l, n = self.ipxgrid.radec2idx(ha, dec)
         
-        ipx_x = self.intrapix['sinx'][l,n]*np.sin(2*np.pi*x) + self.intrapix['cosx'][l,n]*np.cos(2*np.pi*x)
-        ipx_y = self.intrapix['siny'][l,n]*np.sin(2*np.pi*y) + self.intrapix['cosy'][l,n]*np.cos(2*np.pi*y)        
-        nobs = self.intrapix['nobs'][l,n]        
+        ipx = np.sum(b_mat*self.intrapix['amplitudes'][l,n], axis=1)
+        nobs = self.intrapix['nobs'][l,n] 
         
-        return ipx_x + ipx_y, nobs
+        return ipx, nobs
         
     def get_clouds(self, ra, dec, lstseq):
       
         q = self.skygrid.radec2idx(ra, dec)
-        t = lstseq - self.lstmin
+        t = lstseq - self.clouds['lstmin']
         
         clouds = self.clouds['clouds'][q,t]
-        nobs = self.clouds['nobs'][q,t]
         sigma = self.clouds['sigma'][q,t]
-      
-        return clouds, nobs, sigma
+        nobs = self.clouds['nobs'][q,t]
+        
+        return clouds, sigma, nobs
         
     def get_systematics(self, ascc, ra, dec, lstseq, lst, x, y):
 
         flag = np.zeros(len(lstseq), dtype='uint8')
         
-        mag, nobs, sigma = self.get_magnitudes(ascc)        
+        mag, sigma, nobs = self.get_magnitudes(ascc)        
         
         trans, nobs = self.get_transmission(ra, dec, lst)
         flag = np.where(nobs < 25, flag+2, flag)
@@ -722,13 +700,13 @@ class ApplyDecorrelation(object):
         ipx, nobs = self.get_intrapix(ra, dec, lst, x, y)
         flag = np.where(nobs < 25, flag+4, flag)
         
-        clouds, nobs, sigma = self.get_clouds(ra, dec, lstseq)
+        clouds, sigma, nobs = self.get_clouds(ra, dec, lstseq)
         flag = np.where(nobs < 25, flag+8, flag)
         flag = np.where(sigma > .05, flag+16, flag)
         
         systematics = trans + ipx + clouds
         flag = np.where(np.isnan(systematics), flag + 1, flag)
-        
+
         return mag, trans, ipx, clouds, flag 
 
     def __call__(self, photfile, aper, redfile=None):
@@ -853,7 +831,7 @@ def run_calibration(date, part, cameras, aper, source, dest):
         if photfile is not None:        
         
             sysfile = cal(photfile, aper)    
-            
+
             f = ApplyDecorrelation(sysfile)
             redfile = f(photfile, aper)
     

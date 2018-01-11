@@ -76,7 +76,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp.create_dataset('nobs', data=trans['nobs'][idx1,idx2])
         subgrp.create_dataset('trans', data=trans['trans'][idx1,idx2], dtype='float32')
         
-        subgrp.attrs['grid'] = trans['grid']
+        subgrp.attrs['grid'] = trans['gridtype']
         subgrp.attrs['nx'] = trans['num_k']
         subgrp.attrs['ny'] = trans['num_n']
         
@@ -92,7 +92,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp.create_dataset('siny', data=intrapix['amplitudes'][idx1,idx2,2], dtype='float32')
         subgrp.create_dataset('cosy', data=intrapix['amplitudes'][idx1,idx2,3], dtype='float32')
         
-        subgrp.attrs['grid'] = intrapix['grid']
+        subgrp.attrs['grid'] = intrapix['gridtype']
         subgrp.attrs['nx'] = intrapix['num_l']
         subgrp.attrs['ny'] = intrapix['num_n']
         
@@ -106,8 +106,8 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp.create_dataset('clouds', data=clouds['clouds'][idx, lstseq], dtype='float32')
         subgrp.create_dataset('sigma', data=clouds['sigma'][idx, lstseq], dtype='float32')
         
-        subgrp.attrs['grid'] = clouds['grid']
-        subgrp.attrs['nx'] = clouds['nside']
+        subgrp.attrs['grid'] = clouds['gridtype']
+        subgrp.attrs['nx'] = clouds['num_q']
         subgrp.attrs['lstmin'] = clouds['lstmin']
         subgrp.attrs['lstmax'] = clouds['lstmax']
         subgrp.attrs['lstlen'] = clouds['lstlen']
@@ -344,176 +344,174 @@ class SysFile(object):
         
         return alt0, az0, th0, x0, y0
         
-    def read_statistics(self, mode):
-        """ Read the quality statistics from the header.
-        
-        Args:
-            mode (str): Either 'spatial' or 'temporal' depending
-                on which quality parameters should be read.
+    def read_spatial(self):
+        """ Read the spatial quality statistics.
                 
         Returns:
-            niter (int): The number of iterations performed.
-            chisq (float): The chi-squared value achieved.
-            npoints (int): The number of datapoints in the fit.
-            npars (int): The number of model parameters used.
+            spatial (dict): A dictionary containing the quality statistics.
         
         """
+        
+        spatial = dict()
         
         with h5py.File(self.sysfile, 'r') as f:
             
-            grp = f['header/' + mode]
-            niter = grp['niter'].value
-            chisq = grp['chisq'].value
-            npoints = grp['npoints'].value
-            npars = grp['npars'].value
+            grp = f['header/spatial']
             
-        return niter, chisq, npoints, npars
+            spatial['niter'] = grp['niter'].value
+            spatial['chisq'] = grp['chisq'].value
+            spatial['npoints'] = grp['npoints'].value
+            spatial['npars'] = grp['npars'].value
+            
+        return spatial
+    
+    def read_temporal(self):
+        """ Read the temporal quality statistics.
+                
+        Returns:
+            temporal (dict): A dictionary containing the quality statistics.
+        
+        """
+        
+        temporal = dict()
+        
+        with h5py.File(self.sysfile, 'r') as f:
+            
+            grp = f['header/temporal']
+            
+            temporal['niter'] = grp['niter'].value
+            temporal['chisq'] = grp['chisq'].value
+            temporal['npoints'] = grp['npoints'].value
+            temporal['npars'] = grp['npars'].value
+            
+        return temporal
         
     def read_magnitudes(self):
-        """ Read the fitted magnitudes.
+        """ Read the best-fit magnitudes.
         
         Returns:
-            ascc (str): The ascc numbers of the stars.
-            vmag (float): The catalogue magnitude of the stars.
-            mag (float): The fitted magnitude of the stars.
-            sigma (float): The extra error term. Set to None if absent.
-            nobs (int): The number of datapoints used to compute each magnitude.
+            magnitudes (dict): Containing: ascc, vmag, nobs, mag and sigma.
             
         """
+        
+        magnitudes = dict()
         
         with h5py.File(self.sysfile, 'r') as f:
             
             grp = f['data/magnitudes']
-            ascc = grp['ascc'].value
-            vmag = grp['vmag'].value
-            mag = grp['mag'].value
-            nobs = grp['nobs'].value
             
-            try: sigma = grp['sigma'].value
-            except: sigma = None
-        
-        return ascc, vmag, mag, sigma, nobs
+            magnitudes['ascc'] = grp['ascc'].value
+            magnitudes['vmag'] = grp['vmag'].value
+            magnitudes['nobs'] = grp['nobs'].value
+            magnitudes['mag'] = grp['mag'].value
+            magnitudes['sigma'] = grp['sigma'].value
+            
+        return magnitudes
         
     def read_trans(self):
         """ Read the fitted transmission.
         
         Returns:
-            pg: A polar grid instance corresponding to the transmision.
-            trans (float): The transmission values on the grid.
-            nobs (int): The number of datapoints used to compute each
-                transmission.
+            grid: A polar grid instance corresponding to the transmission map.
+            trans (dict): Containing: grid, num_k, num_n, nobs, trans.
         
         """
+
+        trans = dict()
         
         with h5py.File(self.sysfile, 'r') as f:
             
             grp = f['data/trans']
+            
+            trans['gridtype'] = grp.attrs['grid']
+            trans['num_k'] = grp.attrs['nx']
+            trans['num_n'] = grp.attrs['ny']
+            
+            grid = grids.PolarGrid(trans['num_k'], trans['num_n'])
+            
             idx1 = grp['idx1'].value
             idx2 = grp['idx2'].value
-            trans = grp['trans'].value
-            nobs = grp['nobs'].value
-            
-            nx = grp.attrs['nx']
-            ny = grp.attrs['ny']
-            
-        pg = grids.PolarGrid(nx, ny)
-        trans = pg.values2grid(idx1, idx2, trans, np.nan)
-        nobs = pg.values2grid(idx1, idx2, nobs, np.nan)
-
-        return pg, trans, nobs
+            trans['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'].value)
+            trans['trans'] = grid.values2grid(idx1, idx2, grp['trans'].value)
+        
+        return grid, trans
         
     def read_intrapix(self):
         """ Read the fitted intrapixel variations.
         
         Returns:
-            pg: A polar grid instance corresponding to the intrapixel
+            grid: A polar grid instance corresponding to the intrapixel
                 variations.
-            sinx (float): The amplitudes of the sinx term on the grid. 
-            cosx (float): The amplitudes of the cosx term on the grid. 
-            siny (float): The amplitudes of the siny term on the grid. 
-            cosy (float): The amplitudes of the cosy term on the grid. 
-            nobs (float): The number of datapoints used to compute the
-                amplitudes.
+            intrapix (dict): Containing grid, num_l, num_n, nobs, amplitudes/
                 
         """
+        
+        intrapix = dict()
         
         with h5py.File(self.sysfile, 'r') as f:
             
             grp = f['data/intrapix']
+            
+            intrapix['gridtype'] = grp.attrs['grid']
+            intrapix['num_l'] = grp.attrs['nx']
+            intrapix['num_n'] = grp.attrs['ny']
+            
+            grid = grids.PolarGrid(intrapix['num_l'], intrapix['num_n'])
+            
             idx1 = grp['idx1'].value
             idx2 = grp['idx2'].value
-            sinx = grp['sinx'].value
-            cosx = grp['cosx'].value
-            siny = grp['siny'].value
-            cosy = grp['cosy'].value
-            nobs = grp['nobs'].value
             
-            nx = grp.attrs['nx']
-            ny = grp.attrs['ny']
+            sinx = grid.values2grid(idx1, idx2, grp['sinx'].value)
+            cosx = grid.values2grid(idx1, idx2, grp['cosx'].value)
+            siny = grid.values2grid(idx1, idx2, grp['siny'].value)
+            cosy = grid.values2grid(idx1, idx2, grp['cosy'].value)
             
-        pg = grids.PolarGrid(nx, ny)
-        sinx = pg.values2grid(idx1, idx2, sinx, np.nan)
-        cosx = pg.values2grid(idx1, idx2, cosx, np.nan)
-        siny = pg.values2grid(idx1, idx2, siny, np.nan)
-        cosy = pg.values2grid(idx1, idx2, cosy, np.nan)
-        nobs = pg.values2grid(idx1, idx2, nobs, np.nan)
-        
-        return pg, sinx, cosx, siny, cosy, nobs
+            intrapix['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'].value)
+            intrapix['amplitudes'] = np.stack([sinx, cosx, siny, cosy], axis=-1)
+            
+        return grid, intrapix
     
     def read_clouds(self):
         """ Read the fitted clouds.
         
         Returns:
-            hg: A halpix grid instance corresponding to the clouds.
-            clouds: The cloud values computed on the grid at each instant.
-            sigma: The extra error term. Set to None if absent.
-            nobs: The number of datapoints used to compute the clouds.
-            lstmin: The lowest lstseq for which clouds were computed.
-            lstmax: The highest lstseq for which clouds were computed. 
+            grid: A healpix grid instance corresponding to the clouds.
+            clouds (dict): Containing: gridtype, num_q, lstmin, lstmax, lstlen,
+                nobs, clouds, sigma.
         
         """
+        
+        clouds = dict()
         
         with h5py.File(self.sysfile, 'r') as f:
             
             grp = f['data/clouds']
+            
+            clouds['gridtype'] = grp.attrs['grid']
+            clouds['num_q'] = grp.attrs['nx']
+            clouds['lstmin'] = grp.attrs['lstmin']
+            clouds['lstmax'] = grp.attrs['lstmax']
+            clouds['lstlen'] = grp.attrs['lstlen']
+            
+            grid = grids.HealpixGrid(clouds['num_q'])
+            
             idx = grp['idx'].value
-            lstseq = grp['lstseq'].value
-            clouds = grp['clouds'].value
-            nobs = grp['nobs'].value
+            lstseq = grp['lstseq'].value - clouds['lstmin']
             
-            try: sigma = grp['sigma'].value
-            except: sigma = None
+            nobs_ = grp['nobs'].value
+            clouds_ = grp['clouds'].value
+            sigma_ = grp['sigma'].value
             
-            grid = grp.attrs['grid']
-            nx = grp.attrs['nx']
-            lstmin = grp.attrs['lstmin']
-            lstmax = grp.attrs['lstmax']
-            lstlen = grp.attrs['lstlen']
+        clouds['nobs'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['nobs'][idx, lstseq] = nobs_
+        
+        clouds['clouds'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['clouds'][idx, lstseq] = clouds_
     
-        lstseq = lstseq - lstmin
-    
-        if (grid == 'healpix'):
-            hg = grids.HealpixGrid(nx)
-        elif (grid == 'polarea'):
-            hg = grids.PolarEAGrid(nx)
-        else:
-            print 'Unknown grid.'
-            exit()
+        clouds['sigma'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['sigma'][idx, lstseq] = sigma_
         
-        tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
-        tmp[idx, lstseq] = clouds
-        clouds = tmp
-        
-        tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
-        tmp[idx, lstseq] = nobs
-        nobs = tmp
-        
-        if sigma is not None:
-            tmp = np.full((hg.npix, lstlen), fill_value = np.nan)
-            tmp[idx, lstseq] = sigma
-            sigma = tmp
-
-        return hg, clouds, sigma, nobs, lstmin, lstmax
+        return grid, clouds
         
 class blsFile(object):
     
