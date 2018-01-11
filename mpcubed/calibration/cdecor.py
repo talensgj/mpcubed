@@ -842,7 +842,7 @@ class ApplyDecorrelation(object):
             
         return redfile
 
-def main(date, part, cameras, aper, source, dest):
+def run_calibration(date, part, cameras, aper, source, dest):
     
     cal = CoarseDecorrelation()
     
@@ -878,5 +878,5 @@ if __name__ == '__main__':
                         help='Location of the raw data.', dest='source')
     args = parser.parse_args()
 
-    main(args.date, args.part, args.cameras, args.aper, args.source, args.dest) 
+    run_calibration(args.date, args.part, args.cameras, args.aper, args.source, args.dest) 
     

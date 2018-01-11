@@ -489,7 +489,7 @@ def search_skypatch_mp(queue):
     
     return
 
-def transit_search(filelist, name, patches=None, aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
+def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
     
     print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
@@ -586,5 +586,5 @@ if __name__ == '__main__':
                         help='the number of processes to use', dest='nprocs')
     args = parser.parse_args()
     
-    transit_search(args.files, args.name, args.patches, args.aper, args.method, args.outdir, args.nprocs)
+    run_boxlstsq(args.files, args.name, args.patches, args.aper, args.method, args.outdir, args.nprocs)
     
