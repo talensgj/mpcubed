@@ -394,7 +394,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
     
     tmp = np.zeros((len(ascc), len(lstseq)), dtype='bool')
     tmp[staridx, idx] = True
-    mask = ~tmp
+    mask = tmp
     
     return jdmid, lst, mag, emag, trend, mask
 
@@ -437,10 +437,10 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
     
     # Convert the uncertainties to weights.
     with np.errstate(divide='ignore'):
-        weights = np.where(mask, 0., 1./emag**2)
+        weights = np.where(mask, 1./emag**2, 0.)
         
     # Run the box least-squares search.    
-    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq(jdmid, mag.T, weights.T, (~mask).T)
+    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq(jdmid, mag.T, weights.T, mask.T)
     
     # Create arrays.
     nstars = len(ascc)
@@ -461,9 +461,9 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile):
         boxpars[i] = 1./freq[arg], epoch[arg,i], depth[arg,i], duration[arg,i]
         
         # Quality criteria.
-        if (sum(~mask[i]) > 1) & (dchisq[arg,i] > 0):
+        if (sum(mask[i]) > 1) & (dchisq[arg,i] > 0):
             
-            jdmid_, mag_, emag_ = jdmid[~mask[i]], mag[i, ~mask[i]], emag[i, ~mask[i]]
+            jdmid_, mag_, emag_ = jdmid[mask[i]], mag[i, mask[i]], emag[i, mask[i]]
             
             sde, atr = criteria.boxlstsq_criteria(dchisq[:,i], depth[:,i])
             gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(jdmid_, mag_, emag_, boxpars[i])

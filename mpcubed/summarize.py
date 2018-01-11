@@ -24,7 +24,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from . import io, misc
-from .detection import transit_search as ts
+from .detection import boxlstsq
 
 def _hadec2xy(wcspars, ha, dec):
         
@@ -449,8 +449,7 @@ def boxlstsq_summary(blsdir, aper=0, method='legendre'):
         args, = np.where(hdr['depth'] > 0)
         
         # Read the lightcurves.
-        jdmid, lst, mag, emag, trend, mask = ts.read_data(filelist, hdr['ascc'], aper=aper, method=method)
-        mask = ~mask
+        jdmid, lst, mag, emag, trend, mask = boxlstsq.read_data(filelist, hdr['ascc'], aper=aper, method=method)
         
         for i in args:
             
