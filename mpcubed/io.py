@@ -857,3 +857,38 @@ def make_quarter(filename, filelist, nsteps=1000):
 
     return
     
+def merge_files(filetype, filename, filelist, nsteps=1000):
+    
+    if filetype == 'fLC':
+        make_baseline(filename, filelist, nsteps)
+    elif filetype == 'red':
+        make_quarter(filename, filelist, nsteps)
+    else:
+        raise ValueError('Filetype {}, is not suported.'.format(filetype))
+    
+    return
+
+def main():
+    
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Combine temporary lightcurve files.')
+    parser.add_argument('filetype', type=str, default=['fLC', 'red'],
+                        help='the type of lightcurve files we are merging')
+    parser.add_argument('filename', type=str,
+                        help='the name of the resulting file')
+    parser.add_argument('filelist', type=str, nargs='+',
+                        help='the files to combine')
+    parser.add_argument('-n', '--nsteps', type=int, default=1000,
+                        help='the number of stars to read in one go', dest='nsteps')
+    
+    args = parser.parse_args()
+    
+    merge_files(args.filetype, args.filename, args.filelist, args.nsteps)
+    
+    return
+
+if __name__ == '__main__':
+    
+    main()
+    

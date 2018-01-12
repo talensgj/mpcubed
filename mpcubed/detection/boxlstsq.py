@@ -565,7 +565,7 @@ def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir
     
     return
 
-if __name__ == '__main__':
+def main():
     
     import argparse
 
@@ -587,4 +587,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     run_boxlstsq(args.files, args.name, args.patches, args.aper, args.method, args.outdir, args.nprocs)
+    
+    return
+    
+if __name__ == '__main__':
+    
+    main()
     

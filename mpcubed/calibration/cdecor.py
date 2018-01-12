@@ -820,7 +820,7 @@ class ApplyDecorrelation(object):
             
         return redfile
 
-def run_calibration(date, part, cameras, aper, source, dest):
+def run_calibration(date, part, aper, cameras, source, dest):
     
     cal = CoarseDecorrelation()
     
@@ -837,7 +837,7 @@ def run_calibration(date, part, cameras, aper, source, dest):
     
     return
 
-if __name__ == '__main__':
+def main():
     
     import argparse
 
@@ -855,6 +855,12 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--data', type=str, default='/data2/mascara/LaPalma',
                         help='Location of the raw data.', dest='source')
     args = parser.parse_args()
+    
+    run_calibration(args.date, args.part, args.aper, args.cameras, args.source, args.dest)
+    
+    return
 
-    run_calibration(args.date, args.part, args.cameras, args.aper, args.source, args.dest) 
+if __name__ == '__main__':
+    
+    main() 
     

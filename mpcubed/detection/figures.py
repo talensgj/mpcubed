@@ -181,7 +181,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre'):
 
     return
 
-if __name__ == '__main__':
+def main():
     
     import argparse
 
@@ -195,3 +195,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     figs_boxlstsq(args.blsdir, args.aper, args.method)
+    
+    return
+
+if __name__ == '__main__':
+    
+    main()

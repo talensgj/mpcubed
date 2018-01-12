@@ -352,7 +352,7 @@ def figs_calibration(filelist):
     
     return
 
-if __name__ == '__main__':
+def main():
     
     import argparse
 
@@ -360,5 +360,11 @@ if __name__ == '__main__':
     parser.add_argument('files', type=str, nargs='+',
                         help='the file(s) to create the figures for')
     args = parser.parse_args()
-
+    
     figs_calibration(args.files)
+    
+    return
+    
+if __name__ == '__main__':
+    
+    main()
