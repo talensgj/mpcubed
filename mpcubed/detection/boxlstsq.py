@@ -7,7 +7,7 @@ import glob
 import numpy as np
 import multiprocessing as mp
 
-from .. import io, misc
+from .. import io, misc, statistics
 from . import detrend, criteria
 from ..calibration import grids
 
@@ -544,8 +544,17 @@ def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir
         # Do not run if the baseline falls short of 60 days.
         if (np.ptp(jdmid) < 60.):
             print 'Skipping skypatch {}, insufficient baseline.'.format(idx) 
-            continue        
+            continue    
         
+        # Mask outliers.
+        for i in range(mag.shape[0]):
+            
+            m0 = np.median(mag[i][mask[i]])
+            m1 = statistics.mad(mag[i][mask[i]])
+            
+            cutoff = np.maximum(3*m1, 0.05)
+            mask[i] = mask[i] & (np.abs(mag[i] - m0) < cutoff)
+
         # Barycentric correction.
         ra, dec = hg.idx2radec(idx)
         jdbar = misc.barycentric_dates(jdmid, ra, dec)
