@@ -16,4 +16,10 @@ setup(
     license = "CCC",
     packages = find_packages(),
     long_description = read('README'),
+    entry_points={'console_scripts': 
+        ['merge_files = mpcubed.io:main',
+         'run_calibration = mpcubed.calibration.cdecor:main',
+         'figs_calibration = mpcubed.calibration.figures:main',
+         'run_boxlstsq = mpcubed.detection.boxlstsq:main',
+         'figs_boxlstsq = mpcubed.detection.figures:main']}
 )

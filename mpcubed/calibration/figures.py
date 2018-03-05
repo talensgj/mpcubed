@@ -6,7 +6,6 @@ Created on Tue Apr 25 16:17:22 2017
 """
 
 import os
-import glob
 
 import numpy as np
 
@@ -23,8 +22,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from . import io, misc
-from . import transit_search as ts
+from .. import io
 
 def _hadec2xy(wcspars, ha, dec):
         
@@ -102,6 +100,43 @@ def plot_polar(grid, data, wcspars, **kwargs):
 
     return im
 
+def fig_magnitudes(filename, figname=None):
+    
+    if figname is None:
+        head, tail = os.path.split(filename)
+        figname = tail.rsplit('.')[0] + '_mags.png'
+        figname = os.path.join(head, figname)
+        
+    # Read the magnitudes.
+    f = io.SysFile(filename)
+    magnitudes = f.read_magnitudes()
+    mag, vmag, sigma = magnitudes['mag'], magnitudes['vmag'], magnitudes['sigma']
+    
+    # Plot the magitudes.
+    fig = plt.figure(figsize=(14,9))
+    
+    plt.suptitle('Magnitudes', size='xx-large')
+    
+    gs = gridspec.GridSpec(3, 1, height_ratios = [1,5,5])
+    
+    plt.subplot(gs[1,0])
+    
+    plt.scatter(vmag, mag - vmag, color='black', marker='.', alpha=.5, edgecolor='none')
+    plt.ylabel('V - M')
+    
+    plt.subplot(gs[2,0])
+    
+    plt.scatter(vmag, sigma, color='black', marker='.', alpha=.5, edgecolor='none')
+    plt.xlabel('V')
+    plt.ylabel(r'$\sigma$')
+    
+    plt.tight_layout()
+    
+    plt.savefig(figname, dpi=100)
+    plt.close()
+    
+    return figname
+
 def fig_transmission(filename, figname=None):
     
     if figname is None:
@@ -111,8 +146,10 @@ def fig_transmission(filename, figname=None):
     
     # Read the transmission map.
     f = io.SysFile(filename)
-    pg, trans, nobs = f.read_trans()
-    wcspars = f.read_pointing()    
+    wcspars = f.read_pointing()
+    camgrid, trans = f.read_trans()
+        
+    trans = trans['trans']
     
     # Plot the transmission map.
     fig = plt.figure(figsize=(14,9))
@@ -125,7 +162,7 @@ def fig_transmission(filename, figname=None):
     
     vmin = np.nanpercentile(trans, .1)
     vmax = np.nanpercentile(trans, 99.9)
-    im = plot_polar(pg, trans, wcspars, cmap=plt.cm.viridis, vmin=vmin, vmax=vmax)
+    im = plot_polar(camgrid, trans, wcspars, cmap=plt.cm.viridis, vmin=vmin, vmax=vmax)
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -140,7 +177,7 @@ def fig_transmission(filename, figname=None):
     plt.savefig(figname, dpi=100)
     plt.close()
     
-    return
+    return figname
     
 def fig_intrapix(filename, figname=None):
     
@@ -151,8 +188,10 @@ def fig_intrapix(filename, figname=None):
     
     # Read the intrapixel amplitudes.
     f = io.SysFile(filename) 
-    pg, sinx, cosx, siny, cosy, nobs = f.read_intrapix() 
-    wcspars = f.read_pointing()       
+    wcspars = f.read_pointing()
+    ipxgrid, intrapix = f.read_intrapix() 
+    
+    amplitudes = intrapix['amplitudes']       
     
     # Plot the amplitudes.
     fig = plt.figure(figsize=(16, 10))
@@ -164,7 +203,7 @@ def fig_intrapix(filename, figname=None):
     plt.subplot(gs[1,0], aspect='equal')
     plt.title(r'$\sin(2\pi x)$')
    
-    im = plot_polar(pg, sinx, wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)
+    im = plot_polar(ipxgrid, amplitudes[:,:,0], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)
    
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -172,7 +211,7 @@ def fig_intrapix(filename, figname=None):
     plt.subplot(gs[1,1], aspect='equal')
     plt.title(r'$\cos(2\pi x)$')
     
-    im = plot_polar(pg, cosx, wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
+    im = plot_polar(ipxgrid, amplitudes[:,:,1], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -180,7 +219,7 @@ def fig_intrapix(filename, figname=None):
     plt.subplot(gs[2,0], aspect='equal')
     plt.title(r'$\sin(2\pi y)$')
     
-    im = plot_polar(pg, siny, wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)  
+    im = plot_polar(ipxgrid, amplitudes[:,:,2], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)  
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -188,7 +227,7 @@ def fig_intrapix(filename, figname=None):
     plt.subplot(gs[2,1], aspect='equal')
     plt.title(r'$\cos(2\pi y)$')
     
-    im = plot_polar(pg, cosy, wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
+    im = plot_polar(ipxgrid, amplitudes[:,:,3], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -202,7 +241,7 @@ def fig_intrapix(filename, figname=None):
     plt.savefig(figname, dpi=100)
     plt.close()  
     
-    return
+    return figname
     
 def fig_clouds(filename, figname=None):
     
@@ -213,7 +252,15 @@ def fig_clouds(filename, figname=None):
     
     # Read the data.
     f = io.SysFile(filename)
-    hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
+    skygrid, clouds = f.read_clouds()
+    
+    clouds = clouds['clouds']
+    
+    # Remove empty rows and columns.
+    mask = np.isfinite(clouds)
+    q, = np.where(np.any(mask, axis=1))
+    t, = np.where(np.any(mask, axis=0))
+    clouds = clouds[q][:,t]
     
     # Plot the clouds.
     fig = plt.figure(figsize=(10, 16))
@@ -223,14 +270,10 @@ def fig_clouds(filename, figname=None):
     gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,20])
     
     plt.subplot(gs[1,0], xticks=[], yticks=[])
-    
-    mask = np.isfinite(clouds)
-    idx1, = np.where(np.any(mask, axis=1))
-    idx2, = np.where(np.any(mask, axis=0))
-    clouds = clouds[idx1][:,idx2]    
+        
     im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.5, vmax=.5)
     
-    idx, = np.where(np.diff(idx2) > 1)
+    idx, = np.where(np.diff(t) > 1)
     for i in idx:
         plt.axhline(i+1, xmax=.1, c='k', lw=2)
     
@@ -247,7 +290,7 @@ def fig_clouds(filename, figname=None):
     plt.savefig(figname, dpi=100)
     plt.close()    
     
-    return
+    return figname
     
 def fig_sigma(filename, figname=None):
     
@@ -258,7 +301,15 @@ def fig_sigma(filename, figname=None):
     
     # Read the data.
     f = io.SysFile(filename)
-    hg, clouds, sigma, nobs, lstmin, lstmax = f.read_clouds()
+    skygrid, clouds = f.read_clouds()
+    
+    sigma = clouds['sigma']
+    
+    # Remove empty rows and columns.
+    mask = np.isfinite(sigma)
+    idx1, = np.where(np.any(mask, axis=1))
+    idx2, = np.where(np.any(mask, axis=0))
+    sigma = sigma[idx1][:,idx2]  
     
     # Plot the clouds.
     fig = plt.figure(figsize=(10, 16))
@@ -268,11 +319,7 @@ def fig_sigma(filename, figname=None):
     gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,20])
     
     plt.subplot(gs[1,0], xticks=[], yticks=[])
-    
-    mask = np.isfinite(sigma)
-    idx1, = np.where(np.any(mask, axis=1))
-    idx2, = np.where(np.any(mask, axis=0))
-    sigma = sigma[idx1][:,idx2]    
+      
     im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=np.nanmax(sigma))
     
     idx, = np.where(np.diff(idx2) > 1)
@@ -291,170 +338,33 @@ def fig_sigma(filename, figname=None):
     plt.savefig(figname, dpi=100)
     plt.close()    
     
-    return
+    return figname
     
-def calibration_summary(filename):
+def figs_calibration(filelist):
     
-    fig_transmission(filename)
-    fig_intrapix(filename)
-    fig_clouds(filename)
-    fig_sigma(filename)
-    
-    return
-
-def plot_periodogram(freq, dchisq, period, zoom=False):
-    """ Plot the box least-squares periodogram. """
-
-    plt.annotate(r'$P = {:.5f}$'.format(period), (0, 1), xytext=(10, -10), xycoords='axes fraction', textcoords='offset points', va='top', ha='left', size='x-large', backgroundcolor='w')    
-    
-    # Plot the box least-squares periodogram.
-    plt.plot(freq, dchisq, c='k')
-    if zoom:
-        plt.xlim(.95/period, 1.05/period)
-    else:
-        plt.xlim(0, 1.8)
-    plt.xlabel(r'Frequency [day$^{-1}$]')
-    plt.ylabel(r'$\Delta\chi^2$')
-    
-    # Add lines indicating the peak, and integer harmonics.
-    freq = 1/period
-    plt.axvline(freq, c=(0./255,109./255,219./255))
-    for n in range(2, 5):
-        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--')
-        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--')
+    for filename in filelist:
         
-    # Add lines indicating the 1 day systematic and harmonics.
-    freq = 1/.9972
-    plt.axvline(freq, c=(146./255,0,0), lw=2, ymax=.1)
-    for n in range(2, 5):
-        plt.axvline(n*freq, c=(146./255,0,0), lw=2, ymax=.1)
-        plt.axvline(freq/n, c=(146./255,0,0), lw=2, ymax=.1)
-        
-    for n in range(1, 5):
-        plt.axvline(n*freq/(n+1), c=(146./255,0,0), lw=2, ymax=.1)
-        plt.axvline((n+1)*freq/n, c=(146./255,0,0), lw=2, ymax=.1)     
-    
-    return  
-    
-def plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, binned=True, zoom=False):
-    """ Plot a lightcurve with the box least-squares best fit overplotted. """    
-    
-    factor = np.ceil(np.abs(depth)/.05)   
-
-    # Plot the phase-folded lightcurve.
-    phase = (jdmid - epoch)/period    
-    phase = np.mod(phase+.5, 1.)-.5
-    plt.scatter(phase, mag, color='black', marker='.', alpha=.5, edgecolor='none')
-    
-    # Add phase-binned data.
-    if binned:
-        nbins = np.ceil(9*period/duration)
-        bins = np.linspace(-.5, .5, nbins+1)   
-        xbin, ybin, eybin = misc.bin_data_err(phase, mag, emag, bins)
-        plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
-    
-    if zoom:
-        plt.xlim(-1.5*duration/period, 1.5*duration/period)
-        plt.ylim(2*np.abs(depth), -2*np.abs(depth))
-    else:
-        plt.xlim(-.5, .5)
-        plt.ylim(factor*.05, factor*-.03)
-    
-    plt.xlabel('Phase')
-    plt.ylabel(r'$\Delta m$') 
-    
-    return
-    
-def plot_boxcurve(period, depth, duration):
-    
-    # Compute x and y values for plotting a boxfit.
-    x = .5*duration/period        
-    x = np.array([-.5, -x, -x, x, x, .5])
-    y = np.array([0, 0, depth, depth, 0, 0,])
-    
-    plt.plot(x, y, c=(146./255,0,0), lw=2, zorder=20)    
+        fig_magnitudes(filename)
+        fig_transmission(filename)
+        fig_intrapix(filename)
+        fig_clouds(filename)
+        fig_sigma(filename)
     
     return
 
-def fig_candidate(ascc, freq, dchisq, jdmid, mag, emag, period, epoch, depth, duration, figdir):
+def main():
     
-    # Create the figure.
-    fig = plt.figure(figsize=(16.5, 11.7))
-    
-    plt.suptitle('ASCC {}'.format(ascc), size='xx-large')    
-    
-    gs = gridspec.GridSpec(6, 6, height_ratios = [.5, 10, 10, .5, 10, .5])
-    
-    # Plot the periodogram.
-    ax = plt.subplot(gs[1,:4])
-    
-    plt.title('Periodogram')
-    plot_periodogram(freq, dchisq, period)                     
-    
-    ax = plt.subplot(gs[1,4:])
-    
-    plt.title('Periodogram zoom')
-    plot_periodogram(freq, dchisq, period, zoom=True)    
-    
-    # Plot the data and the best-fit box-model.
-    ax = plt.subplot(gs[2:4,:4])
+    import argparse
 
-    plt.title('Photometry')
-    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration)
-    plot_boxcurve(period, depth, duration)
+    parser = argparse.ArgumentParser(description='Make figures of calibration terms.')
+    parser.add_argument('files', type=str, nargs='+',
+                        help='the file(s) to create the figures for')
+    args = parser.parse_args()
     
-    ax = plt.subplot(gs[2:4,4:])
-
-    plt.title('Photometry zoom')
-    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, zoom=True)
-    plot_boxcurve(period, depth, duration)
-
-    ax = plt.subplot(gs[4,:3])
-
-    plt.title(r'Half-period, $P = {:.5f}$'.format(.5*period))
-    plot_lightcurve(jdmid, mag, emag, .5*period, epoch, depth, duration, binned=False)
-
-    ax = plt.subplot(gs[4,3:])
-
-    plt.title(r'Double-period, $P = {:.5f}$'.format(2.*period))
-    plot_lightcurve(jdmid, mag, emag, 2.*period, epoch, depth, duration, binned=False)        
-        
-    plt.tight_layout()
-    plt.savefig(os.path.join(figdir, 'ASCC{}.png'.format(ascc)))
-    plt.close()    
+    figs_calibration(args.files)
     
     return
- 
-  
-def boxlstsq_summary(blsdir, aper=0, method='legendre'): 
-
-    blsfiles = glob.glob(os.path.join(blsdir, 'bls/*'))
-    blsfiles = np.sort(blsfiles)
     
-    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S') 
-
-    figdir = os.path.join(blsdir, 'figures')
-    misc.ensure_dir(figdir)
-
-    for blsfile in blsfiles:
-        
-        print blsfile
-
-        # Read the box least-squares results.
-        f = io.blsFile(blsfile)
-        hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration'])  
-        data = f.read_data(['freq', 'dchisq'])
+if __name__ == '__main__':
     
-        # Select stars.
-        args, = np.where(hdr['depth'] > 0)
-        
-        # Read the lightcurves.
-        jdmid, lst, mag, emag, trend, mask = ts.read_data(filelist, hdr['ascc'], aper=aper, method=method)
-        mask = ~mask
-        
-        for i in args:
-            
-            # Make the figure.
-            fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], jdmid[mask[i]], mag[i,mask[i]], emag[i,mask[i]], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)     
-
-    return
+    main()

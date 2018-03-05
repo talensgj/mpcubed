@@ -97,7 +97,7 @@ class PolarGrid(object):
         
         return ra, dec
         
-    def values2grid(self, idx1, idx2, values, fill_value=0):
+    def values2grid(self, idx1, idx2, values, fill_value=np.nan):
         """ Given grid indices and values return an array.
         
         Args:
@@ -203,7 +203,7 @@ class PolarEAGrid(object):
         
         return 0., 0.
         
-    def values2grid(self, idx, values, fill_value=0):
+    def values2grid(self, idx, values, fill_value=np.nan):
         """ Given grid indices and values return an array.
         
         Args:
@@ -281,7 +281,7 @@ class HealpixGrid(object):
             
         return ra, dec
         
-    def values2grid(self, idx, values, fill_value=0):
+    def values2grid(self, idx, values, fill_value=np.nan):
         """ Given grid indices and values return an array.
         
         Args:
@@ -395,7 +395,7 @@ class CartesianGrid(object):
         
         return x, y    
     
-    def values2grid(self, idx1, idx2, values, fill_value=0):
+    def values2grid(self, idx1, idx2, values, fill_value=np.nan):
         """ Given grid indices and values return an array.
         
         Args:
