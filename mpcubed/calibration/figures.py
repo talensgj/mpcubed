@@ -23,27 +23,32 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from .. import io
+from lsreduce import io as lsio
 
 def _hadec2xy(wcspars, ha, dec):
         
-    import mascara        
-        
-    alt0, az0, th0, x0, y0 = wcspars
-    
-    # Initialize the coordinate transformations.
-    site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
-    cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
-    
-    tmp = ha.shape
-    ha, dec = ha.ravel(), dec.ravel()
-    
+    import mascara 
+    from lsreduce import astrometry       
+            
     # Perfrom the coordinate transformations.
-    alt, az = site.hadec2altaz(ha, dec, degree=True)
-    phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
-    x, y = cam.PhiThe2XY(phi, theta)
-    
-    x, y = x.reshape(tmp), y.reshape(tmp)
-    
+    try:
+        wcspars['lst']
+    except:
+        tmp = ha.shape
+        ha, dec = ha.ravel(), dec.ravel()
+        
+        alt0, az0, th0, x0, y0 = wcspars
+        site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
+        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
+        
+        alt, az = site.hadec2altaz(ha, dec, degree=True)
+        phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
+        x, y = cam.PhiThe2XY(phi, theta)
+        x, y = x.reshape(tmp), y.reshape(tmp)
+    else:
+        ra = astrometry.ha2ra(ha, 0.)    
+        x, y = astrometry.world2wcs(wcspars, ra, dec, 0.)
+        
     return x, y
 
 def wcsgrid(wcspars):
@@ -137,7 +142,7 @@ def fig_magnitudes(filename, figname=None):
     
     return figname
 
-def fig_transmission(filename, figname=None):
+def fig_transmission(filename, astromaster=None, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
@@ -146,7 +151,12 @@ def fig_transmission(filename, figname=None):
     
     # Read the transmission map.
     f = io.SysFile(filename)
-    wcspars = f.read_pointing()
+    
+    if astromaster is None:
+        wcspars = f.read_pointing()
+    else:
+        wcspars, polpars, astromask = lsio.read_astromaster(astromaster) 
+        
     camgrid, trans = f.read_trans()
         
     trans = trans['trans']
@@ -179,7 +189,7 @@ def fig_transmission(filename, figname=None):
     
     return figname
     
-def fig_intrapix(filename, figname=None):
+def fig_intrapix(filename, astromaster=None, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
@@ -188,7 +198,12 @@ def fig_intrapix(filename, figname=None):
     
     # Read the intrapixel amplitudes.
     f = io.SysFile(filename) 
-    wcspars = f.read_pointing()
+    
+    if astromaster is None:
+        wcspars = f.read_pointing()
+    else:
+        wcspars, polpars, astromask = lsio.read_astromaster(astromaster)
+        
     ipxgrid, intrapix = f.read_intrapix() 
     
     amplitudes = intrapix['amplitudes']       
@@ -273,7 +288,7 @@ def fig_clouds(filename, figname=None):
         
     im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.5, vmax=.5)
     
-    idx, = np.where(np.diff(t) > 1)
+    idx, = np.where(np.diff(t) > 2)
     for i in idx:
         plt.axhline(i+1, xmax=.1, c='k', lw=2)
     
@@ -322,7 +337,7 @@ def fig_sigma(filename, figname=None):
       
     im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=np.nanmax(sigma))
     
-    idx, = np.where(np.diff(idx2) > 1)
+    idx, = np.where(np.diff(idx2) > 2)
     for i in idx:
         plt.axhline(i+1, xmax=.1, c='k', lw=2)
     
@@ -340,13 +355,13 @@ def fig_sigma(filename, figname=None):
     
     return figname
     
-def figs_calibration(filelist):
+def figs_calibration(filelist, astromaster=None):
     
     for filename in filelist:
         
         fig_magnitudes(filename)
-        fig_transmission(filename)
-        fig_intrapix(filename)
+        fig_transmission(filename, astromaster)
+        fig_intrapix(filename, astromaster)
         fig_clouds(filename)
         fig_sigma(filename)
     
@@ -359,9 +374,11 @@ def main():
     parser = argparse.ArgumentParser(description='Make figures of calibration terms.')
     parser.add_argument('files', type=str, nargs='+',
                         help='the file(s) to create the figures for')
+    parser.add_argument('-a', '--astro', type=str, default=None,
+                        help='the astrometric solution to use when creating the figures')
     args = parser.parse_args()
     
-    figs_calibration(args.files)
+    figs_calibration(args.files, args.astro)
     
     return
     

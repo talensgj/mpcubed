@@ -27,11 +27,14 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         hdr.attrs['station'] = settings['station']
         hdr.attrs['camera'] = settings['camera']
         
-        hdr.attrs['alt0'] = settings['alt0']
-        hdr.attrs['az0'] = settings['az0']
-        hdr.attrs['th0'] = settings['th0']
-        hdr.attrs['x0'] = settings['x0']
-        hdr.attrs['y0'] = settings['y0']
+        try:
+            hdr.attrs['alt0'] = settings['alt0']
+            hdr.attrs['az0'] = settings['az0']
+            hdr.attrs['th0'] = settings['th0']
+            hdr.attrs['x0'] = settings['x0']
+            hdr.attrs['y0'] = settings['y0']
+        except:
+            pass
         
         hdr.attrs['outer_maxiter'] = settings['outer_maxiter']
         hdr.attrs['inner_maxiter'] = settings['inner_maxiter']
@@ -114,36 +117,47 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
 
     return
 
-def write_reduced(filename, settings, stars, lightcurves):
+def write_reduced(filename, settings, stars, lightcurves, siteid):
+
+    if siteid == 'LP':
+        file_struct = {'header':'global', 'stars':'header_table', 'lightcurves':'data'}
+    else:
+        file_struct = {'header':'header', 'stars':'stars', 'lightcurves':'lightcurves'}
     
     with h5py.File(filename) as f:
-            
-        # Write the global information.
-        grp = f.create_group('global')
-        grp.attrs['station'] = settings['station']
-        grp.attrs['camera'] = settings['camera']
-        grp.attrs['exptime'] = 6.4 # Hardcoded ...
-        grp.attrs['naper'] = settings['naper']
-        grp.attrs['aper0'] = settings['aper0']
-        grp.attrs['aper1'] = settings['aper1']
-        grp.attrs['skyrad0'] = settings['skyrad0']
-        grp.attrs['skyrad1'] = settings['skyrad1']
         
-        grp.create_dataset('filelist', data=settings['filelist'])
-        grp.create_dataset('aversion', data=settings['aversion'])
-        grp.create_dataset('rversion', data=settings['rversion'])
-        grp.create_dataset('cversion', data=settings['cversion'])
-        grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+        # Write the global information.
+        grp = f.create_group(file_struct['header'])
+        
+        if siteid == 'LP':
+            grp.attrs['station'] = settings['station']
+            grp.attrs['camera'] = settings['camera']
+            grp.attrs['exptime'] = 6.4 # Hardcoded ...
+            grp.attrs['naper'] = settings['naper']
+            grp.attrs['aper0'] = settings['aper0']
+            grp.attrs['aper1'] = settings['aper1']
+            grp.attrs['skyrad0'] = settings['skyrad0']
+            grp.attrs['skyrad1'] = settings['skyrad1']
+            
+            grp.create_dataset('filelist', data=settings['filelist'])
+            grp.create_dataset('aversion', data=settings['aversion'])
+            grp.create_dataset('rversion', data=settings['rversion'])
+            grp.create_dataset('cversion', data=settings['cversion'])
+            grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+            
+        else:
+            grp.attrs['site-obs'] = settings['site-obs']
+            grp.attrs['cam-obs'] = settings['cam-obs']
         
         # Write the header_table.
         idx, = np.where(stars['nobs'] > 0)            
         
-        grp = f.create_group('header_table')
+        grp = f.create_group(file_struct['stars'])
         for key in stars.keys():
             grp.create_dataset(key, data=stars[key][idx])
             
         # Write the reduced lightcurves.
-        grp = f.create_group('data')
+        grp = f.create_group(file_struct['lightcurves'])
         for key in lightcurves.keys():
             grp.create_dataset(key, data=lightcurves[key])
             
@@ -177,17 +191,87 @@ def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq):
 
 class PhotFile(object):
     
-    def __init__(self, filename):
-        
-        self.filename = filename
+    def __init__(self, filename, siteid=None, filetype=None):
     
-        return
+        head, tail = os.path.split(filename)
         
-    def read_global(self):
+        # Determine siteid from filename.
+        if siteid is None:
+            
+            tmp = tail.rsplit('.')[0]
+            siteid = tmp[-3:-1]
+        
+        # Check the siteid.
+        if siteid not in ['LP', 'LS']:
+           raise ValueError('Unknown site: {}'.format(siteid))
+            
+        # Determine filetype from filename. 
+        if filetype is None:
+            
+            prefix = tail.rsplit('_')[0]
+        
+            if prefix in ['fLC', 'fast']:
+                filetype = 'fast'
+            elif prefix in ['sLC', 'slow']:
+                filetype = 'slow'
+            elif prefix in ['red0', 'red1']:
+                filetype = 'red'
+            else:
+                raise ValueError('Could not determine filetype from filename.')
+        
+        # Check the filetype.
+        if filetype not in ['fast', 'slow', 'red']:
+            raise ValueError('Unknown filetype: {}'.format(filetype))
+            
+        # Set the file structure.
+        if siteid == 'LP':
+            
+            # For a 'fast' file.
+            file_struct = {'header':'global', 'stars':'header_table', 'station':None, 'lightcurves':'data', 'astrometry':None}
+            
+            # How are 'slow' and 'red' files different.
+            if filetype == 'slow':
+                pass
+            elif filetype == 'red':                
+                file_struct['stars'] = 'header'
+            
+        else:
+            
+            # For a 'fast' file.
+            file_struct = {'header':'header', 'stars':'stars', 'station':'station', 'lightcurves':'lightcurves', 'astrometry':'astrometry'}
+            
+            # How are 'slow' and 'red' files different.
+            if filetype == 'slow':
+                file_struct['astrometry'] = None
+            elif filetype == 'red': 
+                file_struct['station'] = None
+                file_struct['astrometry'] = None
+
+        # Set attributes.
+        self.filename = filename
+        self.siteid = siteid
+        self.filetype = filetype
+        self.file_struct = file_struct
+        
+        return
+    
+    def get_siteid(self):
+        
+        return self.siteid
+    
+    def get_filetype(self):
+        
+        return self.filetype
+    
+    def get_file_struct(self):
+        
+        return self.file_struct
+        
+    def read_header(self):
         
         with h5py.File(self.filename, 'r') as f:
             
-            grp = f['global']
+            grp = f[self.file_struct['header']]
             
             data = grp.attrs.items()
             data = dict(data)
@@ -203,14 +287,7 @@ class PhotFile(object):
             
         with h5py.File(self.filename, 'r') as f:
             
-            if 'stars' in f.keys():
-                grp = f['stars']
-            elif 'header_table' in f.keys():
-                grp = f['header_table']
-            elif 'header' in f.keys():
-                grp = f['header']
-            else:
-                raise IOError('No valid stars field found.')
+            grp = f[self.file_struct['stars']]
 
             if fields is None:
                 fields = grp.keys()
@@ -223,6 +300,37 @@ class PhotFile(object):
                     print 'Warning: skipping field {}, field not found.'.format(field)
                     
         return stars
+    
+    def read_station(self, fields=None, lstseq=None):
+        
+        if self.file_struct['station'] is None:
+            raise IOError('This file has no field called station.')
+            
+        station = dict()
+        
+        with h5py.File(self.filename, 'r') as f:
+            
+            grp = f[self.file_struct['station']]
+            
+            lstseq_station = grp['lstseq'].value            
+            
+            if fields is None:
+                fields = grp.keys()
+            
+            for field in fields:
+                
+                if field in grp.keys():
+                    station[field] = grp[field].value
+                else:
+                    print 'Warning: skipping field {}, field not found.'.format(field)
+        
+        if lstseq is not None:
+            
+            idx = np.searchsorted(lstseq_station, lstseq)
+            for key in station.keys():
+                station[key] = station[key][idx]
+                
+        return station
     
     def read_lightcurves(self, ascc=None, fields=None, perstar=True, verbose=True):
         
@@ -243,10 +351,7 @@ class PhotFile(object):
         # Read the data.
         with h5py.File(self.filename, 'r') as f:
             
-            try:
-                grp = f['data'] # La Palma
-            except:
-                grp = f['lightcurves'] # bRing, La Silla
+            grp = f[self.file_struct['lightcurves']]
             
             if not hasattr(self, 'ascc0'):
                 self.ascc0 = set(grp.keys())            
@@ -556,93 +661,7 @@ class blsFile(object):
 ###############################################################################
 ### Code for combining files.
 ###############################################################################
-        
-def verify_filelist(filelist):
-    
-    nfiles = len(filelist)
-    
-    args = []
-    for i in range(nfiles):
-        if os.path.isfile(filelist[i]):
-            args.append(i)
-        else:
-            print filelist[i], 'does not exist.'
-    
-    filelist = filelist[args]
-    
-    if len(filelist) == 0:
-        print 'No valid files.'
-        print 'exiting...'
-        return filelist
-    
-    return filelist
 
-def _index_files(filelist):
-    
-    nfiles = len(filelist)
-    
-    idx1 = np.array([], dtype='uint16')
-    
-    stars = dict()
-    for i in range(nfiles):
-        
-        filename = filelist[i]        
-        
-        with h5py.File(filename, 'r') as f:
-            
-            grp = f['header_table']
-            
-            for key in grp.keys():
-                
-                ascc_ = grp['ascc'].value
-                
-                if key not in stars.keys():
-                    stars[key] = grp[key].value
-                else:
-                    stars[key] = np.append(stars[key], grp[key].value)
-
-            grp = f['data']
-            
-            if len(ascc_) > 0:
-                dtype = grp[ascc_[0]].dtype
-
-        idx1 = np.append(idx1, np.repeat(i, len(ascc_)))
-    
-    ascc, args, idx2 = np.unique(stars['ascc'], return_index=True, return_inverse=True)
-    nstars = len(ascc)    
-    nobs = np.zeros((nfiles, nstars), dtype='uint32')
-    stars['nobs'] = stars['nobs'].astype('uint32')
-    nobs[idx1, idx2] = stars['nobs']
-    
-    for key in stars.keys():
-        stars[key] = stars[key][args]
-    
-    return stars, nobs, dtype
-
-def _read_curves(filelist, ascc, nobs, dtype):
-    
-    nfiles = len(filelist)
-    nstars = len(ascc)
-    
-    strides = np.row_stack([nstars*[0], np.cumsum(nobs, axis=0)]).astype('int')
-    curves = {ascc[i]:np.recarray(strides[-1,i], dtype=dtype) for i in range(nstars)}
-    
-    for i in range(nfiles):
-        
-        filename = filelist[i]
-        
-        with h5py.File(filename, 'r') as f:
-            
-            grp = f['data']
-            
-            for j in range(nstars):
-                
-                if (nobs[i,j] > 0):
-                    
-                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]].value
-                    
-    return curves
-    
 def _read_global(filelist):
     
     nfiles = len(filelist)
@@ -665,7 +684,9 @@ def _read_global(filelist):
     
     # Read the global groups.
     for i in range(nfiles):
+        
         with h5py.File(filelist[i], 'r') as f:
+            
             grp = f['global']
             
             if (i < 1):
@@ -736,25 +757,155 @@ def _read_global(filelist):
     
     return attrdict, arrdict
 
-def make_baseline(filename, filelist, nsteps=1000):
+def _read_header(filelist):
+    
+    header = dict()
+    with h5py.File(filelist[0], 'r') as f:
+        
+        grp = f['header']
+        for key in grp.attrs.keys():
+            header[key] = grp.attrs[key]
+            
+    return header
+
+def _read_stars(filelist, file_struct):
+    
+    nfiles = len(filelist)
+    
+    idx1 = np.array([], dtype='uint16')
+    
+    stars = dict()
+    for i in range(nfiles):
+        
+        filename = filelist[i]        
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f[file_struct['stars']]
+            
+            for key in grp.keys():
+                
+                ascc_ = grp['ascc'].value
+                
+                if key not in stars.keys():
+                    stars[key] = grp[key].value
+                else:
+                    stars[key] = np.append(stars[key], grp[key].value)
+
+            grp = f[file_struct['lightcurves']]
+            
+            if len(ascc_) > 0:
+                dtype = grp[ascc_[0]].dtype
+
+        idx1 = np.append(idx1, np.repeat(i, len(ascc_)))
+    
+    ascc, args, idx2 = np.unique(stars['ascc'], return_index=True, return_inverse=True)
+    nstars = len(ascc)    
+    nobs = np.zeros((nfiles, nstars), dtype='uint32')
+    stars['nobs'] = stars['nobs'].astype('uint32')
+    nobs[idx1, idx2] = stars['nobs']
+    
+    for key in stars.keys():
+        stars[key] = stars[key][args]
+    
+    return stars, nobs, dtype
+
+def _read_station(filelist):
+    
+    station = dict()
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f['station']
+            
+            for key in grp.keys():
+                
+                if key not in station.keys():
+                    station[key] = grp[key].value
+                else:
+                    station[key] = np.append(station[key], grp[key].value)
+                
+    return station
+
+def _read_lightcurves(filelist, ascc, nobs, dtype, file_struct):
+    
+    nfiles = len(filelist)
+    nstars = len(ascc)
+    
+    strides = np.row_stack([nstars*[0], np.cumsum(nobs, axis=0)]).astype('int')
+    curves = {ascc[i]:np.recarray(strides[-1,i], dtype=dtype) for i in range(nstars)}
+    
+    for i in range(nfiles):
+        
+        filename = filelist[i]
+        
+        with h5py.File(filename, 'r') as f:
+            
+            grp = f[file_struct['lightcurves']]
+            
+            for j in range(nstars):
+                
+                if (nobs[i,j] > 0):
+                    
+                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]].value
+                    
+    return curves
+    
+def _read_astrometry(filelist):
+    
+    astrometry = dict()
+    for filename in filelist:
+        
+        with h5py.File(filename, 'r') as f:
+            
+            try:
+                grp = f['astrometry']
+            except:
+                continue
+            else:
+                
+                for key in grp.keys():
+                    
+                    if key not in astrometry.keys():
+                        astrometry[key] = [grp[key].value]
+                    else:
+                        astrometry[key].append(grp[key].value)
+                    
+    for key in astrometry.keys():
+        astrometry[key] = np.array(astrometry[key])
+
+    return astrometry
+
+def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1000):
+    
+    f = PhotFile(filelist[0])
+    siteid = f.get_siteid()
+    file_struct = f.get_file_struct()
+    
+    if not astrometry:
+        file_struct['astrometry'] = None
+    
+    if overwrite:
+        try:
+            os.remove(filename)
+        except:
+            pass 
     
     filelist = np.sort(filelist)    
-    filelist = verify_filelist(filelist)
     
-    if len(filelist) == 0:
-        return
-        
-    # Read the combined stars field and index the files.
-    stars, nobs, dtype = _index_files(filelist)    
+    # Read the combined "stars" field and index the files.
+    stars, nobs, dtype = _read_stars(filelist, file_struct)    
     
-    stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
-    stars['lstsqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')
+    if siteid == 'LP':
+        stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
+        stars['lstsqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')
     
     nstars = len(stars['ascc'])
     for i in range(0, nstars, nsteps):
         
         # Read the combined lightcurves for a group of stars.
-        curves = _read_curves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype)
+        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
         with h5py.File(filename) as f:
@@ -767,35 +918,78 @@ def make_baseline(filename, filelist, nsteps=1000):
                 stars['lstsqmin'][j] = tmp['lstseq'][0]
                 stars['lstsqmax'][j] = tmp['lstseq'][-1]
                 
-                f.create_dataset('data/{}'.format(stars['ascc'][j]), data=tmp)    
+                f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)    
 
-    # Write the combined "header_table" field.
+    # Write the combined "stars" field.
     with h5py.File(filename) as f:
         
-        grp = f.create_group('header_table')
+        grp = f.create_group(file_struct['stars'])
         for key in stars.keys():
             grp.create_dataset(key, data=stars[key])
-            
-    # Write the global group.
+       
     lstmin = np.amin(stars['lstsqmin'])
     lstmax = np.amax(stars['lstsqmax'])
-    
-    attrdict, arrdict = _read_global(filelist)
-    
-    with h5py.File(filename) as f:
         
-        grp = f.create_group('global')
+    if (siteid == 'LP'):
         
-        grp.attrs['lstmin'] = lstmin
-        grp.attrs['lstmax'] = lstmax
+        attrdict, arrdict = _read_global(filelist)
         
-        grp.create_dataset('filelist', data=filelist)
-        
-        for key, value in attrdict.iteritems():
-            grp.attrs[key] = value
+        with h5py.File(filename) as f:
             
-        for key, value in arrdict.iteritems():
-            grp.create_dataset(key, data = value)
+            grp = f.create_group(file_struct['header'])
+            
+            grp.attrs['lstmin'] = lstmin
+            grp.attrs['lstmax'] = lstmax
+            
+            grp.create_dataset('filelist', data=filelist)
+            
+            for key, value in attrdict.iteritems():
+                grp.attrs[key] = value
+                
+            for key, value in arrdict.iteritems():
+                grp.create_dataset(key, data = value)
+        
+    else:
+        
+        # Read the "header" field.
+        header = _read_header(filelist)        
+        
+        # Write the "header" field..
+        with h5py.File(filename) as f:
+            
+            grp = f.create_group(file_struct['header'])
+            
+            grp.attrs['lstmin'] = lstmin
+            grp.attrs['lstmax'] = lstmax
+            
+            grp.create_dataset('filelist', data=filelist)
+            
+            for key in header.keys():
+                grp.attrs[key] = header[key]
+        
+    if (siteid != 'LP'):
+        
+        # Read the combined "station" field.
+        station = _read_station(filelist)
+        
+        # Write the combined "station" field.
+        with h5py.File(filename) as f:
+            
+            grp = f.create_group(file_struct['station'])
+            for key in station.keys():
+                grp.create_dataset(key, data=station[key])
+    
+    if (siteid != 'LP') & (file_struct['astrometry'] is not None):
+        
+        # Read the combined "astrometry" field.  
+        astrometry = _read_astrometry(filelist)
+        
+        # Write the combined "astrometry" field.
+        with h5py.File(filename) as f:
+        
+            grp = f.create_group('astrometry')
+            for key in astrometry.keys():
+                grp.create_dataset(key, data=astrometry[key])
 
     return
 
@@ -815,7 +1009,7 @@ def make_quarter(filename, filelist, nsteps=1000):
         grp.attrs['camera'] = data['camera']
     
     # Merge the headers.
-    stars, nobs, dtype = _index_files(filelist)
+    stars, nobs, dtype = _read_stars(filelist)
         
     # Merge the lightcurves.
     nstars = len(stars['ascc'])
@@ -827,7 +1021,7 @@ def make_quarter(filename, filelist, nsteps=1000):
     for i in range(0, nstars, nsteps):
         
         # Read the combined lightcurves for a group of stars.
-        curves = _read_curves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype)
+        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype)
              
         # Write the combined lightcurves for a group of stars.
         with h5py.File(filename) as f:

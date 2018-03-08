@@ -27,21 +27,21 @@ def baseline(date, part, camera, source, dest):
         datetime.datetime.strptime(date, '%Y%m')
     except ValueError:
         raise ValueError("Incorrect date format, should be YYYYMM")
-     
+        
     # Get the photometry files matching the date, part and camera.
     if (part == 'A'): 
      
-        filelist = glob.glob(os.path.join(source, '*/fLC/fLC_{}0?{}.hdf5'.format(date, camera)))
-        filelist = filelist + glob.glob(os.path.join(source, '*/fLC/fLC_{}1[0-5]{}.hdf5'.format(date, camera)))
+        filelist = glob.glob(os.path.join(source, '*/*/f*_{}0?{}.hdf5'.format(date, camera)))
+        filelist = filelist + glob.glob(os.path.join(source, '*/*/f*_{}1[0-5]{}.hdf5'.format(date, camera)))
     
     elif (part == 'B'):
     
-        filelist = glob.glob(os.path.join(source, '*/fLC/fLC_{}1[6-9]{}.hdf5'.format(date, camera)))
-        filelist = filelist + glob.glob(os.path.join(source, '*/fLC/fLC_{}[23]?{}.hdf5'.format(date, camera)))
+        filelist = glob.glob(os.path.join(source, '*/*/f*_{}1[6-9]{}.hdf5'.format(date, camera)))
+        filelist = filelist + glob.glob(os.path.join(source, '*/*/f*_{}[23]?{}.hdf5'.format(date, camera)))
     
     elif (part == 'C'):
 
-        filelist = glob.glob(os.path.join(source, '*/fLC/fLC_{}*{}.hdf5'.format(date, camera)))         
+        filelist = glob.glob(os.path.join(source, '*/*/f*_{}??{}.hdf5'.format(date, camera)))         
     
     else:
         raise ValueError("Part should be either 'A', 'B' or 'C'.")
@@ -62,8 +62,17 @@ def baseline(date, part, camera, source, dest):
     outpath = os.path.join(dest, camera)    
     misc.ensure_dir(outpath)
     
+    # Determine the prefix.
+    f = io.PhotFile(filelist[0])
+    siteid = f.get_siteid()
+    
+    if siteid == 'LP':
+        prefix = 'fLC'
+    else:
+        prefix = 'fast'
+    
     # Check that the destination file does not exist.
-    photfile = os.path.join(outpath, 'fLC_{}{}{}.hdf5'.format(date, part, camera)) 
+    photfile = os.path.join(outpath, '{}_{}{}{}.hdf5'.format(prefix, date, part, camera)) 
     if os.path.isfile(photfile):
         print 'Output file already exists: {}'.format(photfile)
         return photfile
@@ -79,19 +88,22 @@ def _read_header(filename, camgrid, skygrid):
     
     f = io.PhotFile(filename)
     
-    data = f.read_global()
+    data = f.read_header()
     
     settings = dict()
     settings['filelist'] = data['filelist']
-    settings['station'] = data['station']
-    settings['camera'] = data['camera']
     
-    # Average pointing.
-    settings['alt0'] = np.mean(data['alt0'])
-    settings['az0'] = np.mean(data['az0'])
-    settings['th0'] = np.mean(data['th0'])
-    settings['x0'] = np.mean(data['x0'])
-    settings['y0'] = np.mean(data['y0'])
+    if f.get_siteid() == 'LP':
+        settings['station'] = data['station']
+        settings['camera'] = data['camera']
+        settings['alt0'] = np.mean(data['alt0'])
+        settings['az0'] = np.mean(data['az0'])
+        settings['th0'] = np.mean(data['th0'])
+        settings['x0'] = np.mean(data['x0'])
+        settings['y0'] = np.mean(data['y0'])
+    else:
+        settings['station'] = data['site-obs']
+        settings['camera'] = data['cam-obs']
     
     # Ensure lstmin and lstmax are integer.
     lstmin = data['lstmin'].astype('int')
@@ -128,18 +140,41 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
     
     # Read data.
     f = io.PhotFile(filename)
-    fields = ['flux%i'%aper, 'eflux%i'%aper, 'sky', 'x', 'y', 'lst', 'lstseq', 'flag']
+    
+    if f.get_siteid() == 'LP':
+        fields = ['lstseq', 'flux{}'.format(aper), 'eflux{}'.format(aper), 'x', 'y', 'sky', 'lst', 'flag']
+    else:
+        fields = ['lstseq', 'flux{}'.format(aper), 'eflux{}'.format(aper), 'x', 'y', 'pflag', 'aflag']
+    
     lightcurves = f.read_lightcurves(ascc, fields, perstar=False)
     
-    flux = lightcurves['flux%i'%aper]
-    eflux = lightcurves['eflux%i'%aper]
-    sky = lightcurves['sky']
-    x = lightcurves['x'].astype('float64')
-    y = lightcurves['y'].astype('float64')
-    lst = lightcurves['lst']
     lstseq = lightcurves['lstseq'].astype('int')
-    flags = lightcurves['flag']
+    x, y = lightcurves['x'], lightcurves['y']
+    flux, eflux = lightcurves['flux{}'.format(aper)], lightcurves['eflux{}'.format(aper)]
     
+    if f.get_siteid() == 'LP':
+        
+        sky = lightcurves['sky']
+        lst = lightcurves['lst']
+        flags = lightcurves['flag']
+        
+        mask = (flux > 0) & (eflux > 0) & (flags < 1) & (sky > 0)
+        
+        x, y = x.astype('float64'), y.astype('float64')
+        
+    else:
+        
+        aflag = lightcurves['aflag']
+        pflag = lightcurves['pflag']
+    
+        mask = (aflag == 0) & (pflag == 0)
+    
+        station = f.read_station(['lst', 'exptime'], lstseq)        
+        lst = station['lst']
+        exptime = station['exptime']
+        
+        flux, eflux = flux/exptime, eflux/exptime
+        
     ra = np.repeat(ra, nobs)
     dec = np.repeat(dec, nobs)
     ha = np.mod(lst*15. - ra, 360.)
@@ -152,8 +187,6 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
     data_q = np.repeat(stars_q, nobs)
     
     # Remove bad data.
-    mask = (flux > 0) & (eflux > 0) & (flags < 1) & (sky > 0)
-    
     flux = flux[mask]
     eflux = eflux[mask]
     x = x[mask]
@@ -737,73 +770,125 @@ class ApplyDecorrelation(object):
         # Read the raw photometry.
         f = io.PhotFile(photfile)
     
-        settings = f.read_global()
+        settings = f.read_header()
     
-        fields = ['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype']
-        stars = f.read_stars(fields)
-        stars['nobs'] = np.zeros(len(stars['ascc']), dtype='uint32')  
-        stars['lstseqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')     
-        stars['lstseqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')         
-           
+        if f.get_siteid() == 'LP':
+            
+            stars = f.read_stars(['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype'])
+            
+            stars['nobs'] = np.zeros(len(stars['ascc']), dtype='uint32')  
+            stars['lstseqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')     
+            stars['lstseqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')
+            
+        else:
+            
+            stars = f.read_stars()
+            station = f.read_station()
+        
         # Fields and datatypes for the binned lightcurves.
         lightcurves = dict()
-        names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag%i'%aper, 'emag%i'%aper, 'trans%i'%aper, 'etrans%i'%aper, 'clouds%i'%aper, 'eclouds%i'%aper]
-        formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']            
-                
+        
+        if f.get_siteid() == 'LP':
+            names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag{}'.format(aper), 'emag{}'.format(aper), 'trans{}'.format(aper), 'etrans{}'.format(aper), 'clouds{}'.format(aper), 'eclouds{}'.format(aper)]
+            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']            
+        else:
+            names = ['lstseq', 'nobs', 'lst', 'jd', 'exptime', 'x', 'y', 'sky', 'esky', 'mag{}'.format(aper), 'emag{}'.format(aper), 'trans{}'.format(aper), 'etrans{}'.format(aper), 'clouds{}'.format(aper), 'eclouds{}'.format(aper)]
+            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
+        
         for i in range(len(stars['ascc'])):                    
                 
             # Read the lightcurve.
             lc = f.read_lightcurves(ascc=stars['ascc'][i])
-    
-            mask = (lc['flux{}'.format(aper)] > 0) & (lc['eflux{}'.format(aper)] > 0) & (lc['flag'] < 1) & (lc['sky'] > 0)
-            lc = lc[mask]
-    
-            if (len(lc) == 0):
+            
+            # Remove flagged data.
+            if f.get_siteid() == 'LP':
+                mask = (lc['flux{}'.format(aper)] > 0) & (lc['eflux{}'.format(aper)] > 0) & (lc['flag'] < 1) & (lc['sky'] > 0)
+            else:
+                mask = (lc['aflag'] == 0) & (lc['pflag'] == 0)
+           
+            if np.all(~mask):
                 stars['nobs'][i] = 0
                 continue   
-    
-            # Compute the corrected lightcurve.
-            x, y = lc['x'].astype('float64'), lc['y'].astype('float64')
-            mag, emag = misc.flux2mag(lc['flux{}'.format(aper)], lc['eflux{}'.format(aper)])
-            mag0, trans, ipx, clouds, cflag = self.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lc['lstseq'], lc['lst'], x, y)
-            trans = trans + mag0
-            mag = mag - trans - ipx - clouds          
-                
-            # Mask values.
-            mask = (cflag < 1)         
-        
-            lc = lc[mask]
             
-            if (len(lc) == 0):
+            lc = lc[mask]
+    
+            # Unpack the data.
+            lstseq = lc['lstseq']
+            x, y = lc['x'], lc['y']
+            flux, eflux = lc['flux{}'.format(aper)], lc['eflux{}'.format(aper)]
+            sky = lc['sky']
+            
+            if f.get_siteid() == 'LP':
+                
+                jd = lc['jdmid']
+                lst = lc['lst']
+                
+                x, y = x.astype('float64'), y.astype('float64')
+                
+            else:
+                
+                idx = np.searchsorted(station['lstseq'], lstseq) 
+                jd = station['jd'][idx]
+                lst = station['lst'][idx]
+                exptime = station['exptime'][idx]
+                
+                flux, eflux = flux/exptime, eflux/exptime
+                
+            # Compute the corrected lightcurve.
+            mag0, trans, ipx, clouds, cflag = self.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lstseq, lst, x, y)
+            
+            mag, emag = misc.flux2mag(flux, eflux)
+            mag = mag - trans - ipx - clouds  
+            
+            if f.get_siteid() == 'LP':
+                mag = mag - mag0
+                trans = trans + mag0
+                
+            # Remove flagged data.
+            mask = (cflag < 1)         
+            
+            if np.all(~mask):
                 stars['nobs'][i] = 0
                 continue 
             
+            jd = jd[mask]
+            lst = lst[mask]
+            lstseq = lstseq[mask]
             x = x[mask]
             y = y[mask]
+            sky = sky[mask]
             mag = mag[mask]
             emag = emag[mask]
             trans = trans[mask]
             ipx = ipx[mask]
-            clouds = clouds[mask]            
+            clouds = clouds[mask] 
+            
+            if f.get_siteid() != 'LP':
+                exptime = exptime[mask]
                 
             # Compute the final binned lightcurve.
-            lstseq, binidx, nobs = np.unique(lc['lstseq']//50, return_inverse=True, return_counts=True)        
+            lstseq, binidx, nobs = np.unique(lstseq//50, return_inverse=True, return_counts=True)        
             
             lc_bin = np.recarray(len(lstseq), names=names, formats=formats)        
             
             lc_bin['lstseq'] = lstseq
             lc_bin['nobs'] = nobs # Number of raw points used for each binned point.        
             
-            lc_bin['jdmid'] = statistics.idxstats(binidx, lc['jdmid'], statistic='mean')
-            lc_bin['lst'] = statistics.idxstats(binidx, lc['lst'], statistic='mean')
-            
+            if f.get_siteid() == 'LP':
+                lc_bin['jdmid'] = statistics.idxstats(binidx, jd, statistic='mean')
+                lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
+            else:
+                lc_bin['jd'] = statistics.idxstats(binidx, jd, statistic='mean')
+                lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
+                lc_bin['exptime'] = statistics.idxstats(binidx, exptime, statistic='sum')            
+
             lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
             lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
             
             lc_bin['mag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='mean')
             lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')/np.sqrt(nobs)
-            lc_bin['sky'] = statistics.idxstats(binidx, lc['sky'], statistic='mean')
-            lc_bin['esky'] = statistics.idxstats(binidx, lc['sky'], statistic='std')/np.sqrt(nobs)        
+            lc_bin['sky'] = statistics.idxstats(binidx, sky, statistic='mean')
+            lc_bin['esky'] = statistics.idxstats(binidx, sky, statistic='std')/np.sqrt(nobs)        
             
             lc_bin['trans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='mean')
             lc_bin['etrans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='std')/np.sqrt(nobs)
@@ -813,10 +898,14 @@ class ApplyDecorrelation(object):
             lightcurves[stars['ascc'][i]] = lc_bin
         
             stars['nobs'][i] = len(lstseq)
-            stars['lstseqmin'][i] = lstseq[0]
-            stars['lstseqmax'][i] = lstseq[-1]            
+            if f.get_siteid() == 'LP':
+                stars['lstseqmin'][i] = lstseq[0]
+                stars['lstseqmax'][i] = lstseq[-1] 
+            else:
+                stars['lstsqmin'][i] = lstseq[0]
+                stars['lstsqmax'][i] = lstseq[-1]
                
-        io.write_reduced(redfile, settings, stars, lightcurves)
+        io.write_reduced(redfile, settings, stars, lightcurves, f.get_siteid())
             
         return redfile
 
@@ -831,7 +920,7 @@ def run_calibration(date, part, aper, cameras, source, dest):
         if photfile is not None:        
         
             sysfile = cal(photfile, aper)    
-
+            
             f = ApplyDecorrelation(sysfile)
             redfile = f(photfile, aper)
     
@@ -848,7 +937,7 @@ def main():
                         help='letter indicating which baseline to create') 
     parser.add_argument('dest', type=str,
                         help='Location where the products will be written, e.g. /data3/talens/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
-    parser.add_argument('-c', '--cam', type=str, nargs='+', default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC'],
+    parser.add_argument('-c', '--cam', type=str, nargs='+', default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
                         help ='the camera(s) to perform the combination for', dest='cameras')                        
     parser.add_argument('-a', '--aper', type=int, choices=[0,1], default=0,
                         help ='the aperture to perform the coarse decorrelation on', dest='aper')
