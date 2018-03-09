@@ -270,7 +270,7 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
         res = mag - T[idx_k]
         wsqrt = np.sqrt(weights)
         for i in range(npars_a):
-            a[i] = np.linalg.lstsq(b_mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]])[0]
+            a[i] = np.linalg.lstsq(b_mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]], rcond=None)[0]
             ipx[strides[i]:strides[i+1]] = np.sum(a[i]*b_mat[strides[i]:strides[i+1],:], axis=1)
         
         # Check if the solution has converged.
