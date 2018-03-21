@@ -322,8 +322,8 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre'):
         except:
             continue
         
-        # Select data binned from 50 exposures.
-        mask = (lc['nobs'] == 50)
+        # Select data binned from >45 exposures.
+        mask = (lc['nobs'] > 45)
         lc = lc[mask]
         
         # Check that there are at least 2 points.
