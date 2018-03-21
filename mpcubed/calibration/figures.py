@@ -100,6 +100,10 @@ def plot_polar(grid, data, wcspars, **kwargs):
     ha, dec = np.meshgrid(ha, dec)
     x, y = _hadec2xy(wcspars, ha, dec)
     
+    mask = np.isfinite(x) & np.isfinite(y)
+    x[~mask] = 0
+    y[~mask] = 0
+    
     im = plt.pcolormesh(x, y, data.T, **kwargs)
     wcsgrid(wcspars)
 
@@ -127,11 +131,15 @@ def fig_magnitudes(filename, figname=None):
     plt.subplot(gs[1,0])
     
     plt.scatter(vmag, mag - vmag, color='black', marker='.', alpha=.5, edgecolor='none')
+    
     plt.ylabel('V - M')
     
     plt.subplot(gs[2,0])
     
     plt.scatter(vmag, sigma, color='black', marker='.', alpha=.5, edgecolor='none')
+    
+    plt.ylim(0, 2)
+    
     plt.xlabel('V')
     plt.ylabel(r'$\sigma$')
     
@@ -158,8 +166,11 @@ def fig_transmission(filename, astromaster=None, figname=None):
         wcspars, polpars, astromask = lsio.read_astromaster(astromaster) 
         
     camgrid, trans = f.read_trans()
-        
+    
     trans = trans['trans']
+    
+    vmin = np.nanpercentile(trans[:,10:-10], 0.1)
+    vmax = np.nanpercentile(trans[:,10:-10], 99.9)
     
     # Plot the transmission map.
     fig = plt.figure(figsize=(14,9))
@@ -170,8 +181,6 @@ def fig_transmission(filename, astromaster=None, figname=None):
     
     plt.subplot(gs[1,0], aspect='equal')
     
-    vmin = np.nanpercentile(trans, .1)
-    vmax = np.nanpercentile(trans, 99.9)
     im = plot_polar(camgrid, trans, wcspars, cmap=plt.cm.viridis, vmin=vmin, vmax=vmax)
     
     plt.xlim(0, 4008)
@@ -207,7 +216,9 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     ipxgrid, intrapix = f.read_intrapix() 
     
     amplitudes = intrapix['amplitudes']       
-    
+   
+    vlim = 0.1
+
     # Plot the amplitudes.
     fig = plt.figure(figsize=(16, 10))
     
@@ -218,7 +229,7 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     plt.subplot(gs[1,0], aspect='equal')
     plt.title(r'$\sin(2\pi x)$')
    
-    im = plot_polar(ipxgrid, amplitudes[:,:,0], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)
+    im = plot_polar(ipxgrid, amplitudes[:,:,0], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
    
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -226,7 +237,7 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     plt.subplot(gs[1,1], aspect='equal')
     plt.title(r'$\cos(2\pi x)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,1], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
+    im = plot_polar(ipxgrid, amplitudes[:,:,1], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)   
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -234,7 +245,7 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     plt.subplot(gs[2,0], aspect='equal')
     plt.title(r'$\sin(2\pi y)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,2], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)  
+    im = plot_polar(ipxgrid, amplitudes[:,:,2], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)  
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -242,7 +253,7 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     plt.subplot(gs[2,1], aspect='equal')
     plt.title(r'$\cos(2\pi y)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,3], wcspars, cmap=plt.cm.viridis, vmin=-.05, vmax=.05)   
+    im = plot_polar(ipxgrid, amplitudes[:,:,3], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)   
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
@@ -286,7 +297,7 @@ def fig_clouds(filename, figname=None):
     
     plt.subplot(gs[1,0], xticks=[], yticks=[])
         
-    im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.5, vmax=.5)
+    im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.1, vmax=1.5)
     
     idx, = np.where(np.diff(t) > 2)
     for i in idx:
@@ -335,7 +346,7 @@ def fig_sigma(filename, figname=None):
     
     plt.subplot(gs[1,0], xticks=[], yticks=[])
       
-    im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=np.nanmax(sigma))
+    im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=2.)
     
     idx, = np.where(np.diff(idx2) > 2)
     for i in idx:

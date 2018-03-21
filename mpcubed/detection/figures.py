@@ -42,10 +42,10 @@ def plot_periodogram(freq, dchisq, period, zoom=False):
     
     # Add lines indicating the peak, and integer harmonics.
     freq = 1/period
-    plt.axvline(freq, c=(0./255,109./255,219./255))
+    plt.axvline(freq, c=(0./255,109./255,219./255), zorder=-10)
     for n in range(2, 5):
-        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--')
-        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--')
+        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--', zorder=-10)
+        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--', zorder=-10)
         
     # Add lines indicating the 1 day systematic and harmonics.
     freq = 1/.9972
