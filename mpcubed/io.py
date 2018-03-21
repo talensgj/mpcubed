@@ -120,7 +120,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
 def write_reduced(filename, settings, stars, lightcurves, siteid):
 
     if siteid == 'LP':
-        file_struct = {'header':'global', 'stars':'header_table', 'lightcurves':'data'}
+        file_struct = {'header':'global', 'stars':'header', 'lightcurves':'data'}
     else:
         file_struct = {'header':'header', 'stars':'stars', 'lightcurves':'lightcurves'}
     
@@ -202,7 +202,7 @@ class PhotFile(object):
             siteid = tmp[-3:-1]
         
         # Check the siteid.
-        if siteid not in ['LP', 'LS']:
+        if siteid not in ['LP', 'LS', 'SA', 'AU']:
            raise ValueError('Unknown site: {}'.format(siteid))
             
         # Determine filetype from filename. 
@@ -879,6 +879,8 @@ def _read_astrometry(filelist):
 
 def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1000):
     
+    filelist = np.sort(filelist)    
+    
     f = PhotFile(filelist[0])
     siteid = f.get_siteid()
     file_struct = f.get_file_struct()
@@ -891,8 +893,6 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1
             os.remove(filename)
         except:
             pass 
-    
-    filelist = np.sort(filelist)    
     
     # Read the combined "stars" field and index the files.
     stars, nobs, dtype = _read_stars(filelist, file_struct)    
@@ -997,31 +997,47 @@ def make_quarter(filename, filelist, nsteps=1000):
     
     filelist = np.sort(filelist)
     
+    f = PhotFile(filelist[0])
+    siteid = f.get_siteid()
+    file_struct = f.get_file_struct()
+    
     # Write the global group.
     with h5py.File(filelist[0]) as f:
-        data = f['global'].attrs.items()
+        
+        data = f[file_struct['header']].attrs.items()
         
     data = dict(data)
     
     with h5py.File(filename) as f:
-        grp = f.create_group('global')
-        grp.attrs['station'] = data['station']
-        grp.attrs['camera'] = data['camera']
+        
+        grp = f.create_group(file_struct['header'])
+        
+        if siteid == 'LP':
+            grp.attrs['station'] = data['station']
+            grp.attrs['camera'] = data['camera']
+        else:
+            grp.attrs['site-obs'] = data['site-obs']
+            grp.attrs['cam-obs'] = data['cam-obs']
     
     # Merge the headers.
-    stars, nobs, dtype = _read_stars(filelist)
+    stars, nobs, dtype = _read_stars(filelist, file_struct)
         
     # Merge the lightcurves.
     nstars = len(stars['ascc'])
     stars['jdmin'] = np.zeros(nstars)
     stars['jdmax'] = np.zeros(nstars)
-    stars['lstseqmin'] = np.zeros(nstars, dtype='uint32')
-    stars['lstseqmax'] = np.zeros(nstars, dtype='uint32')
+    
+    if siteid == 'LP':
+        stars['lstseqmin'] = np.zeros(nstars, dtype='uint32')
+        stars['lstseqmax'] = np.zeros(nstars, dtype='uint32')
+    else:
+        stars['lstsqmin'] = np.zeros(nstars, dtype='uint32')
+        stars['lstsqmax'] = np.zeros(nstars, dtype='uint32')
     
     for i in range(0, nstars, nsteps):
         
         # Read the combined lightcurves for a group of stars.
-        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype)
+        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
         with h5py.File(filename) as f:
@@ -1030,21 +1046,27 @@ def make_quarter(filename, filelist, nsteps=1000):
              
                 tmp = curves[stars['ascc'][j]]
                 
-                stars['nobs'][j] = len(tmp)
-    
                 if (len(tmp) == 0): continue                
                 
-                stars['jdmin'][j] = tmp['jdmid'][0]
-                stars['jdmax'][j] = tmp['jdmid'][-1]
-                stars['lstseqmin'][j] = tmp['lstseq'][0]
-                stars['lstseqmax'][j] = tmp['lstseq'][-1]
+                stars['nobs'][j] = len(tmp)
                 
-                f.create_dataset('data/{}'.format(stars['ascc'][j]), data=tmp)                
+                if siteid == 'LP':
+                    stars['jdmin'][j] = tmp['jdmid'][0]
+                    stars['jdmax'][j] = tmp['jdmid'][-1]
+                    stars['lstseqmin'][j] = tmp['lstseq'][0]
+                    stars['lstseqmax'][j] = tmp['lstseq'][-1]
+                else:
+                    stars['jdmin'][j] = tmp['jd'][0]
+                    stars['jdmax'][j] = tmp['jd'][-1]
+                    stars['lstsqmin'][j] = tmp['lstseq'][0]
+                    stars['lstsqmax'][j] = tmp['lstseq'][-1]
+                
+                f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)                
 
     idx, = np.where(stars['nobs'] > 0)
     with h5py.File(filename) as f:
         
-        grp = f.create_group('header')
+        grp = f.create_group(file_struct['stars'])
         
         for key, value in stars.iteritems():
             grp.create_dataset(key, data = value[idx])
@@ -1053,7 +1075,7 @@ def make_quarter(filename, filelist, nsteps=1000):
     
 def merge_files(filetype, filename, filelist, nsteps=1000):
     
-    if filetype == 'fLC':
+    if filetype == 'fast':
         make_baseline(filename, filelist, nsteps)
     elif filetype == 'red':
         make_quarter(filename, filelist, nsteps)
@@ -1067,7 +1089,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Combine temporary lightcurve files.')
-    parser.add_argument('filetype', type=str, default=['fLC', 'red'],
+    parser.add_argument('filetype', type=str, default=['fast', 'red'],
                         help='the type of lightcurve files we are merging')
     parser.add_argument('filename', type=str,
                         help='the name of the resulting file')
