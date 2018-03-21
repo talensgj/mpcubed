@@ -874,12 +874,20 @@ class ApplyDecorrelation(object):
             lc_bin['lstseq'] = lstseq
             lc_bin['nobs'] = nobs # Number of raw points used for each binned point.        
             
+            # Take special care for LST=0 in bin.
+            lst_bin1 = statistics.idxstats(binidx, lst, statistic='mean')
+            lst_bin2 = statistics.idxstats(binidx, np.mod(lst + 12., 24.), statistic='mean')
+            lst_bin2 = np.mod(lst_bin2 - 12., 24.)
+            
+            lst_ptp = statistics.idxstats(binidx, lst, statistic=np.ptp)
+            lst_bin = np.where(lst_ptp > 1., lst_bin2, lst_bin1)
+            
             if f.get_siteid() == 'LP':
                 lc_bin['jdmid'] = statistics.idxstats(binidx, jd, statistic='mean')
-                lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
+                lc_bin['lst'] = lst_bin
             else:
                 lc_bin['jd'] = statistics.idxstats(binidx, jd, statistic='mean')
-                lc_bin['lst'] = statistics.idxstats(binidx, lst, statistic='mean')
+                lc_bin['lst'] = lst_bin
                 lc_bin['exptime'] = statistics.idxstats(binidx, exptime, statistic='sum')            
 
             lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
