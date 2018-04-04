@@ -299,7 +299,7 @@ def fig_clouds(filename, figname=None):
         
     im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.1, vmax=1.5)
     
-    idx, = np.where(np.diff(t) > 2)
+    idx, = np.where(np.diff(t) > 50)
     for i in idx:
         plt.axhline(i+1, xmax=.1, c='k', lw=2)
     
@@ -348,7 +348,7 @@ def fig_sigma(filename, figname=None):
       
     im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=2.)
     
-    idx, = np.where(np.diff(idx2) > 2)
+    idx, = np.where(np.diff(idx2) > 50)
     for i in idx:
         plt.axhline(i+1, xmax=.1, c='k', lw=2)
     
