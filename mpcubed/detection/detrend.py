@@ -106,7 +106,7 @@ def detrend_legendre(jd, lst, sky, mag, emag, scale0=3., scale1=.25, sig=3., max
     for niter in range(maxiter):
         
         # Compute the best fit.
-        pars = np.linalg.lstsq(mat[mask]/emag[mask,None], mag[mask]/emag[mask])[0]
+        pars = np.linalg.lstsq(mat[mask]/emag[mask,None], mag[mask]/emag[mask], rcond=None)[0]
         fit = np.sum(pars*mat, axis=1)
         
         # Compute the residuals.
