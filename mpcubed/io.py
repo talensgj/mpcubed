@@ -163,7 +163,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             
     return
 
-def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq):
+def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq, inj_pars=None):
     
     with h5py.File(filename) as f:
         
@@ -177,6 +177,11 @@ def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq):
         
         for key in criteria.dtype.names:
             grp.create_dataset(key, data=criteria[key])
+
+        if inj_pars is not None:
+            grp = f.create_group('injected')
+            for key in inj_pars.dtype.names:
+                grp.create_dataset(key, data=inj_pars[key])
 
         # Write the data.
         grp = f.create_group('data')
