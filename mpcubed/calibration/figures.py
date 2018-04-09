@@ -26,14 +26,14 @@ from .. import io
 from lsreduce import io as lsio
 
 def _hadec2xy(wcspars, ha, dec):
-        
-    import mascara 
-    from lsreduce import astrometry       
             
     # Perfrom the coordinate transformations.
     try:
         wcspars['lst']
     except:
+        
+        import mascara 
+        
         tmp = ha.shape
         ha, dec = ha.ravel(), dec.ravel()
         
@@ -45,7 +45,11 @@ def _hadec2xy(wcspars, ha, dec):
         phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
         x, y = cam.PhiThe2XY(phi, theta)
         x, y = x.reshape(tmp), y.reshape(tmp)
+        
     else:
+        
+        from lsreduce import astrometry
+        
         ra = astrometry.ha2ra(ha, 0.)    
         x, y = astrometry.world2wcs(wcspars, ra, dec, 0.)
         
