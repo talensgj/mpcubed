@@ -62,7 +62,7 @@ def moving_mean(x, y, yerr=None, window=3.):
 ### Detrending methods.
 ###############################################################################
 
-def detrend_legendre(jd, lst, sky, mag, emag, scale0=3., scale1=.25, sig=3., maxiter=1):
+def detrend_legendre(jd, lst, sky, mag, emag, scale0=5., scale1=.25, sig=10., maxiter=50):
     """ Fit long-term and psf-variations using legendre polynomials.
     
     Args:
@@ -104,7 +104,7 @@ def detrend_legendre(jd, lst, sky, mag, emag, scale0=3., scale1=.25, sig=3., max
     mask = np.ones_like(jd, dtype='bool')
     
     for niter in range(maxiter):
-        
+
         # Compute the best fit.
         pars = np.linalg.lstsq(mat[mask]/emag[mask,None], mag[mask]/emag[mask], rcond=None)[0]
         fit = np.sum(pars*mat, axis=1)
@@ -120,6 +120,9 @@ def detrend_legendre(jd, lst, sky, mag, emag, scale0=3., scale1=.25, sig=3., max
         
         # End the iterative process.
         if np.all(mask == mask_old):
+            break
+            
+        if np.all(~mask):
             break
         
     # Evaluate the best fit.
@@ -145,7 +148,7 @@ def psfsky(lstidx, sky, mag, emag):
     fit1 = a[idx]
     fit2 = b[idx]*sky  
     
-    return fit1, fit2   
+    return fit1, fit2, (nobs > 2)[idx]  
     
 def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3):
     
@@ -156,7 +159,7 @@ def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3
     fit = np.zeros_like(mag)
     for niter in range(maxiter):
             
-        fit1, fit2 = psfsky(lstidx, sky, mag - fit0, emag)
+        fit1, fit2, mask = psfsky(lstidx, sky, mag - fit0, emag)
         fit0 = moving_mean(jd, mag - fit1 - fit2, emag, window)
         
         if niter > 0:
@@ -166,7 +169,7 @@ def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3
             
         fit = fit0 + fit1 + fit2
         
-    return fit0, fit1, fit2
+    return fit0, fit1, fit2, mask
 
 def detrend_fourier(jdmid, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     """ Fit long-term and psf-variations using sine and cosine waves.

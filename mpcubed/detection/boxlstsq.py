@@ -296,18 +296,64 @@ def read_header(filelist):
     vmag = vmag[args]
     
     return ascc, ra, dec, vmag
+  
+class GrowArray(object):
     
+    def __init__(self, capacity, growth_factor=2, dtype=None):
+        
+        self.data = np.zeros((capacity,), dtype=dtype)
+        self.capacity = capacity
+        self.dtype = dtype
+        self.growth_factor = growth_factor
+        self.size = 0
+        
+        return
+    
+    def _extend(self):
+        
+        self.capacity *= self.growth_factor
+            
+        newdata = np.zeros((self.capacity,), dtype=self.dtype)
+        newdata[:self.size] = self.data[:self.size]
+        self.data = newdata  
+        
+        return
+    
+    def append(self, x):
+        
+        nx = x.size
+        
+        if (self.size + nx) > self.capacity:
+            self._extend()
+            
+        self.data[self.size:self.size+nx] = x
+        self.size += nx
+        
+        return
+    
+    def finalize(self):
+        
+        return self.data[:self.size]
+
+def cast_to_2d(i, j, values, shape):
+    
+    arr = np.zeros(shape, dtype=values.dtype)
+    arr[i,j] = values
+    
+    return arr
+
 def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=None):
     """ Read the lightcurves of a group of stars."""
     
     # Create arrays.
-    staridx = np.array([])
-    lstseq = np.array([])
-    jdmid = np.array([])
-    lst = np.array([])
-    mag = np.array([])
-    emag = np.array([])
-    trend = np.array([])
+    staridx = GrowArray(5000, dtype='uint32')
+    lstseq = GrowArray(5000, dtype='uint32')
+    jdmid = GrowArray(5000)
+    lst = GrowArray(5000)
+    mag = GrowArray(5000)
+    emag = GrowArray(5000)
+    trend = GrowArray(5000)
+    mask = GrowArray(5000, dtype='bool')
     
     # Set the aperture.
     magstr = 'mag{}'.format(aper)
@@ -325,10 +371,9 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
             lc = data[ascc[i]]
         except:
             continue
-        
+
         # Select data binned from >45 exposures.
-        mask = (lc['nobs'] > 45)
-        lc = lc[mask]
+        lc = lc[lc['nobs'] > 45]
         
         # Check that there are at least 2 points.
         if (len(lc) < 2):
@@ -349,15 +394,17 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
         if method is 'none':
             
             trend_ = np.zeros(len(jdmid_))
+            mask_ = np.ones_like(trend_, dtype='bool')
         
         elif method == 'legendre':        
         
             mat, fit0, fit1, fit2 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['sky'], lc[magstr] + model, lc[emagstr])        
             trend_ = fit0 + fit1 + fit2
+            mask_ = np.ones_like(trend_, dtype='bool')
             
         elif method == 'snellen':
             
-            fit0, fit1, fit2 = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['sky'], lc[magstr] + model, lc[emagstr])
+            fit0, fit1, fit2, mask_ = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['sky'], lc[magstr] + model, lc[emagstr])
             trend_ = fit0 + fit1 + fit2
             
         elif method == 'fourier':        
@@ -369,41 +416,41 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
             
             mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc[magstr] + model, lc[emagstr], ns, wrap)
             trend_ = fit0 + fit1 
+            mask_ = np.ones_like(trend_, dtype='bool')
             
         else:
             raise ValueError('Unknown detrending method "{}"'.format(method))   
         
         # Add the results to the arrays.
-        staridx = np.append(staridx, [i]*len(lc))
-        lstseq = np.append(lstseq, lc['lstseq'])
-        jdmid = np.append(jdmid, jdmid_)
-        lst = np.append(lst, lc['lst'])
-        mag = np.append(mag, lc[magstr] + model - trend_)
-        emag = np.append(emag, lc[emagstr])
-        trend = np.append(trend, trend_)
+        staridx.append(i*np.ones_like(lc['lstseq']))
+        lstseq.append(lc['lstseq'])
+        jdmid.append(jdmid_)
+        lst.append(lc['lst'])
+        mag.append(lc[magstr] + model - trend_)
+        emag.append(lc[emagstr])
+        trend.append(trend_)
+        mask.append(mask_)
     
+    staridx = staridx.finalize()
+    lstseq = lstseq.finalize()
+    jdmid = jdmid.finalize()
+    lst = lst.finalize()
+    mag = mag.finalize()
+    emag = emag.finalize()
+    trend = trend.finalize()
+    mask = mask.finalize()
+
     # Convert the lightcurves to 2D arrays.
-    staridx = staridx.astype('int')
     lstseq, args, idx = np.unique(lstseq, return_index=True, return_inverse=True)
-    
+
     jdmid = jdmid[args]
     lst = lst[args]
     
-    tmp = np.zeros((len(ascc), len(lstseq)))
-    tmp[staridx, idx] = mag
-    mag = tmp
-    
-    tmp = np.zeros((len(ascc), len(lstseq)))
-    tmp[staridx, idx] = emag
-    emag = tmp
-    
-    tmp = np.zeros((len(ascc), len(lstseq)))
-    tmp[staridx, idx] = trend
-    trend = tmp
-    
-    tmp = np.zeros((len(ascc), len(lstseq)), dtype='bool')
-    tmp[staridx, idx] = True
-    mask = tmp
+    shape = (len(ascc), len(lstseq))
+    mag = cast_to_2d(staridx, idx, mag, shape)
+    emag = cast_to_2d(staridx, idx, emag, shape)
+    trend = cast_to_2d(staridx, idx, trend, shape)
+    mask = cast_to_2d(staridx, idx, mask, shape)
     
     return jdmid, lst, mag, emag, trend, mask
 
