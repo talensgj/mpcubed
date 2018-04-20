@@ -56,7 +56,7 @@ def find_sigma(idx, residuals, errsq, maxiter=10):
     # Search for a solution between 0 and 2.
     N = np.amax(idx) + 1
     err1 = np.zeros(N)
-    err2 = np.full(N, 2)
+    err2 = 2*np.ones(N)
     
     ressq = residuals*residuals
     

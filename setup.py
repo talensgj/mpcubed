@@ -9,11 +9,17 @@ def read(fname):
 
 setup(
     name = "mpcubed",
-    version = "1.0.0",
+    version = "2.0.0",
     author = "Geert Jan Talens",
     author_email = "talens@strw.leidenuniv.nl",
     description = "The MASCARA Post-Processing Pipeline.",
     license = "CCC",
     packages = find_packages(),
     long_description = read('README'),
+    entry_points={'console_scripts': 
+        ['merge_files = mpcubed.io:main',
+         'run_calibration = mpcubed.calibration.cdecor:main',
+         'figs_calibration = mpcubed.calibration.figures:main',
+         'run_boxlstsq = mpcubed.detection.boxlstsq:main',
+         'figs_boxlstsq = mpcubed.detection.figures:main']}
 )

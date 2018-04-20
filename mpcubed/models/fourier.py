@@ -61,13 +61,13 @@ def sin_mat(time, freq):
         
     return smat  
       
-def fit_sines(time, y, weights, freq):
+def fit_sines(time, y, yerr, freq):
     """ Fit sine waves to data.
     
     Args:
         time (float): Times at which the data were taken.
         y (float): The data.
-        weights (float): Weights corresponding to the data.
+        yerr (float): Uncertainties corresponding to the data.
         freq (float): Frequencies for the sine waves.
         
     Returns:
@@ -76,7 +76,7 @@ def fit_sines(time, y, weights, freq):
     """
     
     mat = sin_mat(time, freq)
-    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -115,13 +115,13 @@ def cos_mat(time, freq):
         
     return cmat
     
-def fit_cosines(time, y, weights, freq):
+def fit_cosines(time, y, yerr, freq):
     """ Fit cosine waves to data.
     
     Args:
         time (float): Times at which the data were taken.
         y (float): The data.
-        weights (float): Weights corresponding to the data.
+        yerr (float): Uncertainties corresponding to the data.
         freq (float): Frequencies for the cosine waves.
         
     Returns:
@@ -130,7 +130,7 @@ def fit_cosines(time, y, weights, freq):
     """
     
     mat = cos_mat(time, freq)
-    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -171,13 +171,13 @@ def fourier_mat(time, freq):
     
     return mat
     
-def fit_fourier(time, y, weights, freq):
+def fit_fourier(time, y, yerr, freq):
     """ Fit sine and cosine waves to data.
     
     Args:
         time (float): Times at which the data were taken.
         y (float): The data.
-        weights (float): Weights corresponding to the data.
+        yerr (float): Uncertainties corresponding to the data.
         freq (float): Frequencies for the waves.
         
     Returns:
@@ -186,7 +186,7 @@ def fit_fourier(time, y, weights, freq):
     """
     
     mat = fourier_mat(time, freq)
-    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -208,12 +208,12 @@ def evaluate_fourier(time, pars, freq):
 
     return fit
 
-def fit_mat(y, weights, mat):
+def fit_mat(y, yerr, mat):
     """ Fit an arbitrary matrix to data.
     
     Args:
         y (float): The data.
-        weights (float): Weights corresponding to the data.
+        yerr (float): Uncertainties corresponding to the data.
         mat (float): The matrix of basis vectors to fit to the data.
         
     Returns:
@@ -221,7 +221,7 @@ def fit_mat(y, weights, mat):
     
     """
     
-    pars = linalg.lstsq(mat*np.sqrt(weights[:,None]), y*np.sqrt(weights))[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
