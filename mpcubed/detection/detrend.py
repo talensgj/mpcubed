@@ -132,25 +132,46 @@ def detrend_legendre(jd, lst, sky, mag, emag, scale0=5., scale1=.25, sig=10., ma
 
     return mat, fit0, fit1, fit2
 
-def psfsky(lstidx, sky, mag, emag):
+def linfit(lstidx, x, y, sky, mag, emag):
+    
+    sort = np.argsort(lstidx)
+    invsort = np.argsort(sort)
+    
+    lstidx = lstidx[sort]
+    x = x[sort]
+    y = y[sort]
+    sky = sky[sort]
+    mag = mag[sort]
+    emag = emag[sort]
     
     _, idx = np.unique(lstidx, return_inverse=True)
     
     nobs = np.bincount(idx)
+    steps = np.append(0, np.cumsum(nobs))
     
-    xbar = np.bincount(idx, sky/emag**2)/np.bincount(idx, 1/emag**2)
-    ybar = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
+    xbar = np.bincount(idx, x)/np.bincount(idx)
+    ybar = np.bincount(idx, y)/np.bincount(idx)
     
-    b = np.bincount(idx, (sky - xbar[idx])*(mag - ybar[idx])/emag**2)/np.bincount(idx, (sky - xbar[idx])**2/emag**2)
-    b = np.where(nobs > 1, b, 0.)
-    a = ybar - b*xbar
+    mat = np.column_stack([np.ones(len(lstidx)), x-xbar[idx], y-ybar[idx], sky])
+    
+    pars = np.zeros((len(nobs), 4))
+    pars[:,0] = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
+    
+    for i in range(len(nobs)):
+        
+        if nobs[i] < 5:
+            continue
+                
+        pars[i] = np.linalg.lstsq(mat[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1],None], mag[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1]], rcond=None)[0]
 
-    fit1 = a[idx]
-    fit2 = b[idx]*sky  
+    fit = np.sum(pars[idx]*mat, axis=1)
+
+    fit1 = pars[idx,0]
+    fit2 = fit - pars[idx,0]
     
-    return fit1, fit2, (nobs > 2)[idx]  
+    return fit1[invsort], fit2[invsort], (nobs > 4)[idx][invsort] 
     
-def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3):
+def detrend_snellen(jd, lstseq, x, y, sky, mag, emag, window=5., maxiter=50, dtol=1e-3):
     
     lstidx = (lstseq % 270)
     fit0 = np.zeros(len(jd))
@@ -159,7 +180,7 @@ def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3
     fit = np.zeros_like(mag)
     for niter in range(maxiter):
             
-        fit1, fit2, mask = psfsky(lstidx, sky, mag - fit0, emag)
+        fit1, fit2, mask = linfit(lstidx, x, y, sky, mag - fit0, emag)
         fit0 = moving_mean(jd, mag - fit1 - fit2, emag, window)
         
         if niter > 0:
@@ -169,7 +190,7 @@ def detrend_snellen(jd, lstseq, sky, mag, emag, window=3., maxiter=50, dtol=1e-3
             
         fit = fit0 + fit1 + fit2
         
-    return fit0, fit1, fit2, mask
+    return fit0, fit1, fit2, mask 
 
 def detrend_fourier(jdmid, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     """ Fit long-term and psf-variations using sine and cosine waves.

@@ -404,7 +404,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
             
         elif method == 'snellen':
             
-            fit0, fit1, fit2, mask_ = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['sky'], lc[magstr] + model, lc[emagstr])
+            fit0, fit1, fit2, mask_ = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['x'], lc['y'], lc['sky'], lc[magstr] + model, lc[emagstr])
             trend_ = fit0 + fit1 + fit2
             
         elif method == 'fourier':        
