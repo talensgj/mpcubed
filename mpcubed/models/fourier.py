@@ -76,7 +76,7 @@ def fit_sines(time, y, yerr, freq):
     """
     
     mat = sin_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -130,7 +130,7 @@ def fit_cosines(time, y, yerr, freq):
     """
     
     mat = cos_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -186,7 +186,7 @@ def fit_fourier(time, y, yerr, freq):
     """
     
     mat = fourier_mat(time, freq)
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
@@ -221,7 +221,7 @@ def fit_mat(y, yerr, mat):
     
     """
     
-    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr)[0]
+    pars = np.linalg.lstsq(mat/yerr[:,None], y/yerr, rcond=None)[0]
     
     return pars
     
