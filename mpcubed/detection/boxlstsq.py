@@ -323,9 +323,9 @@ class GrowArray(object):
         
         nx = x.size
         
-        if (self.size + nx) > self.capacity:
+        while (self.size + nx) > self.capacity:
             self._extend()
-            
+
         self.data[self.size:self.size+nx] = x
         self.size += nx
         
