@@ -147,7 +147,7 @@ def linfit(lstidx, x, y, sky, mag, emag):
     _, idx = np.unique(lstidx, return_inverse=True)
     
     nobs = np.bincount(idx)
-    steps = np.append(0, np.cumsum(nobs))
+    strides = np.append(0, np.cumsum(nobs))
     
     xbar = np.bincount(idx, x)/np.bincount(idx)
     ybar = np.bincount(idx, y)/np.bincount(idx)
@@ -161,8 +161,11 @@ def linfit(lstidx, x, y, sky, mag, emag):
         
         if nobs[i] < 5:
             continue
-                
-        pars[i] = np.linalg.lstsq(mat[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1],None], mag[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1]], rcond=None)[0]
+            
+        i1 = strides[i]
+        i2 = strides[i+1]
+        
+        pars[i] = np.linalg.lstsq(mat[i1:i2]/emag[i1:i2,None], mag[i1:i2]/emag[i1:i2], rcond=None)[0]
 
     fit = np.sum(pars[idx]*mat, axis=1)
 
