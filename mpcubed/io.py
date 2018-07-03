@@ -1007,7 +1007,7 @@ def make_quarter(filename, filelist, nsteps=1000):
     file_struct = f.get_file_struct()
     
     # Write the global group.
-    with h5py.File(filelist[0]) as f:
+    with h5py.File(filelist[0], 'r') as f:
         
         data = f[file_struct['header']].attrs.items()
         
