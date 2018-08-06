@@ -9,13 +9,15 @@ import os
 import glob
 
 import numpy as np
+import multiprocessing as mp
 
 import matplotlib
 matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib import rcParams
 
+from matplotlib import rcParams
 rcParams['xtick.labelsize'] = 'large'
 rcParams['ytick.labelsize'] = 'large'
 rcParams['axes.labelsize'] = 'x-large'
@@ -149,15 +151,41 @@ def fig_candidate(ascc, freq, dchisq, jdmid, mag, emag, period, epoch, depth, du
     
     return
  
-def figs_boxlstsq(blsdir, aper=0, method='legendre'): 
+def worker(queue, figdir):
 
+    while True:
+        
+        item = queue.get()
+        
+        if (item == 'DONE'):
+            break
+        else:
+            
+            hdr, data, jd, mag, emag, mask = item
+            
+            args, = np.where(hdr['depth'] > 0)
+            
+            for i in args:
+                fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], jd[mask[i]], mag[i,mask[i]], emag[i,mask[i]], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)
+    
+    return    
+
+def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6): 
+
+    # Get the box least-squares files.
     blsfiles = glob.glob(os.path.join(blsdir, 'bls/*'))
     blsfiles = np.sort(blsfiles)
     
+    # Get the photometry files.
     filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S') 
 
+    # Create the output directory.
     figdir = os.path.join(blsdir, 'figures')
     misc.ensure_dir(figdir)
+
+    # Set up the multiprocessing.
+    the_queue = mp.Queue(nprocs)
+    the_pool = mp.Pool(nprocs, worker, (the_queue, figdir))
 
     for blsfile in blsfiles:
         
@@ -168,16 +196,17 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre'):
         hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration'])  
         data = f.read_data(['freq', 'dchisq'])
     
-        # Select stars.
-        args, = np.where(hdr['depth'] > 0)
-        
         # Read the lightcurves.
-        jdmid, lst, mag, emag, trend, mask = boxlstsq.read_data(filelist, hdr['ascc'], aper=aper, method=method)
+        jd, lst, mag, emag, trend, mask = boxlstsq.read_data(filelist, hdr['ascc'], np.zeros(len(hdr['ascc'])), aper=aper, method=method)
         
-        for i in args:
-            
-            # Make the figure.
-            fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], jdmid[mask[i]], mag[i,mask[i]], emag[i,mask[i]], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)     
+        the_queue.put((hdr, data, jd, mag, emag, mask))
+        
+    # End the multiprocessing.
+    for i in range(nprocs):
+        the_queue.put('DONE')
+    
+    the_pool.close()
+    the_pool.join()
 
     return
 
@@ -185,16 +214,18 @@ def main():
     
     import argparse
 
-    parser = argparse.ArgumentParser(description='Make figures of the candidates for the database.')
+    parser = argparse.ArgumentParser(description='Make figures for the database.')
     parser.add_argument('blsdir', type=str,
                         help='the BLS run to create the figures for')
-    parser.add_argument('aper', type=int,
-                        help='the aperture to use when making the figures')
-    parser.add_argument('method', type=str,
-                        help='the dtrending method to use when making the figures')
+    parser.add_argument('-a', '--aper', type=int, default=0,
+                        help ='the aperture to use', dest='aper')
+    parser.add_argument('-m', '--method', type=str, default='legendre',
+                        help ='detrending method', dest='method')
+    parser.add_argument('-n', '--nprocs', type=int, default=6,
+                        help='the number of processes to use', dest='nprocs')
     args = parser.parse_args()
 
-    figs_boxlstsq(args.blsdir, args.aper, args.method)
+    figs_boxlstsq(args.blsdir, args.aper, args.method, args.nprocs)
     
     return
 
