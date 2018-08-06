@@ -342,7 +342,7 @@ def cast_to_2d(i, j, values, shape):
     
     return arr
 
-def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=None):
+def detrended_lightcurves(filename, ascc, vmag, aper=0, method='legendre', options={}, inj_pars=None):
     """ Read the lightcurves of a group of stars."""
     
     # Create arrays.
@@ -379,6 +379,9 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
         if (len(lc) < 2):
             continue
 
+        if f.get_siteid() != 'LP':
+            lc[magstr] = lc[magstr] - vmag[i]
+
         # Get the julian date.
         try:
             jdmid_ = lc['jdmid'] # La Palma
@@ -398,13 +401,13 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
         
         elif method == 'legendre':        
         
-            mat, fit0, fit1, fit2 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['sky'], lc[magstr] + model, lc[emagstr])        
+            mat, fit0, fit1, fit2 = detrend.detrend_legendre(jdmid_, lc['lst'], lc['sky'], lc[magstr] + model, lc[emagstr], **options)        
             trend_ = fit0 + fit1 + fit2
             mask_ = np.ones_like(trend_, dtype='bool')
             
         elif method == 'snellen':
             
-            fit0, fit1, fit2, mask_ = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['x'], lc['y'], lc['sky'], lc[magstr] + model, lc[emagstr])
+            fit0, fit1, fit2, mask_ = detrend.detrend_snellen(jdmid_, lc['lstseq'], lc['x'], lc['y'], lc['sky'], lc[magstr] + model, lc[emagstr], **options)
             trend_ = fit0 + fit1 + fit2
             
         elif method == 'fourier':        
@@ -414,7 +417,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
             ns[1], wrap = misc.find_ns(lc['lstseq'])
             ns = np.maximum(ns, 2)
             
-            mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc[magstr] + model, lc[emagstr], ns, wrap)
+            mat, fit0, fit1 = detrend.detrend_fourier(jdmid_, lc['lst'], lc[magstr] + model, lc[emagstr], ns, wrap, **options)
             trend_ = fit0 + fit1 
             mask_ = np.ones_like(trend_, dtype='bool')
             
@@ -454,7 +457,7 @@ def detrended_lightcurves(filename, ascc, aper=0, method='legendre', inj_pars=No
     
     return jdmid, lst, mag, emag, trend, mask
 
-def read_data(filelist, ascc, aper=0, method='legendre', inj_pars=None):
+def read_data(filelist, ascc, vmag, aper=0, method='legendre', options={}, inj_pars=None):
     """ Read the data from a list of reduced lightcurve files."""
     
     # Create arrays.
@@ -468,7 +471,7 @@ def read_data(filelist, ascc, aper=0, method='legendre', inj_pars=None):
     for filename in filelist:
 
         # Read the data.
-        jdmid_, lst_, mag_, emag_, trend_, mask_ = detrended_lightcurves(filename, ascc, aper, method, inj_pars)
+        jdmid_, lst_, mag_, emag_, trend_, mask_ = detrended_lightcurves(filename, ascc, vmag, aper, method, options, inj_pars)
         
         if (len(jdmid_) < 1):
             continue
@@ -590,7 +593,7 @@ def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir
         
         # Read the stars in the skypatch.
         select = (skyidx == idx)
-        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select], aper, method)
+        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc[select], vmag[select], aper=aper, method=method)
     
         # Make sure there was data.
         if (len(jdmid) == 0):
@@ -684,12 +687,13 @@ def run_injection(filelist, name, nobj=5000, ninj=11, aper=0, method='legendre',
     for idx in indices:
         
         ascc_ = [ascc[idx]]*ninj
+        vmag_ = [vmag[idx]]*ninj
         
         # Generate model parameters.
         inj_pars = transit_params(ninj)
         
         # Read the star with injected models.
-        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc_, aper, method, inj_pars)
+        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc_, vmag_, aper=aper, method=method, inj_pars=inj_pars)
     
         # Make sure there was data.
         if (len(jdmid) == 0):
