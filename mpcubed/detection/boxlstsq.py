@@ -107,7 +107,7 @@ def cumsum_to_grid(time, bin_edges, flux, weights, mask):
 
     return r_cum, s_cum, n_cum
 
-def boxlstsq(time, flux, weights, mask, **options):
+def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     """ Compute the box least-square periodogram for multiple stars."""
     
     time = np.asarray(time)
@@ -200,8 +200,6 @@ def boxlstsq(time, flux, weights, mask, **options):
         # Sum the data on a regular grid.
         bins = np.linspace(0., 1., nbins[i] + 1)
         r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, flux, weights, mask)
-
-        nmax = np.amax(n_cum, axis=0)
         
         # Extend the grid to account for all epochs.
         bins = np.append(bins, bins[1:NumSteps*ES] + bins[-1])
@@ -230,11 +228,12 @@ def boxlstsq(time, flux, weights, mask, **options):
             dchisq_tmp = s**2*t/(r*(t - r))
         
         # Set dchisq to zero if all data is out-of-transit or in-transit.
+        nmax = np.sum(mask, axis=0)
         dchisq_tmp[n < 1] = 0
         dchisq_tmp[(nmax - n) < 1] = 0
         
         # Set dchisq to zero if too few points are in-transit.
-        nmin = duration_tmp/(320./(24.*3600.)) # TODO hard coded numbers.
+        nmin = duration_tmp/exp_time
         if (dchisq.ndim > 1):
             dchisq_tmp[n < nmin[:,None]] = 0
         else:
@@ -507,10 +506,12 @@ def search_skypatch(skyidx, ascc, jdmid, mag, emag, mask, blsfile, inj_pars):
     names = ['period', 'epoch', 'depth', 'duration']
     formats = ['float64', 'float64', 'float64', 'float64']
     boxpars = np.recarray((nstars,), names=names, formats=formats)
+    boxpars[:] = 0
     
     names = ['sde', 'atr', 'gap', 'sym', 'ntr', 'ntp', 'mst', 'eps', 'sne', 'sw', 'sr', 'snp']
     formats = ['float32', 'float32', 'float32', 'float32', 'int32', 'int32', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32'] 
     blscrit = np.recarray((nstars,), names=names, formats=formats)
+    blscrit[:] = 0
 
     # Find best-fit parameters and evaluate quality criteria. 
     for i in range(nstars):
