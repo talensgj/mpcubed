@@ -151,7 +151,7 @@ def fig_candidate(ascc, freq, dchisq, jdmid, mag, emag, period, epoch, depth, du
     
     return
  
-def worker(queue, figdir):
+def worker(queue, figdir, method):
 
     while True:
         
@@ -161,12 +161,17 @@ def worker(queue, figdir):
             break
         else:
             
-            hdr, data, jd, mag, emag, mask = item
+            hdr, data, time, lc2d, nobs = item
             
             args, = np.where(hdr['depth'] > 0)
             
             for i in args:
-                fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], jd[mask[i]], mag[i,mask[i]], emag[i,mask[i]], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)
+                
+                lc = boxlstsq.remove_trend(lc2d[:,i], nobs, method=method) # TODO does this always play nice inside multiprocessing?
+                
+                lc = lc[lc['mask']]
+                
+                fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], lc['jd'], lc['mag'] - lc['trend'], lc['emag'], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)
     
     return    
 
@@ -185,7 +190,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
 
     # Set up the multiprocessing.
     the_queue = mp.Queue(nprocs)
-    the_pool = mp.Pool(nprocs, worker, (the_queue, figdir))
+    the_pool = mp.Pool(nprocs, worker, (the_queue, figdir, method))
 
     for blsfile in blsfiles:
         
@@ -197,9 +202,9 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
         data = f.read_data(['freq', 'dchisq'])
     
         # Read the lightcurves.
-        jd, lst, mag, emag, trend, mask = boxlstsq.read_data(filelist, hdr['ascc'], np.zeros(len(hdr['ascc'])), aper=aper, method=method)
+        time, lc2d, nobs = boxlstsq.read_data(filelist, hdr['ascc'], aper=aper)
         
-        the_queue.put((hdr, data, jd, mag, emag, mask))
+        the_queue.put((hdr, data, time, lc2d, nobs))
         
     # End the multiprocessing.
     for i in range(nprocs):
