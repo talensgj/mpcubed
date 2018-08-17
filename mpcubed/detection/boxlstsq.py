@@ -528,9 +528,9 @@ def search_skypatch_mp(queue):
     
     return
 
-def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
+def run_boxlstsq(filelist, name, patches=None, declinations=[-90.,90.], aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
     """ Perform detrending and transit search given reduced lightcurves."""
-    
+
     print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
     for filename in filelist:
         print ' ', filename
@@ -571,8 +571,14 @@ def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir
         
     for idx in patches:
         
-        # Read the stars in the skypatch.
         select = (skyidx == idx)
+        
+        # Check that there are stars inside the specified declination range.
+        if not np.any((dec[select] > declinations[0]) & (dec[select] < declinations[1])):
+            print 'Skipping skypatch {}, contains no stars in specified declinations.'.format(idx)
+            continue
+        
+        # Read the stars in the skypatch.
         time, lc2d, nobs = read_data(filelist, ascc[select], aper=aper)
     
         # Make sure there was data.
@@ -594,8 +600,8 @@ def run_boxlstsq(filelist, name, patches=None, aper=0, method='legendre', outdir
             lc2d[:,i] = clip_outliers(lc2d[:,i])
             
         # Compute the barycentric julian date.
-        ra, dec = hg.idx2radec(idx)
-        time['jd'] = misc.barycentric_dates(time['jd'], ra, dec)
+        ra_patch, dec_patch = hg.idx2radec(idx)
+        time['jd'] = misc.barycentric_dates(time['jd'], ra_patch, dec_patch)
 
         # Filename for the output file. 
         blsfile = 'bls{}_{}{}_patch{:03d}.hdf5'.format(aper, name, method, idx)
@@ -722,6 +728,8 @@ def main():
                         help ='the name of this box least-squares run')
     parser.add_argument('-p', '--patches', type=int, nargs='+', default=None,
                         help ='the sky patch(es) to process', dest='patches')
+    parser.add_argument('-d', '--declinations', type=float, nargs=2, default=[-90.,90.],
+                        help='the declination range to process', dest='declinations')
     parser.add_argument('-a', '--aper', type=int, default=0,
                         help ='the aperture to use', dest='aper')
     parser.add_argument('-m', '--method', type=str, default='legendre',
@@ -732,7 +740,7 @@ def main():
                         help='the number of processes to use', dest='nprocs')
     args = parser.parse_args()
     
-    run_boxlstsq(args.files, args.name, args.patches, args.aper, args.method, args.outdir, args.nprocs)
+    run_boxlstsq(args.files, args.name, args.patches, args.declinations, args.aper, args.method, args.outdir, args.nprocs)
     
     return
     
