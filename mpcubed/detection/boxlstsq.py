@@ -463,14 +463,45 @@ def clip_outliers(lc, nsig=3., floor=0.05):
 
     return lc
 
+def transit_params(nsets, P_range=[1., 5.], p_choices=np.sqrt([0.005, 0.01, 0.02]), b_choices=[0.0, 0.5], rho_choices=[0.4, 0.9, 1.4]):
+    
+    names = ['T0', 'P', 'T14', 'p', 'b']
+    formats = ['float64', 'float64', 'float32', 'float32', 'float32']
+    pars = np.recarray((nsets,), names=names, formats=formats)
+    
+    pars['P'] = np.random.rand(nsets)*(P_range[1] - P_range[0]) + P_range[0]
+    pars['T0'] = np.random.rand(nsets)*pars['P']
+    pars['p'] = np.random.choice(p_choices, nsets)
+    pars['b'] = np.random.choice(b_choices, nsets)
+
+    rho = np.random.choice(rho_choices, nsets)
+    axis = transit.dens2axis(rho, pars['P'])
+    pars['T14'] = transit.axis2duration(axis, pars['P'], pars['p'], pars['b'])
+    
+    return pars
+
+def inject_transit(lc, lc_pars):
+    
+    mask = lc['mask']
+    
+    if np.any(mask):
+        
+        # Compute the model lightcurve.
+        phase, model = transit.circular_model(lc['jd'][mask], lc_pars)
+        
+        # Add the model to the data.
+        lc['mag'][mask] = lc['mag'][mask] + model
+        
+    return lc
+
 ###############################################################################
 ### Functions for running the box least-squares algorithm.
 ###############################################################################
 
-def search_skypatch(skyidx, ascc, jd, mag, emag, mask, blsfile, inj_pars):
+def search_skypatch(item, ascc, jd, mag, emag, mask, blsfile, inj_pars):
     """ Perform the box least-squares and flag non-detections."""
     
-    print 'Computing boxlstsq for skypatch', skyidx
+    print 'Computing boxlstsq for:', item
     
     # Convert the uncertainties to weights.
     with np.errstate(divide='ignore'):
@@ -528,7 +559,7 @@ def search_skypatch_mp(queue):
     
     return
 
-def run_boxlstsq(filelist, name, patches=None, declinations=[-90.,90.], aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
+def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], outdir='/data3/talens/boxlstsq', nprocs=6, injection=False, nstars=5000, nsignals=11):
     """ Perform detrending and transit search given reduced lightcurves."""
 
     print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
@@ -536,6 +567,9 @@ def run_boxlstsq(filelist, name, patches=None, declinations=[-90.,90.], aper=0, 
         print ' ', filename
     
     # Create directories for the output.
+    if injection:
+        name = 'inj_' + name
+        
     outdir = os.path.join(outdir, name + method)
     blsdir = os.path.join(outdir, 'bls')
     misc.ensure_dir(blsdir)
@@ -551,48 +585,62 @@ def run_boxlstsq(filelist, name, patches=None, declinations=[-90.,90.], aper=0, 
     np.savetxt(fname, filelist, fmt='%s')
     
     # Read the combined header of the files.
-    ascc, ra, dec, vmag = read_header(filelist)
+    ascc, ra, dec, vmag = read_header(filelist)    
+                
+    if not injection:
     
-    # Divide the stars in groups of neighbouring stars.
-    hg = grids.HealpixGrid(8)
-    skyidx = hg.radec2idx(ra, dec)
+        # Divide the stars in groups of neighbouring stars.
+        hg = grids.HealpixGrid(8)
+        skyidx = hg.radec2idx(ra, dec)
+        
+        items = np.unique(skyidx)
+        
+        ra_, dec_ = hg.idx2radec(items)
+        mask = (dec_ >= declims[0]) & (dec_ <= declims[1])
+        items = items[mask]
+            
+    else:
+        
+        # Select stars for injection.
+        mask = (dec >= declims[0]) & (dec <= declims[1])
+        p = np.where(mask, 1./vmag**2, 0.)
+        p = p/np.sum(p)
+        
+        items = np.random.choice(len(ascc), nstars, replace=False, p=p)
     
-    # Determine which skypatches to run.
-    if patches is None:
-        patches = np.unique(skyidx)
-        
-    if np.any(np.array(patches) >= hg.npix):
-        print 'Error: patches greater than {} do not exist.'.format(hg.npix)
-        exit()   
-        
     # Set up the multiprocessing.
     the_queue = mp.Queue(nprocs)
     the_pool = mp.Pool(nprocs, search_skypatch_mp, (the_queue,))
         
-    for idx in patches:
+    for item in items:
         
-        select = (skyidx == idx)
-        
-        # Check that there are stars inside the specified declination range.
-        if not np.any((dec[select] > declinations[0]) & (dec[select] < declinations[1])):
-            print 'Skipping skypatch {}, contains no stars in specified declinations.'.format(idx)
-            continue
+        if not injection:
+            ascc_ = ascc[skyidx == item]
+        else:
+            ascc_ = [ascc[item]]*nsignals
+            
+            # Generate model parameters.
+            inj_pars = transit_params(nsignals)
         
         # Read the stars in the skypatch.
-        time, lc2d, nobs = read_data(filelist, ascc[select], aper=aper)
+        time, lc2d, nobs = read_data(filelist, ascc_, aper=aper)
     
         # Make sure there was data.
         if (len(time) == 0):
-            print 'Skipping skypatch {}, no good data found.'.format(idx) 
+            print 'Skipping {}, no good data found.'.format(item) 
             continue
         
         # Do not run if the baseline falls short of 60 days.
         if (np.ptp(time['jd']) < 60.):
-            print 'Skipping skypatch {}, insufficient baseline.'.format(idx) 
+            print 'Skipping {}, insufficient baseline.'.format(item) 
             continue    
         
         for i in range(lc2d.shape[1]):
             
+            if injection & (i > 0):
+                
+                lc2d[:,i] = inject_transit(lc2d[:,i], inj_pars[i])
+                
             # Perform the secondary calibration.
             lc2d[:,i] = remove_trend(lc2d[:,i], nobs, method=method)
             
@@ -600,113 +648,25 @@ def run_boxlstsq(filelist, name, patches=None, declinations=[-90.,90.], aper=0, 
             lc2d[:,i] = clip_outliers(lc2d[:,i])
             
         # Compute the barycentric julian date.
-        ra_patch, dec_patch = hg.idx2radec(idx)
-        time['jd'] = misc.barycentric_dates(time['jd'], ra_patch, dec_patch)
-
+        if not injection:
+            ra_, dec_ = hg.idx2radec(item)
+        else:
+            ra_, dec_ = ra[item], dec[item]
+            
+        time['jd'] = misc.barycentric_dates(time['jd'], ra_, dec_)
+        
         # Filename for the output file. 
-        blsfile = 'bls{}_{}{}_patch{:03d}.hdf5'.format(aper, name, method, idx)
+        if not injection:
+            blsfile = 'bls{}_{}{}_patch{:03d}.hdf5'.format(aper, name, method, item)
+        else:
+            blsfile = 'bls{}_{}{}_ascc{}.hdf5'.format(aper, name, method, ascc[item])
+
         blsfile = os.path.join(blsdir, blsfile)
         
-        the_queue.put((idx, ascc[select], time['jd'], lc2d['mag'] - lc2d['trend'], lc2d['emag'], lc2d['mask'], blsfile, None))
-    
-    # End the multiprocessing.
-    for i in range(nprocs):
-        the_queue.put('DONE')
-    
-    the_pool.close()
-    the_pool.join()
-    
-    return
-
-def transit_params(nsets, P_range=[1., 5.], p_choices=np.sqrt([0.005, 0.01, 0.02]), b_choices=[0.0, 0.5], rho_choices=[0.4, 0.9, 1.4]):
-    
-    names = ['T0', 'P', 'T14', 'p', 'b']
-    formats = ['float64', 'float64', 'float32', 'float32', 'float32']
-    pars = np.recarray((nsets,), names=names, formats=formats)
-    
-    pars['P'] = np.random.rand(nsets)*(P_range[1] - P_range[0]) + P_range[0]
-    pars['T0'] = np.random.rand(nsets)*pars['P']
-    pars['p'] = np.random.choice(p_choices, nsets)
-    pars['b'] = np.random.choice(b_choices, nsets)
-
-    rho = np.random.choice(rho_choices, nsets)
-    axis = transit.dens2axis(rho, pars['P'])
-    pars['T14'] = transit.axis2duration(axis, pars['P'], pars['p'], pars['b'])
-    
-    return pars
-
-def run_injection(filelist, name, nobj=5000, ninj=11, aper=0, method='legendre', outdir='/data3/talens/boxlstsq', nprocs=6):
-    """ Perform detrending and transit search given reduced lightcurves."""
-    
-    print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
-    for filename in filelist:
-        print ' ', filename
-    
-    # Create directories for the output.
-    outdir = os.path.join(outdir, 'inj_' + name + method)
-    blsdir = os.path.join(outdir, 'bls')
-    misc.ensure_dir(blsdir)
-    
-    if (len(os.listdir(blsdir)) > 0):
-        print 'Error: the output directory {} is not empty.'.format(outdir)
-        exit()
-    else:
-        print 'Writing results to:', outdir
-    
-    # Write the a file containg the reduced data files used.
-    fname = os.path.join(outdir, 'data.txt')
-    np.savetxt(fname, filelist, fmt='%s')
-    
-    # Read the combined header of the files.
-    ascc, ra, dec, vmag = read_header(filelist)
-    
-    # Select stars for injection.
-    p = 1./vmag**2
-    p = p/np.sum(p)
-    indices = np.random.choice(len(ascc), nobj, replace=False, p=p)
-    
-    # Set up the multiprocessing.
-    the_queue = mp.Queue(nprocs)
-    the_pool = mp.Pool(nprocs, search_skypatch_mp, (the_queue,))
-    
-    for idx in indices:
-        
-        ascc_ = [ascc[idx]]*ninj
-        vmag_ = [vmag[idx]]*ninj
-        
-        # Generate model parameters.
-        inj_pars = transit_params(ninj)
-        
-        # Read the star with injected models.
-        jdmid, lst, mag, emag, trend, mask = read_data(filelist, ascc_, vmag_, aper=aper, method=method, inj_pars=inj_pars)
-    
-        # Make sure there was data.
-        if (len(jdmid) == 0):
-            print 'Skipping star {}, no good data found.'.format(ascc[idx]) 
-            continue
-        
-        # Do not run if the baseline falls short of 60 days.
-        if (np.ptp(jdmid) < 60.):
-            print 'Skipping star {}, insufficient baseline.'.format(ascc[idx]) 
-            continue    
-        
-        # Mask outliers.
-        for i in range(mag.shape[0]):
-            
-            m0 = np.median(mag[i][mask[i]])
-            m1 = statistics.mad(mag[i][mask[i]])
-            
-            cutoff = np.maximum(3*m1, 0.05)
-            mask[i] = mask[i] & (np.abs(mag[i] - m0) < cutoff)
-
-        # Barycentric correction.
-        jdbar = misc.barycentric_dates(jdmid, ra[idx], dec[idx])
-
-        # Filename for the output file. 
-        blsfile = 'bls{}_{}{}_ascc{}.hdf5'.format(aper, name, method, ascc[idx])
-        blsfile = os.path.join(blsdir, blsfile)
-        
-        the_queue.put((ascc[idx], ascc_, jdbar, mag, emag, mask, blsfile, inj_pars))
+        if not injection:
+            the_queue.put((item, ascc_, time['jd'], lc2d['mag'] - lc2d['trend'], lc2d['emag'], lc2d['mask'], blsfile, None))
+        else:
+            the_queue.put((ascc[item], ascc_, time['jd'], lc2d['mag'] - lc2d['trend'], lc2d['emag'], lc2d['mask'], blsfile, inj_pars))
     
     # End the multiprocessing.
     for i in range(nprocs):
@@ -726,21 +686,26 @@ def main():
                         help='the file(s) to process')
     parser.add_argument('name', type=str,
                         help ='the name of this box least-squares run')
-    parser.add_argument('-p', '--patches', type=int, nargs='+', default=None,
-                        help ='the sky patch(es) to process', dest='patches')
-    parser.add_argument('-d', '--declinations', type=float, nargs=2, default=[-90.,90.],
-                        help='the declination range to process', dest='declinations')
     parser.add_argument('-a', '--aper', type=int, default=0,
                         help ='the aperture to use', dest='aper')
     parser.add_argument('-m', '--method', type=str, default='legendre',
-                        help ='detrending method', dest='method')
+                        help ='the detrending method', dest='method')
+    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90.,90.],
+                        help='the declination range to process', dest='declims')
     parser.add_argument('-o', '--outdir', type=str, default='/data3/talens/boxlstsq',
                         help ='the location to write the results', dest='outdir')
     parser.add_argument('-n', '--nprocs', type=int, default=6,
                         help='the number of processes to use', dest='nprocs')
+    parser.add_argument('--injection', action='store_true', 
+                        help='when set perform a signal recovery test', dest='injection')
+    parser.add_argument('--nstars', type=int, default=5000,
+                        help='the number of stars to use for injection', dest='nstars')
+    parser.add_argument('--nsignals', type=int, default=11,
+                        help='the number of signals to inject per star', dest='nsignals')
+    
     args = parser.parse_args()
     
-    run_boxlstsq(args.files, args.name, args.patches, args.declinations, args.aper, args.method, args.outdir, args.nprocs)
+    run_boxlstsq(args.files, args.name, args.aper, args.method, args.declims, args.outdir, args.nprocs, args.injection, args.nstars, args.nsignals)
     
     return
     
