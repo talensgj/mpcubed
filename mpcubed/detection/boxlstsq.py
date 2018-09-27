@@ -498,17 +498,32 @@ def inject_transit(lc, lc_pars):
 ### Functions for running the box least-squares algorithm.
 ###############################################################################
 
-def search_skypatch(item, ascc, jd, mag, emag, mask, blsfile, inj_pars):
+def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None):
     """ Perform the box least-squares and flag non-detections."""
     
     print 'Computing boxlstsq for:', item
     
+    for i in range(lc2d.shape[1]):
+            
+        # Inject transit signals in the lightcurves.
+        if (inj_pars is not None) & (i > 0):
+            lc2d[:,i] = inject_transit(lc2d[:,i], inj_pars[i])
+            
+        # Perform the secondary calibration.
+        lc2d[:,i] = remove_trend(lc2d[:,i], nobs, method=method)
+        
+        # Mask outlying data points.
+        lc2d[:,i] = clip_outliers(lc2d[:,i])
+    
+    # Apply the secondary calibration.
+    lc2d['mag'] = lc2d['mag'] - lc2d['trend']
+    
     # Convert the uncertainties to weights.
     with np.errstate(divide='ignore'):
-        weights = np.where(mask, 1./emag**2, 0.)
+        weights = np.where(lc2d['mask'], 1./lc2d['emag']**2, 0.)
         
     # Run the box least-squares search.    
-    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq(jd, mag, weights, mask)
+    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq(time['jd'], lc2d['mag'], weights, lc2d['mask'])
     
     # Create arrays.
     nstars = len(ascc)
@@ -530,13 +545,14 @@ def search_skypatch(item, ascc, jd, mag, emag, mask, blsfile, inj_pars):
         arg = np.argmax(dchisq[:,i])
         boxpars[i] = 1./freq[arg], epoch[arg,i], depth[arg,i], duration[arg,i]
         
+        lc = lc2d[:,i]
+        mask = lc['mask']
+        
         # Quality criteria.
-        if (sum(mask[:,i]) > 1) & (dchisq[arg,i] > 0):
-            
-            jd_, mag_, emag_ = jd[mask[:,i]], mag[mask[:,i], i], emag[mask[:,i], i]
+        if np.any(mask) & (dchisq[arg,i] > 0):
             
             sde, atr = criteria.boxlstsq_criteria(dchisq[:,i], depth[:,i])
-            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(jd_, mag_, emag_, boxpars[i])
+            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], lc['mag'][mask], lc['emag'][mask], boxpars[i])
     
             blscrit[i] = sde, atr, gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp
             
@@ -634,18 +650,6 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
         if (np.ptp(time['jd']) < 60.):
             print 'Skipping {}, insufficient baseline.'.format(item) 
             continue    
-        
-        for i in range(lc2d.shape[1]):
-            
-            if injection & (i > 0):
-                
-                lc2d[:,i] = inject_transit(lc2d[:,i], inj_pars[i])
-                
-            # Perform the secondary calibration.
-            lc2d[:,i] = remove_trend(lc2d[:,i], nobs, method=method)
-            
-            # Mask outlying data points.
-            lc2d[:,i] = clip_outliers(lc2d[:,i])
             
         # Compute the barycentric julian date.
         if not injection:
@@ -664,9 +668,9 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
         blsfile = os.path.join(blsdir, blsfile)
         
         if not injection:
-            the_queue.put((item, ascc_, time['jd'], lc2d['mag'] - lc2d['trend'], lc2d['emag'], lc2d['mask'], blsfile, None))
+            the_queue.put((item, ascc_, time, lc2d, nobs, method, blsfile, None))
         else:
-            the_queue.put((ascc[item], ascc_, time['jd'], lc2d['mag'] - lc2d['trend'], lc2d['emag'], lc2d['mask'], blsfile, inj_pars))
+            the_queue.put((ascc[item], ascc_, time, lc2d, nobs, method, blsfile, inj_pars))
     
     # End the multiprocessing.
     for i in range(nprocs):
