@@ -390,7 +390,7 @@ def read_data(filelist, ascc, aper=0):
     return time, lc2d, nobs
 
 def remove_trend(lc, nobs, method='legendre', model=None, options={}):
-          
+
     strides = np.append(0, np.cumsum(nobs))
 
     # Loop over blocks of data.
@@ -418,17 +418,23 @@ def remove_trend(lc, nobs, method='legendre', model=None, options={}):
         if method == 'none':
             pass
         
+        elif method == 'polynomial':
+            
+            trend, mat, pars, chisq = detrend.polynomial(tmp['jd'], mag, tmp['emag'], **options)
+        
+            lc['trend'][i1:i2][mask] = trend
+        
         elif method == 'legendre':        
         
-            mat, fit0, fit1, fit2 = detrend.detrend_legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **options)
+            trend, mat, pars, chisq = detrend.legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **options)
 
-            lc['trend'][i1:i2][mask] = fit0 + fit1 + fit2
+            lc['trend'][i1:i2][mask] = trend
 
-        elif method == 'snellen':
+        elif method == 'loclin':
             
-            fit0, fit1, fit2, flag = detrend.detrend_snellen(tmp['jd'], tmp['lstseq'], tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **options)
+            trend, flag, chisq = detrend.local_linear(tmp['jd'], tmp['lstseq'], tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **options)
             
-            lc['trend'][i1:i2][mask] = fit0 + fit1 + fit2
+            lc['trend'][i1:i2][mask] = trend
             lc['mask'][i1:i2][mask] = flag
               
         elif method == 'fourier':        
@@ -438,9 +444,9 @@ def remove_trend(lc, nobs, method='legendre', model=None, options={}):
             ns[1], wrap = misc.find_ns(tmp['lstseq'])
             ns = np.maximum(ns, 2)
             
-            mat, fit0, fit1 = detrend.detrend_fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **options)
+            trend, mat, pars, chisq = detrend.fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **options)
             
-            lc['trend'][i1:i2][mask] = fit0 + fit1 
+            lc['trend'][i1:i2][mask] = trend
             
         else:
             raise ValueError('Unknown detrending method "{}"'.format(method)) 
