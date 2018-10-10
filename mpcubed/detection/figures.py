@@ -62,26 +62,28 @@ def plot_periodogram(freq, dchisq, period, zoom=False):
     
     return  
     
-def plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, binned=True, zoom=False):
+def plot_lightcurve(jd, mag, emag, box_pars, binned=True, zoom=False):
     """ Plot a lightcurve with the box least-squares best fit overplotted. """    
     
-    factor = np.ceil(np.abs(depth)/.05)   
+    T0, P, T14, delta = box_pars
+    
+    factor = np.ceil(np.abs(delta)/.05)   
 
     # Plot the phase-folded lightcurve.
-    phase = (jdmid - epoch)/period    
+    phase = (jd - T0)/P    
     phase = np.mod(phase+.5, 1.)-.5
     plt.scatter(phase, mag, color='black', marker='.', alpha=.5, edgecolor='none')
     
     # Add phase-binned data.
     if binned:
-        nbins = np.ceil(9*period/duration)
+        nbins = np.ceil(9*P/T14)
         bins = np.linspace(-.5, .5, nbins+1)   
         xbin, ybin, eybin = misc.bin_data_err(phase, mag, emag, bins)
         plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
     
     if zoom:
-        plt.xlim(-1.5*duration/period, 1.5*duration/period)
-        plt.ylim(2*np.abs(depth), -2*np.abs(depth))
+        plt.xlim(-1.5*T14/P, 1.5*T14/P)
+        plt.ylim(2*np.abs(delta), -2*np.abs(delta))
     else:
         plt.xlim(-.5, .5)
         plt.ylim(factor*.05, factor*-.03)
@@ -91,67 +93,81 @@ def plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, binned=Tru
     
     return
     
-def plot_boxcurve(period, depth, duration):
+def plot_boxcurve(box_pars):
+    
+    T0, P, T14, delta = box_pars
     
     # Compute x and y values for plotting a boxfit.
-    x = .5*duration/period        
+    x = .5*T14/P        
     x = np.array([-.5, -x, -x, x, x, .5])
-    y = np.array([0, 0, depth, depth, 0, 0,])
+    y = np.array([0, 0, delta, delta, 0, 0,])
     
     plt.plot(x, y, c=(146./255,0,0), lw=2, zorder=20)    
     
     return
 
-def fig_candidate(ascc, freq, dchisq, jdmid, mag, emag, period, epoch, depth, duration, figdir):
+def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     
-    # Create the figure.
-    fig = plt.figure(figsize=(16.5, 11.7))
+    args, = np.where(hdr['depth'] > 0)
     
-    plt.suptitle('ASCC {}'.format(ascc), size='xx-large')    
+    box_pars = np.column_stack([hdr['epoch'], hdr['period'], hdr['duration'], hdr['depth']])
     
-    gs = gridspec.GridSpec(6, 6, height_ratios = [.5, 10, 10, .5, 10, .5])
+    for i in args:
+                
+        # Perform the secondary calibration.
+        lc = boxlstsq.remove_trend(lc2d[:,i], nobs, method=method)
+        lc = lc[lc['mask']]
     
-    # Plot the periodogram.
-    ax = plt.subplot(gs[1,:4])
-    
-    plt.title('Periodogram')
-    plot_periodogram(freq, dchisq, period)                     
-    
-    ax = plt.subplot(gs[1,4:])
-    
-    plt.title('Periodogram zoom')
-    plot_periodogram(freq, dchisq, period, zoom=True)    
-    
-    # Plot the data and the best-fit box-model.
-    ax = plt.subplot(gs[2:4,:4])
-
-    plt.title('Photometry')
-    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration)
-    plot_boxcurve(period, depth, duration)
-    
-    ax = plt.subplot(gs[2:4,4:])
-
-    plt.title('Photometry zoom')
-    plot_lightcurve(jdmid, mag, emag, period, epoch, depth, duration, zoom=True)
-    plot_boxcurve(period, depth, duration)
-
-    ax = plt.subplot(gs[4,:3])
-
-    plt.title(r'Half-period, $P = {:.5f}$'.format(.5*period))
-    plot_lightcurve(jdmid, mag, emag, .5*period, epoch, depth, duration, binned=False)
-
-    ax = plt.subplot(gs[4,3:])
-
-    plt.title(r'Double-period, $P = {:.5f}$'.format(2.*period))
-    plot_lightcurve(jdmid, mag, emag, 2.*period, epoch, depth, duration, binned=False)        
+        # Create the figure.
+        plt.figure(figsize=(16.5, 11.7))
         
-    plt.tight_layout()
-    plt.savefig(os.path.join(figdir, 'ASCC{}.png'.format(ascc)))
-    plt.close()    
+        plt.suptitle('ASCC {}'.format(hdr['ascc'][i]), size='xx-large')    
+        
+        gs = gridspec.GridSpec(6, 6, height_ratios = [.5, 10, 10, .5, 10, .5])
+        
+        # Plot the periodogram.
+        plt.subplot(gs[1,:4])
+        
+        plt.title('Periodogram')
+        plot_periodogram(data['freq'], data['dchisq'][:,i], box_pars[i,1])                     
+        
+        plt.subplot(gs[1,4:])
+        
+        plt.title('Periodogram zoom')
+        plot_periodogram(data['freq'], data['dchisq'][:,i], box_pars[i,1], zoom=True)    
+        
+        # Plot the data and the best-fit box-model.
+        plt.subplot(gs[2:4,:4])
+    
+        plt.title('Photometry')
+        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i])
+        plot_boxcurve(box_pars[i])
+        
+        plt.subplot(gs[2:4,4:])
+    
+        plt.title('Photometry zoom')
+        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], zoom=True)
+        plot_boxcurve(box_pars[i])
+    
+        plt.subplot(gs[4,:3])
+    
+        box_pars[i,1] = .5*box_pars[i,1] # Half original period.
+        plt.title(r'Half-period, $P = {:.5f}$'.format(box_pars[i,1]))
+        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], binned=False)
+    
+        plt.subplot(gs[4,3:])
+    
+        box_pars[i,1] = 4.*box_pars[i,1] # Twice original period.
+        plt.title(r'Double-period, $P = {:.5f}$'.format(box_pars[i,1]))
+        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], binned=False)        
+            
+        plt.tight_layout()
+        plt.savefig(os.path.join(figdir, 'ASCC{}.png'.format(hdr['ascc'][i])))
+        plt.close()    
     
     return
  
-def worker(queue, figdir, method):
+def worker(queue, method, figdir):
 
     while True:
         
@@ -161,17 +177,8 @@ def worker(queue, figdir, method):
             break
         else:
             
-            hdr, data, time, lc2d, nobs = item
-            
-            args, = np.where(hdr['depth'] > 0)
-            
-            for i in args:
-                
-                lc = boxlstsq.remove_trend(lc2d[:,i], nobs, method=method) # TODO does this always play nice inside multiprocessing?
-                
-                lc = lc[lc['mask']]
-                
-                fig_candidate(hdr['ascc'][i], data['freq'], data['dchisq'][:,i], lc['jd'], lc['mag'] - lc['trend'], lc['emag'], hdr['period'][i], hdr['epoch'][i], hdr['depth'][i], hdr['duration'][i], figdir)
+            hdr, data, lc2d, nobs = item
+            figs_candidates(hdr, data, lc2d, nobs, method, figdir)
     
     return    
 
@@ -190,7 +197,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
 
     # Set up the multiprocessing.
     the_queue = mp.Queue(nprocs)
-    the_pool = mp.Pool(nprocs, worker, (the_queue, figdir, method))
+    the_pool = mp.Pool(nprocs, worker, (the_queue, method, figdir))
 
     for blsfile in blsfiles:
         
@@ -204,7 +211,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
         # Read the lightcurves.
         time, lc2d, nobs = boxlstsq.read_data(filelist, hdr['ascc'], aper=aper)
         
-        the_queue.put((hdr, data, time, lc2d, nobs))
+        the_queue.put((hdr, data, lc2d, nobs))
         
     # End the multiprocessing.
     for i in range(nprocs):
