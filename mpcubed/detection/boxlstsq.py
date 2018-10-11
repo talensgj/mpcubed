@@ -685,6 +685,9 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
     the_pool.close()
     the_pool.join()
     
+    # Create table for the database.
+    io.table_boxlstsq(outdir)
+    
     return
 
 def main():

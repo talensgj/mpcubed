@@ -6,6 +6,7 @@ Created on Tue May  9 16:23:14 2017
 """
 
 import os
+import glob
 
 import h5py
 import numpy as np
@@ -188,6 +189,39 @@ def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq, inj_
         grp.create_dataset('freq', data=freq)
         grp.create_dataset('dchisq', data=dchisq, dtype='float32')
     
+    return
+
+def table_boxlstsq(blsdir, outfile=None):
+    
+    # Name of the table file.
+    if outfile is None:
+        head, tail = os.path.split(blsdir)
+        outfile = os.path.join(blsdir, 'DB_' + tail + '.hdf5')
+    
+    # Get the list of files.
+    filelist = glob.glob(os.path.join(blsdir, 'bls/*.hdf5'))
+    filelist = np.sort(filelist)
+    
+    hdr = {}
+    for filename in filelist:
+            
+        # Read the header.
+        f = blsFile(filename)
+        hdr_ = f.read_header()
+        
+        # Append the header.
+        if hdr == {}:
+            hdr = hdr_
+        else:
+            for key in hdr.keys():
+                hdr[key] = np.append(hdr[key], hdr_[key])
+         
+    # Write the database table.
+    with h5py.File(outfile) as f:
+    
+        for key in hdr.keys():
+            f.create_dataset(key, data=hdr[key])
+            
     return
 
 ###############################################################################
