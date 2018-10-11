@@ -10,15 +10,31 @@ import numpy as np
 from .. import statistics
 from ..models import transit
 
-def boxlstsq_criteria(dchisq, depth):
+def compute_sde(dchisq, width=2500, center=250):
 
+    # Get the location of the peak and convert to signal residue.
     arg = np.argmax(dchisq)
+    sr = np.sqrt(dchisq)
+
+    # Select the region for computing the background and noise.
+    x = np.abs(np.arange(len(sr)) - arg)
+    mask = (x <= width) & (x > center)
+    
+    if np.all(sr[mask] == 0.): # Some periodograms are pathalogical.
+        return 0.
+    
+    # Compute the signal detection efficiency.
+    mu, std = statistics.sigma_clip(sr[mask])
+    sde = (sr[arg] - mu)/std
+    
+    return sde
+
+def boxlstsq_criteria(dchisq, depth):
 
     with np.errstate(invalid='ignore', divide='ignore'):
 
         # Signal Detection Efficiency (SDE).    
-        mu, sigma = statistics.sigma_clip(dchisq)
-        sde = (dchisq[arg] - mu)/sigma    
+        sde = compute_sde(dchisq)   
         
         # Anti-transit ratio.
         tmp = dchisq*np.sign(depth)
