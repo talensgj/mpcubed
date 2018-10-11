@@ -389,7 +389,7 @@ def read_data(filelist, ascc, aper=0):
 
     return time, lc2d, nobs
 
-def remove_trend(lc, nobs, method='legendre', model=None, options={}):
+def remove_trend(lc, nobs, model=None, method='legendre', options={}):
 
     strides = np.append(0, np.cumsum(nobs))
 
