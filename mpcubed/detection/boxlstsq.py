@@ -594,7 +594,7 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
         
     outdir = os.path.join(outdir, name + method)
     blsdir = os.path.join(outdir, 'bls')
-    misc.ensure_dir(blsdir)
+    io.ensure_dir(blsdir)
     
     if (len(os.listdir(blsdir)) > 0):
         print 'Error: the output directory {} is not empty.'.format(outdir)

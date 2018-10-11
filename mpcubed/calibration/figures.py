@@ -118,7 +118,7 @@ def fig_magnitudes(filename, figname=None):
     if figname is None:
         head, tail = os.path.split(filename)
         path = os.path.join(head, 'figures')
-        misc.ensure_dir(path)
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_mags.png'
         figname = os.path.join(path, figname)
         
@@ -161,7 +161,7 @@ def fig_transmission(filename, astromaster=None, figname=None):
     if figname is None:
         head, tail = os.path.split(filename)
         path = os.path.join(head, 'figures')
-        misc.ensure_dir(path)
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_trans.png'
         figname = os.path.join(path, figname)
     
@@ -211,7 +211,7 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     if figname is None:
         head, tail = os.path.split(filename)
         path = os.path.join(head, 'figures')
-        misc.ensure_dir(path)
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_ipx.png'
         figname = os.path.join(path, figname)  
     
@@ -284,7 +284,7 @@ def fig_clouds(filename, figname=None):
     if figname is None:
         head, tail = os.path.split(filename)
         path = os.path.join(head, 'figures')
-        misc.ensure_dir(path)
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_clouds.png'
         figname = os.path.join(path, figname)
     
@@ -335,7 +335,7 @@ def fig_sigma(filename, figname=None):
     if figname is None:
         head, tail = os.path.split(filename)
         path = os.path.join(head, 'figures')
-        misc.ensure_dir(path)
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_sigma.png'
         figname = os.path.join(path, figname)
     

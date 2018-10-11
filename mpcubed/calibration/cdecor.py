@@ -60,7 +60,7 @@ def baseline(date, part, camera, source, dest):
 
     # Create the destination directory.    
     outpath = os.path.join(dest, camera)    
-    misc.ensure_dir(outpath)
+    io.ensure_dir(outpath)
     
     # Determine the prefix.
     f = io.PhotFile(filelist[0])

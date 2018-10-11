@@ -64,13 +64,6 @@ def flux2mag(flux, eflux=None, m0=25.):
     
     return mag
 
-def ensure_dir(path):
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
-    return
-
 def find_ns(lstseq):
     """ Number of sampling points in LST, takes wrapping into account."""
     

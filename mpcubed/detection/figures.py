@@ -193,7 +193,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
 
     # Create the output directory.
     figdir = os.path.join(blsdir, 'figures')
-    misc.ensure_dir(figdir)
+    io.ensure_dir(figdir)
 
     # Set up the multiprocessing.
     the_queue = mp.Queue(nprocs)
