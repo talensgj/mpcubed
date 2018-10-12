@@ -25,7 +25,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from .. import io, misc
+from .. import io, statistics
 from . import boxlstsq
 
 def plot_periodogram(freq, dchisq, period, zoom=False):
@@ -78,7 +78,7 @@ def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False
     if binned:
         nbins = np.ceil(9*P/T14)
         bins = np.linspace(-offset, 1-offset, nbins+1)   
-        xbin, ybin, eybin = misc.bin_data_err(phase, mag, emag, bins)
+        xbin, ybin, eybin = statistics.bin_data(phase, mag, bins, emag)
         plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
     
     if zoom:

@@ -15,7 +15,7 @@ import batman
 import corner
 import matplotlib.pyplot as plt
 
-from . import misc
+from . import misc, statistics
 from .detection import boxlstsq
 
 ###############################################################################
@@ -691,7 +691,7 @@ def plot_transit(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='leg
     # Plot the calibrated data, binned in phase.
     nbins = np.ceil(9*P/T14)
     bins = np.linspace(-.5, .5, nbins+1)   
-    xbin, ybin, eybin = misc.bin_data_err(phase, lc['mag'] - lc['trend'], lc['emag'], bins)
+    xbin, ybin, eybin = statistics.bin_data(phase, lc['mag'] - lc['trend'], bins, lc['emag'])
     
     plt.errorbar(xbin, ybin, eybin, fmt='o', c='k')
     
