@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-
 import numpy as np
 
 def flux2mag(flux, eflux=None, m0=25.):
@@ -42,18 +40,7 @@ def find_ns(lstseq):
     if (option2 >= option1):
         return option1, False
     else:
-        return option2, True
-    
-def round_to_significance(value, error1, error2=None):
-    
-    ndigits = -int(np.floor(np.log10(error1)))  
-    
-    if error2 is None:    
-        return ndigits, round(value, ndigits), round(error1, ndigits)
-    
-    ndigits = np.maximum(ndigits, -int(np.floor(np.log10(-error2)))) 
-    
-    return ndigits, round(value, ndigits), round(error1, ndigits),  round(error2, ndigits)   
+        return option2, True 
 
 def bin_data_noerr(x, y, bins):
     
