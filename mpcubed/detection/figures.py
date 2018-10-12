@@ -62,7 +62,7 @@ def plot_periodogram(freq, dchisq, period, zoom=False):
     
     return  
     
-def plot_lightcurve(jd, mag, emag, box_pars, binned=True, zoom=False):
+def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False):
     """ Plot a lightcurve with the box least-squares best fit overplotted. """    
     
     T0, P, T14, delta = box_pars
@@ -71,13 +71,13 @@ def plot_lightcurve(jd, mag, emag, box_pars, binned=True, zoom=False):
 
     # Plot the phase-folded lightcurve.
     phase = (jd - T0)/P    
-    phase = np.mod(phase+.5, 1.)-.5
+    phase = np.mod(phase+offset, 1.)-offset
     plt.scatter(phase, mag, color='black', marker='.', alpha=.5, edgecolor='none')
     
     # Add phase-binned data.
     if binned:
         nbins = np.ceil(9*P/T14)
-        bins = np.linspace(-.5, .5, nbins+1)   
+        bins = np.linspace(-offset, 1-offset, nbins+1)   
         xbin, ybin, eybin = misc.bin_data_err(phase, mag, emag, bins)
         plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
     
@@ -85,7 +85,7 @@ def plot_lightcurve(jd, mag, emag, box_pars, binned=True, zoom=False):
         plt.xlim(-1.5*T14/P, 1.5*T14/P)
         plt.ylim(2*np.abs(delta), -2*np.abs(delta))
     else:
-        plt.xlim(-.5, .5)
+        plt.xlim(-offset, 1-offset)
         plt.ylim(factor*.05, factor*-.03)
     
     plt.xlabel('Phase')
@@ -159,7 +159,7 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     
         box_pars[i,1] = 4.*box_pars[i,1] # Twice original period.
         plt.title(r'Double-period, $P = {:.5f}$'.format(box_pars[i,1]))
-        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], binned=False)        
+        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], offset=0.25, binned=False)        
             
         plt.tight_layout()
         plt.savefig(os.path.join(figdir, 'ASCC{}.png'.format(hdr['ascc'][i])))
