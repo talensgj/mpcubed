@@ -8,7 +8,10 @@ Created on Fri Sep 30 13:42:00 2016
 import numpy as np
 
 from .. import statistics
-from ..models import transit
+
+###############################################################################
+### Criteria from the box least-squares periodogram.
+###############################################################################
 
 def compute_sde(dchisq, width=2500, center=250):
 
@@ -42,10 +45,28 @@ def boxlstsq_criteria(dchisq, depth):
 
     return sde, atr  
 
-def phase_gap(jdmid, boxpars):
+###############################################################################
+### Criteria from the lightcurve.
+###############################################################################
+
+def box_model(time, box_pars):
+    """A simple box model of a transit."""
+    
+    if (len(box_pars) != 4):
+        raise ValueError('box_pars must have length 4')
+    
+    T0, P, T14, delta = box_pars
+    
+    phase = (time - T0)/P
+    phase = np.mod(phase+.5, 1.)-.5
+    model = np.where(np.abs(phase) < .5*T14/P, delta, 0.)
+    
+    return phase, model
+
+def phase_gap(jd, box_pars):
     
     # Compute and sort the phases.
-    phase = (jdmid - boxpars['epoch'])/boxpars['period']
+    phase = (jd - box_pars['epoch'])/box_pars['period']
     phase = np.mod(phase, 1)
     phase = np.sort(phase)
     
@@ -54,20 +75,20 @@ def phase_gap(jdmid, boxpars):
     # Find the largest gap in the coverage.
     gap = np.amax(np.diff(phase))
     gap = np.maximum(gap, 1 - np.ptp(phase))
-    gap = gap*boxpars['period']/boxpars['duration']
+    gap = gap*box_pars['period']/box_pars['duration']
     
     return gap, sym    
     
-def transits(jdmid, boxpars):
+def transits(jd, box_pars):
 
     # Determine to which orbit and phase each point belongs.
-    phase = (jdmid - boxpars['epoch'])/boxpars['period']
+    phase = (jd - box_pars['epoch'])/box_pars['period']
     phase = phase - np.floor(np.amin(phase))
     orbit = np.floor(phase + .5).astype('int')
     phase = np.mod(phase + .5, 1.) - .5
     
     # Select in-transit data points.
-    mask = (np.abs(phase) < .5*boxpars['duration']/boxpars['period'])
+    mask = (np.abs(phase) < .5*box_pars['duration']/box_pars['period'])
     
     # Determine how many points in each transit.
     intransit = np.bincount(orbit[mask])
@@ -75,47 +96,47 @@ def transits(jdmid, boxpars):
 
     return len(intransit), intransit
 
-def ellipsoidal_variations(jdmid, mag, emag, boxpars):
+def ellipsoidal_variations(jd, mag, emag, box_pars):
     
     weights = 1/emag**2
     
     # Evaluate the box-model. 
-    boxfit = transit.box(jdmid, boxpars['period'], boxpars['epoch'], -boxpars['depth'], boxpars['duration'])
-    m = np.sum(weights*(mag - boxfit))/np.sum(weights) # Out-of-transit level.
-    boxfit = boxfit + m   
+    phase, model = box_model(jd, box_pars)
+    m = np.sum(weights*(mag - model))/np.sum(weights) # Out-of-transit level.
+    model = model + m   
     
     # Find in-transit points.
-    phase = (jdmid - boxpars['epoch'])/boxpars['period']
+    phase = (jd - box_pars['epoch'])/box_pars['period']
     phase = np.mod(phase + .5, 1.) - .5
-    mask = (np.abs(phase) < .5*boxpars['duration']/boxpars['period'])
+    mask = (np.abs(phase) < .5*box_pars['duration']/box_pars['period'])
     
     # Create the ellipsoidal model.
     p = np.cos(4.*np.pi*phase)
     weights[mask] = 0. # Only fit out-of-transit data.    
     
     # Find the amplitude and S/N of the model.
-    u = np.sum(weights*(mag - boxfit)*p)
+    u = np.sum(weights*(mag - model)*p)
     v = np.sum(weights*p**2.)
     eps = u/v
     sne = u/np.sqrt(v)     
         
     return eps, sne
 
-def pink_noise(jdmid, mag, boxpars):
+def pink_noise(jd, mag, box_pars):
     
     # The best fit model.
-    boxfit = transit.box(jdmid, boxpars['period'], boxpars['epoch'], -boxpars['depth'], boxpars['duration']) 
-    residuals = mag - boxfit    
+    phase, model = box_model(jd, box_pars) 
+    residuals = mag - model   
   
     # The white noise term.
     sigma_white = statistics.mad(residuals)     
     
     # Bin the data to the transit duration.
-    nbins = np.ceil(np.ptp(jdmid)/boxpars['duration'])
-    bins = boxpars['duration']*np.arange(nbins+1) + np.amin(jdmid)
+    nbins = np.ceil(np.ptp(jd)/box_pars['duration'])
+    bins = box_pars['duration']*np.arange(nbins+1) + np.amin(jd)
    
-    npbin, edges = np.histogram(jdmid, bins=bins)
-    resbin, edges = np.histogram(jdmid, bins=bins, weights=residuals)
+    npbin, edges = np.histogram(jd, bins=bins)
+    resbin, edges = np.histogram(jd, bins=bins, weights=residuals)
 
     mask = (npbin > 0)    
     resbin = resbin[mask]/npbin[mask]
@@ -125,23 +146,23 @@ def pink_noise(jdmid, mag, boxpars):
     
     return sigma_white, sigma_red
 
-def lightcurve_criteria(jdmid, mag, emag, boxpars):
+def lightcurve_criteria(jd, mag, emag, box_pars):
     
     # Phase coverage.
-    gap, sym = phase_gap(jdmid, boxpars)
+    gap, sym = phase_gap(jd, box_pars)
     
     # Number of transits and number of in-transit points.
-    ntr, ntp = transits(jdmid, boxpars)
+    ntr, ntp = transits(jd, box_pars)
     ntp = np.sum(ntp)
 
     # M statistic.
     mst = np.mean(mag) - np.median(mag)
 
     # Ellipsoidal variations.
-    eps, sne = ellipsoidal_variations(jdmid, mag, emag, boxpars)
+    eps, sne = ellipsoidal_variations(jd, mag, emag, box_pars)
 
     # Signal-to-noise.
-    sw, sr = pink_noise(jdmid, mag, boxpars)
-    snp = np.sqrt(boxpars['depth']**2/(sw**2/ntp + sr**2/ntr))
+    sw, sr = pink_noise(jd, mag, box_pars)
+    snp = np.sqrt(box_pars['depth']**2/(sw**2/ntp + sr**2/ntr))
 
     return gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp

@@ -534,10 +534,10 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
     # Create arrays.
     nstars = len(ascc)
 
-    names = ['period', 'epoch', 'depth', 'duration']
+    names = ['epoch', 'period', 'duration', 'depth']
     formats = ['float64', 'float64', 'float64', 'float64']
-    boxpars = np.recarray((nstars,), names=names, formats=formats)
-    boxpars[:] = 0
+    box_pars = np.recarray((nstars,), names=names, formats=formats)
+    box_pars[:] = 0
     
     names = ['sde', 'atr', 'gap', 'sym', 'ntr', 'ntp', 'mst', 'eps', 'sne', 'sw', 'sr', 'snp']
     formats = ['float32', 'float32', 'float32', 'float32', 'int32', 'int32', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32'] 
@@ -549,7 +549,7 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
         
         # Best-fit parameters.
         arg = np.argmax(dchisq[:,i])
-        boxpars[i] = 1./freq[arg], epoch[arg,i], depth[arg,i], duration[arg,i]
+        box_pars[i] = epoch[arg,i], 1./freq[arg], duration[arg,i], depth[arg,i]
         
         lc = lc2d[:,i]
         mask = lc['mask']
@@ -558,12 +558,12 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
         if np.any(mask) & (dchisq[arg,i] > 0):
             
             sde, atr = criteria.boxlstsq_criteria(dchisq[:,i], depth[:,i])
-            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], lc['mag'][mask], lc['emag'][mask], boxpars[i])
+            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], lc['mag'][mask], lc['emag'][mask], box_pars[i])
     
             blscrit[i] = sde, atr, gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp
             
     # Save the results to file.
-    io.write_boxlstsq(blsfile, ascc, chisq0, boxpars, blscrit, freq, dchisq, inj_pars)
+    io.write_boxlstsq(blsfile, ascc, chisq0, box_pars, blscrit, freq, dchisq, inj_pars)
 
     return
     
