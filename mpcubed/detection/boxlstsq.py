@@ -200,7 +200,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
         # Sum the data on a regular grid.
         bins = np.linspace(0., 1., nbins[i] + 1)
         r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, flux, weights, mask)
-        
+        nmax = n_cum[-1]
         # Extend the grid to account for all epochs.
         bins = np.append(bins, bins[1:NumSteps*ES] + bins[-1])
         n_cum = np.append(n_cum, n_cum[1:NumSteps*ES] + n_cum[-1], axis=0)
@@ -228,7 +228,6 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
             dchisq_tmp = s**2*t/(r*(t - r))
         
         # Set dchisq to zero if all data is out-of-transit or in-transit.
-        nmax = np.sum(mask, axis=0)
         dchisq_tmp[n < 1] = 0
         dchisq_tmp[(nmax - n) < 1] = 0
         
