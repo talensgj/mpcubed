@@ -145,13 +145,13 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     else:
 
         # Defaults for fmin and fmax.
-        fmin_def = 12./S # Three transits in temporal baseline of ground based survey.
+        fmin_def = np.maximum(12./S, 1./30) # Reasonable limits on longest period.
         fmax_def = freq_max(M, R) # Smallest orbit determined by the Roche limit.
         
         if fmin is None:
             fmin = fmin_def
         elif (fmin < fmin_def):
-            print 'Warning: minimum frequency contains <2 events.'
+            print 'Warning: minimum frequency contains <2 events or exceeds 30 days.'
             
         if fmax is None:
             fmax = fmax_def
