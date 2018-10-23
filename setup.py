@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name = "mpcubed",
-    version = "2.0.0",
+    version = "3.0.0",
     author = "Geert Jan Talens",
     author_email = "talens@strw.leidenuniv.nl",
     description = "The MASCARA Post-Processing Pipeline.",
