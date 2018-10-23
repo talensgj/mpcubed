@@ -7,11 +7,9 @@ import glob
 import numpy as np
 import multiprocessing as mp
 
-from .. import io, misc, statistics
+from .. import io, misc, statistics, models
 from . import detrend, criteria
 from ..calibration import grids
-
-from exofit import transit
 
 ## Constants ##
 G = 6.67384e-11 # [m^3 kg^-1 s^-2]
@@ -480,8 +478,8 @@ def transit_params(nsets, P_range=[1., 5.], p_choices=np.sqrt([0.005, 0.01, 0.02
     pars['b'] = np.random.choice(b_choices, nsets)
 
     rho = np.random.choice(rho_choices, nsets)
-    axis = transit.dens2axis(rho, pars['P'])
-    pars['T14'] = transit.axis2duration(axis, pars['P'], pars['p'], pars['b'])
+    axis = models.dens2axis(rho, pars['P'])
+    pars['T14'] = models.axis2T14(axis, pars['P'], pars['p'], pars['b'])
     
     return pars
 
@@ -492,7 +490,7 @@ def inject_transit(lc, lc_pars):
     if np.any(mask):
         
         # Compute the model lightcurve.
-        phase, model = transit.circular_model(lc['jd'][mask], lc_pars)
+        phase, model = models.transit_model(lc['jd'][mask], lc_pars)
         
         # Add the model to the data.
         lc['mag'][mask] = lc['mag'][mask] + model
