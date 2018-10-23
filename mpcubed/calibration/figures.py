@@ -22,7 +22,7 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from .. import io
+from .. import io, misc
 from lsreduce import io as lsio
 
 def _hadec2xy(wcspars, ha, dec):
@@ -117,8 +117,10 @@ def fig_magnitudes(filename, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
+        path = os.path.join(head, 'figures')
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_mags.png'
-        figname = os.path.join(head, figname)
+        figname = os.path.join(path, figname)
         
     # Read the magnitudes.
     f = io.SysFile(filename)
@@ -158,8 +160,10 @@ def fig_transmission(filename, astromaster=None, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
+        path = os.path.join(head, 'figures')
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_trans.png'
-        figname = os.path.join(head, figname) 
+        figname = os.path.join(path, figname)
     
     # Read the transmission map.
     f = io.SysFile(filename)
@@ -206,8 +210,10 @@ def fig_intrapix(filename, astromaster=None, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
+        path = os.path.join(head, 'figures')
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_ipx.png'
-        figname = os.path.join(head, figname)   
+        figname = os.path.join(path, figname)  
     
     # Read the intrapixel amplitudes.
     f = io.SysFile(filename) 
@@ -277,8 +283,10 @@ def fig_clouds(filename, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
+        path = os.path.join(head, 'figures')
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_clouds.png'
-        figname = os.path.join(head, figname)
+        figname = os.path.join(path, figname)
     
     # Read the data.
     f = io.SysFile(filename)
@@ -326,8 +334,10 @@ def fig_sigma(filename, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
+        path = os.path.join(head, 'figures')
+        io.ensure_dir(path)
         figname = tail.rsplit('.')[0] + '_sigma.png'
-        figname = os.path.join(head, figname)
+        figname = os.path.join(path, figname)
     
     # Read the data.
     f = io.SysFile(filename)

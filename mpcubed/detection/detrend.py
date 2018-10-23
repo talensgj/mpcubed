@@ -2,10 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from numpy.polynomial import legendre
 
 from .. import statistics
-from ..models import fourier
 
 ###############################################################################
 ### Helper functions.
@@ -36,6 +34,133 @@ def scale(x):
     
     return x
 
+###############################################################################
+### Detrending methods.
+###############################################################################
+
+def polynomial(jd, mag, emag, deg=0):
+    
+    # Create the matrix.
+    x = scale(jd)
+    mat = np.polynomial.legendre.legvander(x, deg)
+    
+    # Compute the best fit.
+    pars = np.linalg.lstsq(mat/emag[:,np.newaxis], mag/emag, rcond=None)[0]
+    
+    # Evaluate the best fit.
+    trend = np.sum(pars*mat, axis=1)
+    chisq = np.sum(((mag - trend)/emag)**2)
+    
+    return trend, mat, pars, chisq
+
+def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50):
+    """ Fit long-term and psf-variations using legendre polynomials.
+    
+    Args:
+        jd (float): The julian dates of the observations in UT days.
+        lst (float): The sidereal times of the observations in sidereal hours.
+        sky (float): The sky values associated with the data.
+        mag (float): The data.
+        emag (float): The uncertainties on the data.
+        scale0 (float): Smallest scale of the long-term variations on days.
+        scale1 (float): Smallest scale of the psf-variations on days.
+    
+    Returns:
+        mat (array): The matrix of babsis functions used in the fit.
+        fit1 (float): The best-fitting long-term variations.
+        fit2 (float): The best fitting psf-variations.
+        
+    """       
+    
+    mat = []    
+        
+    # Long-term variations.
+    deg0 = int(np.floor(np.ptp(jd)/s_jd))
+    x = scale(jd)
+    mat0 = np.polynomial.legendre.legvander(x, deg0)[:,1:]
+    mat.append(mat0)        
+        
+    # PSF variations.
+    lst = wrap_lst(lst)
+    deg1 = int(np.floor(np.ptp(lst)/s_lst))
+    x = scale(lst)
+    mat1 = np.polynomial.legendre.legvander(x, deg1)
+    mat.append(mat1)
+
+    # Sky dependency.    
+    mat.append(mat1*sky[:,np.newaxis]/np.amax(sky))    
+    
+    # Solve.
+    mat = np.column_stack(mat)
+    mask = np.ones_like(jd, dtype='bool')
+    
+    for niter in range(maxiter):
+
+        # Compute the best fit.
+        pars = np.linalg.lstsq(mat[mask]/emag[mask,np.newaxis], mag[mask]/emag[mask], rcond=None)[0]
+        fit = np.sum(pars*mat, axis=1)
+        
+        # Compute the residuals.
+        res = mag - fit
+        m0 = np.nanmedian(res)
+        m1 = statistics.mad(res)
+
+        # Update the mask.
+        mask_old = np.copy(mask)
+        mask = np.abs(res - m0) < sig*m1         
+        
+        # End the iterative process.
+        if np.all(mask == mask_old):
+            break
+            
+        if np.all(~mask):
+            break
+        
+    # Evaluate the best fit.
+    trend = np.sum(pars*mat, axis=1)
+    chisq = np.sum(((mag - trend)/emag)**2)
+
+    return trend, mat, pars, chisq
+
+def linfit(lstidx, x, y, sky, mag, emag):
+    
+    sort = np.argsort(lstidx)
+    invsort = np.argsort(sort)
+    
+    lstidx = lstidx[sort]
+    x = x[sort]
+    y = y[sort]
+    sky = sky[sort]
+    mag = mag[sort]
+    emag = emag[sort]
+    
+    _, idx = np.unique(lstidx, return_inverse=True)
+    
+    nobs = np.bincount(idx)
+    strides = np.append(0, np.cumsum(nobs))
+    
+    xbar = np.bincount(idx, x)/np.bincount(idx)
+    ybar = np.bincount(idx, y)/np.bincount(idx)
+    
+    mat = np.column_stack([np.ones_like(mag), x-xbar[idx], y-ybar[idx], sky])
+    
+    pars = np.zeros((len(nobs), 4))
+    pars[:,0] = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
+    
+    for i in range(len(nobs)):
+        
+        if nobs[i] < 5:
+            continue
+            
+        i1 = strides[i]
+        i2 = strides[i+1]
+        
+        pars[i] = np.linalg.lstsq(mat[i1:i2]/emag[i1:i2,np.newaxis], mag[i1:i2]/emag[i1:i2], rcond=None)[0]
+
+    trend = np.sum(pars[idx]*mat, axis=1)
+
+    return trend[invsort], (nobs > 4)[idx][invsort] 
+
 def moving_mean(x, y, yerr=None, window=3.):
     """ Compute a moving mean along the x-axis. """
 
@@ -58,141 +183,40 @@ def moving_mean(x, y, yerr=None, window=3.):
     
     return mean
 
-###############################################################################
-### Detrending methods.
-###############################################################################
-
-def detrend_legendre(jd, lst, sky, mag, emag, scale0=5., scale1=.25, sig=10., maxiter=50):
-    """ Fit long-term and psf-variations using legendre polynomials.
-    
-    Args:
-        jd (float): The julian dates of the observations in UT days.
-        lst (float): The sidereal times of the observations in sidereal hours.
-        sky (float): The sky values associated with the data.
-        mag (float): The data.
-        emag (float): The uncertainties on the data.
-        scale0 (float): Smallest scale of the long-term variations on days.
-        scale1 (float): Smallest scale of the psf-variations on days.
-    
-    Returns:
-        mat (array): The matrix of babsis functions used in the fit.
-        fit1 (float): The best-fitting long-term variations.
-        fit2 (float): The best fitting psf-variations.
-        
-    """       
-    
-    mat = []    
-        
-    # Long-term variations.
-    deg0 = int(np.floor(np.ptp(jd)/scale0))
-    x = scale(jd)
-    mat0 = legendre.legvander(x, deg0)[:,1:]
-    mat.append(mat0)        
-        
-    # PSF variations.
-    lst = wrap_lst(lst)
-    deg1 = int(np.floor(np.ptp(lst)/scale1))
-    x = scale(lst)
-    mat1 = legendre.legvander(x, deg1)
-    mat.append(mat1)
-
-    # Sky dependency.    
-    mat.append(mat1*sky[:,None]/np.amax(sky))    
-    
-    # Solve.
-    mat = np.column_stack(mat)
-    mask = np.ones_like(jd, dtype='bool')
-    
-    for niter in range(maxiter):
-
-        # Compute the best fit.
-        pars = np.linalg.lstsq(mat[mask]/emag[mask,None], mag[mask]/emag[mask], rcond=None)[0]
-        fit = np.sum(pars*mat, axis=1)
-        
-        # Compute the residuals.
-        res = mag - fit
-        m0 = np.nanmedian(res)
-        m1 = statistics.mad(res)
-
-        # Update the mask.
-        mask_old = np.copy(mask)
-        mask = np.abs(res - m0) < sig*m1         
-        
-        # End the iterative process.
-        if np.all(mask == mask_old):
-            break
-            
-        if np.all(~mask):
-            break
-        
-    # Evaluate the best fit.
-    fit0 = np.sum(pars[:deg0]*mat[:,:deg0], axis=1)
-    fit1 = np.sum(pars[deg0:deg0+deg1+1]*mat[:,deg0:deg0+deg1+1], axis=1)
-    fit2 = np.sum(pars[deg0+deg1+1:]*mat[:,deg0+deg1+1:], axis=1)
-
-    return mat, fit0, fit1, fit2
-
-def linfit(lstidx, x, y, sky, mag, emag):
-    
-    sort = np.argsort(lstidx)
-    invsort = np.argsort(sort)
-    
-    lstidx = lstidx[sort]
-    x = x[sort]
-    y = y[sort]
-    sky = sky[sort]
-    mag = mag[sort]
-    emag = emag[sort]
-    
-    _, idx = np.unique(lstidx, return_inverse=True)
-    
-    nobs = np.bincount(idx)
-    steps = np.append(0, np.cumsum(nobs))
-    
-    xbar = np.bincount(idx, x)/np.bincount(idx)
-    ybar = np.bincount(idx, y)/np.bincount(idx)
-    
-    mat = np.column_stack([np.ones(len(lstidx)), x-xbar[idx], y-ybar[idx], sky])
-    
-    pars = np.zeros((len(nobs), 4))
-    pars[:,0] = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
-    
-    for i in range(len(nobs)):
-        
-        if nobs[i] < 5:
-            continue
-                
-        pars[i] = np.linalg.lstsq(mat[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1],None], mag[steps[i]:steps[i+1]]/emag[steps[i]:steps[i+1]], rcond=None)[0]
-
-    fit = np.sum(pars[idx]*mat, axis=1)
-
-    fit1 = pars[idx,0]
-    fit2 = fit - pars[idx,0]
-    
-    return fit1[invsort], fit2[invsort], (nobs > 4)[idx][invsort] 
-    
-def detrend_snellen(jd, lstseq, x, y, sky, mag, emag, window=5., maxiter=50, dtol=1e-3):
+def local_linear(jd, lstseq, x, y, sky, mag, emag, window=5., maxiter=50, dtol=1e-3):
     
     lstidx = (lstseq % 270)
-    fit0 = np.zeros(len(jd))
-    fit1 = np.zeros(len(jd)) 
     
-    fit = np.zeros_like(mag)
+    trend = np.zeros_like(mag)
+    trend0 = np.zeros_like(mag)
+    trend1 = np.zeros_like(mag)
+    
     for niter in range(maxiter):
             
-        fit1, fit2, mask = linfit(lstidx, x, y, sky, mag - fit0, emag)
-        fit0 = moving_mean(jd, mag - fit1 - fit2, emag, window)
+        trend0, mask = linfit(lstidx, x, y, sky, mag - trend1, emag)
+        trend1 = moving_mean(jd, mag - trend0, emag, window)
         
         if niter > 0:
             
-            if np.all(np.abs(fit - fit0 - fit1 - fit2) < dtol):
+            if np.all(np.abs(trend - trend0 - trend1) < dtol):
                 break
             
-        fit = fit0 + fit1 + fit2
+        trend = trend0 + trend1
+            
+    # Evaluate the best fit.  
+    trend = trend0 + trend1
+    chisq = np.sum(((mag - trend)/emag)**2)
         
-    return fit0, fit1, fit2, mask 
+    return trend, mask, chisq 
 
-def detrend_fourier(jdmid, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
+def fourier_matrix(time, freq):
+    
+    tmp = 2.*np.pi*np.outer(time, freq)
+    mat = np.column_stack([np.sin(tmp), np.cos(tmp)])
+    
+    return mat
+
+def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     """ Fit long-term and psf-variations using sine and cosine waves.
     
     Args:
@@ -216,37 +240,36 @@ def detrend_fourier(jdmid, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600
         lst = np.mod(lst+12., 24.)-12.
     
     # Compute the frequencies and matrix for the JD times.
-    freq1 = fourier.fftfreq(step[0], ns[0])
+    freq1 = np.fft.rfftfreq(ns[0], step[0])[1:]
     freq1 = np.append(np.amin(freq1)/2., freq1)
     freq1 = freq1[freq1 < 1/6.]
     
     if (len(freq1) != 0):
-        mat1 = fourier.fourier_mat(jdmid, freq1)
+        mat1 = fourier_matrix(jd, freq1)
     else:
-        mat1 = np.array([[]]*len(jdmid))
+        mat1 = np.empty((len(jd), 0))
         
     # Compute the frequencies and matrix for the LST times.
-    freq2 = fourier.fftfreq(step[1], ns[1])
+    freq2 = np.fft.rfftfreq(ns[1], step[1])[1:]
     freq2 = np.append(np.amin(freq2)/2., freq2)
     freq2 = freq2[freq2 < 1/.5]
     
     if (len(freq2) != 0):
-        mat2 = fourier.fourier_mat(lst, freq2)
+        mat2 = fourier_matrix(lst, freq2)
     else:
-        mat2 = np.array([[]]*len(jdmid))
+        mat2 = np.empty((len(jd), 0))
         
     # Compute the full matrix of basis functions.
-    mat = np.hstack([mat1, mat2])
+    mat = np.column_stack([mat1, mat2])
     
     if (mat.shape[1] == 0):
-        return mat, np.zeros(len(jdmid)), np.zeros(len(jdmid))
+        return np.zeros_like(jd), mat, [], np.sum((mag/emag)**2)
     
     # Calculate the best fit parameters.
-    pars = fourier.fit_mat(mag, emag, mat)
+    pars = np.linalg.lstsq(mat/emag[:,np.newaxis], mag/emag, rcond=None)[0]
     
     # Evaluate the fit.
-    n = 2*len(freq1)
-    fit1 = np.sum(mat[:,:n]*pars[:n], axis=1)
-    fit2 = np.sum(mat[:,n:]*pars[n:], axis=1)
+    trend = np.sum(mat*pars, axis=1)
+    chisq = np.sum(((mag - trend)/emag)**2)
 
-    return mat, fit1, fit2
+    return trend, mat, pars, chisq

@@ -6,11 +6,23 @@ Created on Tue May  9 16:23:14 2017
 """
 
 import os
+import glob
 
 import h5py
 import numpy as np
 
 from .calibration import grids
+
+###############################################################################
+### Some basic functions.
+###############################################################################
+
+def ensure_dir(path):
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
+    return
 
 ###############################################################################
 ### Code for writing files.
@@ -163,7 +175,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             
     return
 
-def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq, inj_pars=None):
+def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq, inj_pars=None):
     
     with h5py.File(filename) as f:
         
@@ -172,8 +184,8 @@ def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq, inj_
         grp.create_dataset('ascc', data=ascc)
         grp.create_dataset('chisq0', data=chisq0, dtype='float32')
 
-        for key in boxpars.dtype.names:
-            grp.create_dataset(key, data=boxpars[key])
+        for key in box_pars.dtype.names:
+            grp.create_dataset(key, data=box_pars[key])
         
         for key in criteria.dtype.names:
             grp.create_dataset(key, data=criteria[key])
@@ -188,6 +200,39 @@ def write_boxlstsq(filename, ascc, chisq0, boxpars, criteria, freq, dchisq, inj_
         grp.create_dataset('freq', data=freq)
         grp.create_dataset('dchisq', data=dchisq, dtype='float32')
     
+    return
+
+def table_boxlstsq(blsdir, outfile=None):
+    
+    # Name of the table file.
+    if outfile is None:
+        head, tail = os.path.split(blsdir)
+        outfile = os.path.join(blsdir, 'DB_' + tail + '.hdf5')
+    
+    # Get the list of files.
+    filelist = glob.glob(os.path.join(blsdir, 'bls/*.hdf5'))
+    filelist = np.sort(filelist)
+    
+    hdr = {}
+    for filename in filelist:
+            
+        # Read the header.
+        f = blsFile(filename)
+        hdr_ = f.read_header()
+        
+        # Append the header.
+        if hdr == {}:
+            hdr = hdr_
+        else:
+            for key in hdr.keys():
+                hdr[key] = np.append(hdr[key], hdr_[key])
+         
+    # Write the database table.
+    with h5py.File(outfile) as f:
+    
+        for key in hdr.keys():
+            f.create_dataset(key, data=hdr[key])
+            
     return
 
 ###############################################################################
@@ -1007,7 +1052,7 @@ def make_quarter(filename, filelist, nsteps=1000):
     file_struct = f.get_file_struct()
     
     # Write the global group.
-    with h5py.File(filelist[0]) as f:
+    with h5py.File(filelist[0], 'r') as f:
         
         data = f[file_struct['header']].attrs.items()
         

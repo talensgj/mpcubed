@@ -36,6 +36,37 @@ def sigma_clip(array, axis=None, ndev=5., niter=5):
         
     return mu, sigma
 
+def bin_data(x, y, bins, yerr=None):
+    
+    # Set the weights.
+    if yerr is None:
+        weights = np.ones_like(y)
+    else:
+        weights = 1./yerr**2
+
+    # Compute quantities in the bins.
+    x_bin = (bins[:-1] + bins[1:])/2.
+    w_sum, bins = np.histogram(x, weights=weights, bins=bins)
+    wy_sum, bins = np.histogram(x, weights=weights*y, bins=bins)
+    wysq_sum, bins = np.histogram(x, weights=weights*y**2, bins=bins)
+    
+    # Remove empty bins.
+    mask = (w_sum > 0)
+    x_bin = x_bin[mask]
+    w_sum = w_sum[mask]
+    wy_sum = wy_sum[mask]
+    wysq_sum = wysq_sum[mask]
+    
+    # Compute results.
+    y_bin = wy_sum/w_sum
+
+    if yerr is None:
+        yerr_bin = np.sqrt(wysq_sum/w_sum - (wy_sum/w_sum)**2)/np.sqrt(w_sum)
+    else:
+        yerr_bin = 1./np.sqrt(w_sum)
+        
+    return x_bin, y_bin, yerr_bin
+
 def idxstats(indices, values, statistic='mean', keeplength=False):
     """ Compute a statistic for all values with the same index.
     

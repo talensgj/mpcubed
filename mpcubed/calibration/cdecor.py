@@ -60,7 +60,7 @@ def baseline(date, part, camera, source, dest):
 
     # Create the destination directory.    
     outpath = os.path.join(dest, camera)    
-    misc.ensure_dir(outpath)
+    io.ensure_dir(outpath)
     
     # Determine the prefix.
     f = io.PhotFile(filelist[0])
@@ -121,7 +121,7 @@ def _read_header(filename, camgrid, skygrid):
     
     return stars, settings, lstmin, lstmax
 
-def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
+def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     
     # Select stars.
     if method == 'spatial':
@@ -134,6 +134,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
     ascc = stars['ascc'][mask]
     ra = stars['ra'][mask]
     dec = stars['dec'][mask]
+    vmag = stars['vmag'][mask]
     nobs = stars['nobs'][mask]
     stars_i = stars['i'][mask]
     stars_q = stars['q'][mask]
@@ -177,6 +178,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
         
     ra = np.repeat(ra, nobs)
     dec = np.repeat(dec, nobs)
+    vmag = np.repeat(vmag, nobs)
     ha = np.mod(lst*15. - ra, 360.)
     
     # Create indices.
@@ -187,6 +189,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid):
     data_q = np.repeat(stars_q, nobs)
     
     # Remove bad data.
+    mask = mask & (vmag >= maglim[0]) & (vmag <= maglim[1])
     flux = flux[mask]
     eflux = eflux[mask]
     x = x[mask]
@@ -270,8 +273,12 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
         res = mag - T[idx_k]
         wsqrt = np.sqrt(weights)
         for i in range(npars_a):
-            a[i] = np.linalg.lstsq(b_mat[strides[i]:strides[i+1],:]*wsqrt[strides[i]:strides[i+1]:,None], res[strides[i]:strides[i+1]]*wsqrt[strides[i]:strides[i+1]], rcond=None)[0]
-            ipx[strides[i]:strides[i+1]] = np.sum(a[i]*b_mat[strides[i]:strides[i+1],:], axis=1)
+            
+            i1 = strides[i]
+            i2 = strides[i+1]
+            
+            a[i] = np.linalg.lstsq(b_mat[i1:i2,:]*wsqrt[i1:i2,None], res[i1:i2]*wsqrt[i1:i2], rcond=None)[0]
+            ipx[i1:i2] = np.sum(a[i]*b_mat[i1:i2,:], axis=1)
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -423,7 +430,8 @@ class CoarseDecorrelation(object):
     
         # General parameters.
         self.dtol = kwargs.pop('dtol', 1e-3)
-        self.fixed = kwargs.pop('fixed', True) 
+        self.fixed = kwargs.pop('fixed', True)
+        self.maglim = kwargs.pop('maglim', [None, 8.4])
         self.nprocs = kwargs.pop('nprocs', 4)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
         self.inner_maxiter = kwargs.pop('inner_maxiter', 100)        
@@ -449,7 +457,7 @@ class CoarseDecorrelation(object):
         for n in self.spatial['n']:
             
             # Read data.
-            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, n, 'spatial', self.camgrid, self.ipxgrid)
+            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, n, 'spatial', self.camgrid, self.ipxgrid, self.maglim)
             data_t = data_t - self.clouds['lstmin']
             
             if (len(mag) == 0): continue
@@ -504,7 +512,7 @@ class CoarseDecorrelation(object):
         for q in self.temporal['q']:
             
             # Read data.
-            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, q, 'temporal', self.camgrid, self.ipxgrid)
+            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, q, 'temporal', self.camgrid, self.ipxgrid, self.maglim)
             data_t = data_t - self.clouds['lstmin']
             
             if (len(mag) == 0): continue
@@ -944,7 +952,7 @@ def main():
     parser.add_argument('part', type=str, choices=['A','B','C'],
                         help='letter indicating which baseline to create') 
     parser.add_argument('dest', type=str,
-                        help='Location where the products will be written, e.g. /data3/talens/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
+                        help='Location where the products will be written, e.g. /data3/mascara/reduced/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
     parser.add_argument('-c', '--cam', type=str, nargs='+', default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
                         help ='the camera(s) to perform the combination for', dest='cameras')                        
     parser.add_argument('-a', '--aper', type=int, choices=[0,1], default=0,
