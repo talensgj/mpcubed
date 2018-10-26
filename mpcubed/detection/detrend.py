@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from .. import statistics
+from .. import misc, statistics
 
 ###############################################################################
 ### Helper functions.
@@ -273,3 +273,71 @@ def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     chisq = np.sum(((mag - trend)/emag)**2)
 
     return trend, mat, pars, chisq
+
+###############################################################################
+### Remove trend from light curve.
+###############################################################################
+    
+def remove_trend(lc, nobs, model=None, method='legendre', options={}):
+
+    strides = np.append(0, np.cumsum(nobs))
+
+    # Loop over blocks of data.
+    for i in range(nobs.size):
+        
+        i1 = strides[i]
+        i2 = strides[i+1]
+        
+        # Check if there is data in this block.
+        mask = lc['mask'][i1:i2]
+
+        if np.all(~mask):
+            continue
+        
+        # Extract the good data in the block.
+        tmp = lc[i1:i2][mask]
+        
+        # Subtract the model.
+        if model is None:
+            mag = tmp['mag']
+        else:
+            mag = tmp['mag'] - model[i1:i2][mask]
+        
+        # Detrend the lightcurves.
+        if method == 'none':
+            pass
+        
+        elif method == 'polynomial':
+            
+            trend, mat, pars, chisq = polynomial(tmp['jd'], mag, tmp['emag'], **options)
+        
+            lc['trend'][i1:i2][mask] = trend
+        
+        elif method == 'legendre':        
+        
+            trend, mat, pars, chisq = legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **options)
+
+            lc['trend'][i1:i2][mask] = trend
+
+        elif method == 'loclin':
+            
+            trend, flag, chisq = local_linear(tmp['jd'], tmp['lstseq'], tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **options)
+            
+            lc['trend'][i1:i2][mask] = trend
+            lc['mask'][i1:i2][mask] = flag
+              
+        elif method == 'fourier':        
+    
+            ns = [0,0]
+            ns[0] = np.ptp(tmp['lstseq']) + 1
+            ns[1], wrap = misc.find_ns(tmp['lstseq'])
+            ns = np.maximum(ns, 2)
+            
+            trend, mat, pars, chisq = fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **options)
+            
+            lc['trend'][i1:i2][mask] = trend
+            
+        else:
+            raise ValueError('Unknown detrending method "{}"'.format(method)) 
+    
+    return lc
