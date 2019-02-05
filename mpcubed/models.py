@@ -348,7 +348,7 @@ def transit_emcee(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='le
 
     # Set up the model.
     npars = len(lc_pars) 
-    nwalkers = kwargs.pop('nwalkers', 20*npars)
+    nwalkers = kwargs.pop('nwalkers', 4*npars)
     nsteps = kwargs.pop('nsteps', 300*npars)
     threads = kwargs.pop('threads', 6)
     
@@ -472,7 +472,7 @@ def radvel_emcee(rv_pars, time, rv, erv, **kwargs):
 
     # Set up the model.
     npars = len(rv_pars) 
-    nwalkers = kwargs.pop('nwalkers', 20*npars)
+    nwalkers = kwargs.pop('nwalkers', 4*npars)
     nsteps = kwargs.pop('nsteps', 300*npars)
     threads = kwargs.pop('threads', 6)
     
@@ -759,9 +759,10 @@ def plot_corner(array, labels, figname=None):
     
     return
 
-def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, nburn=500):
+def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
     
-    npars = chain.shape[2]
+    nwalkers, nsteps, npars = chain.shape
+    nburn = int(fburn*nsteps)
     
     # Plot the walkers for inspection.
     for i in range(npars):

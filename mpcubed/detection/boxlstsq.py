@@ -5,6 +5,7 @@ import os
 import glob
 
 import numpy as np
+from numba import jit
 import multiprocessing as mp
 
 from .. import io, misc, statistics, models
@@ -66,32 +67,35 @@ def freqs(fmin, fmax, S, OS, M, R):
     
     return freq
 
-def cumsum_to_grid(time, bin_edges, flux, weights, mask):
+@jit(nopython=True)
+def mycounts(idx, weights, nbins):
     
-    ndim = flux.ndim    
+    hist = np.zeros((nbins, weights.shape[1]))
+    for i in range(len(idx)):
+        hist[idx[i]] += weights[i]
+        
+    return hist
+
+def cumsum_to_grid(time, bin_edges, wflux, weights, mask):
+    
+    ndim = wflux.ndim    
     
     if (ndim == 1):
-        flux = np.atleast_2d(flux).T
+        wflux = np.atleast_2d(wflux).T
         weights = np.atleast_2d(weights).T
         mask = np.atleast_2d(mask).T
 
     # Get the sizes of the arrays.
     nbins = len(bin_edges) 
-    npoints, nstars = flux.shape 
+    npoints, nstars = wflux.shape 
 
     # Find the bin indices.
     idx = np.searchsorted(bin_edges, time, 'right') 
     
-    # Create arrays.
-    r_cum = np.zeros((nbins, nstars))
-    s_cum = np.zeros((nbins, nstars))
-    n_cum = np.zeros((nbins, nstars))
-    
     # Compute the sums in the bins.
-    for i in range(nstars):
-        r_cum[:,i] = np.bincount(idx, weights[:,i], minlength=nbins)
-        s_cum[:,i] = np.bincount(idx, weights[:,i]*flux[:,i], minlength=nbins) 
-        n_cum[:,i] = np.bincount(idx, mask[:,i], minlength=nbins)
+    r_cum = mycounts(idx, weights, nbins)
+    s_cum = mycounts(idx, wflux, nbins) 
+    n_cum = mycounts(idx, mask, nbins)
     
     # Compute the cumulative sum.
     r_cum = np.cumsum(r_cum, axis=0)
@@ -169,6 +173,8 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     # Prepare the data for the loop.
     time0 = np.amin(time)
     time = time - time0
+    wflux = weights*flux
+    mask = mask.astype('float64')
     t = np.nansum(weights, axis=0) # Sum of weights.
     with np.errstate(invalid='ignore'):
         flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
@@ -197,7 +203,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
 
         # Sum the data on a regular grid.
         bins = np.linspace(0., 1., nbins[i] + 1)
-        r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, flux, weights, mask)
+        r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, wflux, weights, mask)
         nmax = n_cum[-1]
         # Extend the grid to account for all epochs.
         bins = np.append(bins, bins[1:NumSteps*ES] + bins[-1])
