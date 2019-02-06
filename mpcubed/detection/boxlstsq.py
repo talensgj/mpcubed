@@ -392,70 +392,6 @@ def read_data(filelist, ascc, aper=0):
 
     return time, lc2d, nobs
 
-def remove_trend(lc, nobs, model=None, method='legendre', options={}):
-
-    strides = np.append(0, np.cumsum(nobs))
-
-    # Loop over blocks of data.
-    for i in range(nobs.size):
-        
-        i1 = strides[i]
-        i2 = strides[i+1]
-        
-        # Check if there is data in this block.
-        mask = lc['mask'][i1:i2]
-
-        if np.all(~mask):
-            continue
-        
-        # Extract the good data in the block.
-        tmp = lc[i1:i2][mask]
-        
-        # Subtract the model.
-        if model is None:
-            mag = tmp['mag']
-        else:
-            mag = tmp['mag'] - model[i1:i2][mask]
-        
-        # Detrend the lightcurves.
-        if method == 'none':
-            pass
-        
-        elif method == 'polynomial':
-            
-            trend, mat, pars, chisq = detrend.polynomial(tmp['jd'], mag, tmp['emag'], **options)
-        
-            lc['trend'][i1:i2][mask] = trend
-        
-        elif method == 'legendre':        
-        
-            trend, mat, pars, chisq = detrend.legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **options)
-
-            lc['trend'][i1:i2][mask] = trend
-
-        elif method == 'loclin':
-            
-            trend, flag, chisq = detrend.local_linear(tmp['jd'], tmp['lstseq'], tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **options)
-            
-            lc['trend'][i1:i2][mask] = trend
-            lc['mask'][i1:i2][mask] = flag
-              
-        elif method == 'fourier':        
-    
-            ns = [0,0]
-            ns[0] = np.ptp(tmp['lstseq']) + 1
-            ns[1], wrap = misc.find_ns(tmp['lstseq'])
-            ns = np.maximum(ns, 2)
-            
-            trend, mat, pars, chisq = detrend.fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **options)
-            
-            lc['trend'][i1:i2][mask] = trend
-            
-        else:
-            raise ValueError('Unknown detrending method "{}"'.format(method)) 
-    
-    return lc
-
 def clip_outliers(lc, nsig=3., floor=0.05):
             
     mask = lc['mask']
@@ -519,7 +455,7 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
             lc2d[:,i] = inject_transit(lc2d[:,i], inj_pars[i])
             
         # Perform the secondary calibration.
-        lc2d[:,i] = remove_trend(lc2d[:,i], nobs, method=method)
+        lc2d[:,i] = detrend.remove_trend(lc2d[:,i], nobs, method=method)
         
         # Mask outlying data points.
         lc2d[:,i] = clip_outliers(lc2d[:,i])

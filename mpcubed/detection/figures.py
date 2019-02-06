@@ -26,7 +26,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from .. import io, statistics
-from . import boxlstsq
+from . import detrend
 
 def plot_periodogram(freq, dchisq, period, zoom=False):
     """ Plot the box least-squares periodogram. """
@@ -115,7 +115,7 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     for i in args:
                 
         # Perform the secondary calibration.
-        lc = boxlstsq.remove_trend(lc2d[:,i], nobs, method=method)
+        lc = detrend.remove_trend(lc2d[:,i], nobs, method=method)
         lc = lc[lc['mask']]
     
         # Create the figure.
@@ -184,6 +184,8 @@ def worker(queue, method, figdir):
 
 def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6): 
 
+    from .boxlstsq import read_data
+    
     # Get the box least-squares files.
     blsfiles = glob.glob(os.path.join(blsdir, 'bls/*'))
     blsfiles = np.sort(blsfiles)
@@ -209,7 +211,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
         data = f.read_data(['freq', 'dchisq'])
     
         # Read the lightcurves.
-        time, lc2d, nobs = boxlstsq.read_data(filelist, hdr['ascc'], aper=aper)
+        time, lc2d, nobs = read_data(filelist, hdr['ascc'], aper=aper)
         
         the_queue.put((hdr, data, lc2d, nobs))
         

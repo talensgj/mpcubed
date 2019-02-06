@@ -16,7 +16,7 @@ import corner
 import matplotlib.pyplot as plt
 
 from . import misc, statistics
-from .detection import boxlstsq
+from .detection import detrend
 
 ###############################################################################
 ### Parameter helper functions.
@@ -251,7 +251,7 @@ def transit_evaluate(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method=
     phase, model = transit_model(lc['jd'], lc_pars, ld_pars, ld_type)
 
     # Evaluate the baseline model.
-    lc = boxlstsq.remove_trend(lc, nobs, model=model, method=method, options=options)
+    lc = detrend.remove_trend(lc, nobs, model=model, method=method, options=options)
     
     return phase, model, lc
 
@@ -530,8 +530,10 @@ def _apply_mask(lc, nobs):
 
 def read_mascara(filelist, ascc, ra, dec, aper=0, method='legendre', options={'maxiter':1}):
     
+    from .detection.boxlstsq import read_data
+    
     # Read the data.
-    time, lc2d, nobs = boxlstsq.read_data(filelist, [ascc], aper=aper)
+    time, lc2d, nobs = read_data(filelist, [ascc], aper=aper)
     
     lc = lc2d[:,0]
     
@@ -539,7 +541,7 @@ def read_mascara(filelist, ascc, ra, dec, aper=0, method='legendre', options={'m
     lc['jd'] = misc.barycentric_dates(lc['jd'], ra, dec)
     
     # Initial trend and remove masked values.
-    lc = boxlstsq.remove_trend(lc, nobs, method=method, options=options)
+    lc = detrend.remove_trend(lc, nobs, method=method, options=options)
     lc, nobs = _apply_mask(lc, nobs)
     
     return lc, nobs
