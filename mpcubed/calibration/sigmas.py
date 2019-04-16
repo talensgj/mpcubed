@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-    
+from numba import jit    
+
+@jit(nopython=True)
 def _par_sigma_function(idx, res, errsq, err):
     
     weights = 1/(errsq + (err**2)[idx])
@@ -10,7 +12,8 @@ def _par_sigma_function(idx, res, errsq, err):
     diff = np.bincount(idx, weights**2*(res - par[idx])**2 - weights)
     
     return par, diff
-    
+
+@jit(nopython=True)
 def find_par_sigma(idx, res, errsq, maxiter=10):
     
     # Search for a solution between 0 and 2.
@@ -43,6 +46,7 @@ def find_par_sigma(idx, res, errsq, maxiter=10):
     
     return par, err3
 
+@jit(nopython=True)
 def _sigma_function(idx, ressq, errsq, err):
     
     weights = 1/(errsq + (err**2)[idx])
@@ -51,6 +55,7 @@ def _sigma_function(idx, ressq, errsq, err):
     
     return term
 
+@jit(nopython=True)
 def find_sigma(idx, residuals, errsq, maxiter=10):
     
     # Search for a solution between 0 and 2.
