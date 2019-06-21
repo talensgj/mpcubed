@@ -927,7 +927,7 @@ def _read_astrometry(filelist):
 
     return astrometry
 
-def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1000):
+def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=None, ralims=None, nsteps=1000):
     
     filelist = np.sort(filelist)    
     
@@ -945,7 +945,28 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1
             pass 
     
     # Read the combined "stars" field and index the files.
-    stars, nobs, dtype = _read_stars(filelist, file_struct)    
+    stars, nobs, dtype = _read_stars(filelist, file_struct)  
+    
+    # Select ra and dec range.
+    if declims is not None:
+        mask = (stars['dec'] >= declims[0]) & (stars['dec'] < declims[1])
+        
+        for key in range(stars.keys()):
+            stars[key] = stars[key][mask]
+            nobs = nobs[:,mask]
+        
+    if len(stars['ascc']) < 1:
+        return
+        
+    if ralims is not None:
+        mask = (stars['ra'] >= ralims[0]) & (stars['ra'] < ralims[1])
+        
+        for key in range(stars.keys()):
+            stars[key] = stars[key][mask]
+            nobs = nobs[:,mask]
+    
+    if len(stars['ascc']) < 1:
+        return
     
     if siteid == 'LP':
         stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
@@ -1123,10 +1144,10 @@ def make_quarter(filename, filelist, nsteps=1000):
 
     return
     
-def merge_files(filetype, filename, filelist, nsteps=1000):
+def merge_files(filetype, filename, filelist, nsteps=1000, declims=None, ralims=None):
     
     if filetype == 'fast':
-        make_baseline(filename, filelist, nsteps)
+        make_baseline(filename, filelist, nsteps, declims=declims, ralims=ralims)
     elif filetype == 'red':
         make_quarter(filename, filelist, nsteps)
     else:
@@ -1147,10 +1168,14 @@ def main():
                         help='the files to combine')
     parser.add_argument('-n', '--nsteps', type=int, default=1000,
                         help='the number of stars to read in one go', dest='nsteps')
+    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90.,90.],
+                        help='the declination range to process', dest='declims')
+    parser.add_argument('-r', '--ralims', type=float, nargs=2, default=[0.,360.],
+                        help='the right ascension range to process', dest='ralims')
     
     args = parser.parse_args()
     
-    merge_files(args.filetype, args.filename, args.filelist, args.nsteps)
+    merge_files(args.filetype, args.filename, args.filelist, args.nsteps, args.declims, args.ralims)
     
     return
 
