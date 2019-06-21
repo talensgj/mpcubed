@@ -432,7 +432,7 @@ def inject_transit(lc, lc_pars):
     if np.any(mask):
         
         # Compute the model lightcurve.
-        phase, model = models.transit_model(lc['jd'][mask], lc_pars)
+        phase, model = models.transit_model(lc['jd'][mask], lc_pars.tolist())
         
         # Add the model to the data.
         lc['mag'][mask] = lc['mag'][mask] + model

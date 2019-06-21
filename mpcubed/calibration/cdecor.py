@@ -10,7 +10,7 @@ import numpy as np
 import multiprocessing as mp
 
 from .. import io, misc, statistics
-from . import grids, sigmas
+from . import grids, sigmas, intrapix
 
 from collections import namedtuple
 
@@ -206,9 +206,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     mag, emag = misc.flux2mag(flux, eflux)
     
     # Create matrix for intrapixel variations.
-    sinx, cosx = np.sin(2*np.pi*x), np.cos(2*np.pi*x)
-    siny, cosy = np.sin(2*np.pi*y), np.cos(2*np.pi*y)
-    b_mat = np.column_stack([sinx, cosx, siny, cosy])
+    b_mat = intrapix.ipxmat(x, y)
     
     return mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q
     
@@ -271,14 +269,12 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
         T = np.bincount(idx_k, weights*(mag - ipx))/np.bincount(idx_k, weights)
         
         res = mag - T[idx_k]
-        wsqrt = np.sqrt(weights)
         for i in range(npars_a):
             
             i1 = strides[i]
             i2 = strides[i+1]
             
-            a[i] = np.linalg.lstsq(b_mat[i1:i2,:]*wsqrt[i1:i2,None], res[i1:i2]*wsqrt[i1:i2], rcond=None)[0]
-            ipx[i1:i2] = np.sum(a[i]*b_mat[i1:i2,:], axis=1)
+            a[i], ipx[i1:i2] = intrapix.ipxsol(res[i1:i2], weights[i1:i2], b_mat[i1:i2])
         
         # Check if the solution has converged.
         if (niter > 0):
@@ -519,7 +515,7 @@ class CoarseDecorrelation(object):
             
             # Apply known spatial correction.
             mag = mag - self.trans['trans'][data_k,data_n]
-            mag = mag - np.sum(self.intrapix['amplitudes'][data_l,data_n]*b_mat, axis=1)
+            mag = mag - intrapix.ipxmod(self.intrapix['amplitudes'][data_l,data_n], b_mat)
             
             # Create unique indices.
             i, idx_i = np.unique(data_i, return_inverse=True)
@@ -707,13 +703,11 @@ class ApplyDecorrelation(object):
         ha = np.mod(lst*15 - ra, 360.)
         dec = np.repeat(dec, len(lst))
 
-        sinx, cosx = np.sin(2*np.pi*x), np.cos(2*np.pi*x)
-        siny, cosy = np.sin(2*np.pi*y), np.cos(2*np.pi*y)
-        b_mat = np.column_stack([sinx, cosx, siny, cosy])
+        b_mat = intrapix.ipxmat(x, y)
 
         l, n = self.ipxgrid.radec2idx(ha, dec)
-        
-        ipx = np.sum(b_mat*self.intrapix['amplitudes'][l,n], axis=1)
+        ipx = intrapix.ipxmod(self.intrapix['amplitudes'][l,n], b_mat)
+
         nobs = self.intrapix['nobs'][l,n] 
         
         return ipx, nobs

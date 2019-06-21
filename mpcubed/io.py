@@ -327,7 +327,7 @@ class PhotFile(object):
             data = dict(data)
             
             for key in grp.keys():
-                data[key] = grp[key].value
+                data[key] = grp[key][()]
         
         return data
         
@@ -345,7 +345,7 @@ class PhotFile(object):
             for field in fields:
             
                 if field in grp.keys():
-                    stars[field] = grp[field].value
+                    stars[field] = grp[field][()]
                 else:
                     print 'Warning: skipping field {}, field not found.'.format(field)
                     
@@ -362,7 +362,7 @@ class PhotFile(object):
             
             grp = f[self.file_struct['station']]
             
-            lstseq_station = grp['lstseq'].value            
+            lstseq_station = grp['lstseq'][()]            
             
             if fields is None:
                 fields = grp.keys()
@@ -370,7 +370,7 @@ class PhotFile(object):
             for field in fields:
                 
                 if field in grp.keys():
-                    station[field] = grp[field].value
+                    station[field] = grp[field][()]
                 else:
                     print 'Warning: skipping field {}, field not found.'.format(field)
         
@@ -409,7 +409,7 @@ class PhotFile(object):
             for i in range(nstars):
                 
                 if ascc[i] in self.ascc0:
-                    curves[ascc[i]] = grp[ascc[i]].value
+                    curves[ascc[i]] = grp[ascc[i]][()]
                     
                 else:
                     if verbose:
@@ -513,10 +513,10 @@ class SysFile(object):
             
             grp = f['header/spatial']
             
-            spatial['niter'] = grp['niter'].value
-            spatial['chisq'] = grp['chisq'].value
-            spatial['npoints'] = grp['npoints'].value
-            spatial['npars'] = grp['npars'].value
+            spatial['niter'] = grp['niter'][()]
+            spatial['chisq'] = grp['chisq'][()]
+            spatial['npoints'] = grp['npoints'][()]
+            spatial['npars'] = grp['npars'][()]
             
         return spatial
     
@@ -534,10 +534,10 @@ class SysFile(object):
             
             grp = f['header/temporal']
             
-            temporal['niter'] = grp['niter'].value
-            temporal['chisq'] = grp['chisq'].value
-            temporal['npoints'] = grp['npoints'].value
-            temporal['npars'] = grp['npars'].value
+            temporal['niter'] = grp['niter'][()]
+            temporal['chisq'] = grp['chisq'][()]
+            temporal['npoints'] = grp['npoints'][()]
+            temporal['npars'] = grp['npars'][()]
             
         return temporal
         
@@ -555,11 +555,11 @@ class SysFile(object):
             
             grp = f['data/magnitudes']
             
-            magnitudes['ascc'] = grp['ascc'].value
-            magnitudes['vmag'] = grp['vmag'].value
-            magnitudes['nobs'] = grp['nobs'].value
-            magnitudes['mag'] = grp['mag'].value
-            magnitudes['sigma'] = grp['sigma'].value
+            magnitudes['ascc'] = grp['ascc'][()]
+            magnitudes['vmag'] = grp['vmag'][()]
+            magnitudes['nobs'] = grp['nobs'][()]
+            magnitudes['mag'] = grp['mag'][()]
+            magnitudes['sigma'] = grp['sigma'][()]
             
         return magnitudes
         
@@ -584,10 +584,10 @@ class SysFile(object):
             
             grid = grids.PolarGrid(trans['num_k'], trans['num_n'])
             
-            idx1 = grp['idx1'].value
-            idx2 = grp['idx2'].value
-            trans['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'].value)
-            trans['trans'] = grid.values2grid(idx1, idx2, grp['trans'].value)
+            idx1 = grp['idx1'][()]
+            idx2 = grp['idx2'][()]
+            trans['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
+            trans['trans'] = grid.values2grid(idx1, idx2, grp['trans'][()])
         
         return grid, trans
         
@@ -613,15 +613,15 @@ class SysFile(object):
             
             grid = grids.PolarGrid(intrapix['num_l'], intrapix['num_n'])
             
-            idx1 = grp['idx1'].value
-            idx2 = grp['idx2'].value
+            idx1 = grp['idx1'][()]
+            idx2 = grp['idx2'][()]
             
-            sinx = grid.values2grid(idx1, idx2, grp['sinx'].value)
-            cosx = grid.values2grid(idx1, idx2, grp['cosx'].value)
-            siny = grid.values2grid(idx1, idx2, grp['siny'].value)
-            cosy = grid.values2grid(idx1, idx2, grp['cosy'].value)
+            sinx = grid.values2grid(idx1, idx2, grp['sinx'][()])
+            cosx = grid.values2grid(idx1, idx2, grp['cosx'][()])
+            siny = grid.values2grid(idx1, idx2, grp['siny'][()])
+            cosy = grid.values2grid(idx1, idx2, grp['cosy'][()])
             
-            intrapix['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'].value)
+            intrapix['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
             intrapix['amplitudes'] = np.stack([sinx, cosx, siny, cosy], axis=-1)
             
         return grid, intrapix
@@ -650,12 +650,12 @@ class SysFile(object):
             
             grid = grids.HealpixGrid(clouds['num_q'])
             
-            idx = grp['idx'].value
-            lstseq = grp['lstseq'].value - clouds['lstmin']
+            idx = grp['idx'][()]
+            lstseq = grp['lstseq'][()] - clouds['lstmin']
             
-            nobs_ = grp['nobs'].value
-            clouds_ = grp['clouds'].value
-            sigma_ = grp['sigma'].value
+            nobs_ = grp['nobs'][()]
+            clouds_ = grp['clouds'][()]
+            sigma_ = grp['sigma'][()]
             
         clouds['nobs'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
         clouds['nobs'][idx, lstseq] = nobs_
@@ -688,7 +688,7 @@ class blsFile(object):
                 fields = grp.keys()            
             
             for field in fields:
-                hdr[field] = grp[field].value
+                hdr[field] = grp[field][()]
                 
         return hdr
         
@@ -704,7 +704,7 @@ class blsFile(object):
                 fields = grp.keys()
             
             for field in fields:
-                data[field] = grp[field].value
+                data[field] = grp[field][()]
         
         return data
         
@@ -835,12 +835,12 @@ def _read_stars(filelist, file_struct):
             
             for key in grp.keys():
                 
-                ascc_ = grp['ascc'].value
+                ascc_ = grp['ascc'][()]
                 
                 if key not in stars.keys():
-                    stars[key] = grp[key].value
+                    stars[key] = grp[key][()]
                 else:
-                    stars[key] = np.append(stars[key], grp[key].value)
+                    stars[key] = np.append(stars[key], grp[key][()])
 
             grp = f[file_struct['lightcurves']]
             
@@ -872,9 +872,9 @@ def _read_station(filelist):
             for key in grp.keys():
                 
                 if key not in station.keys():
-                    station[key] = grp[key].value
+                    station[key] = grp[key][()]
                 else:
-                    station[key] = np.append(station[key], grp[key].value)
+                    station[key] = np.append(station[key], grp[key][()])
                 
     return station
 
@@ -898,7 +898,7 @@ def _read_lightcurves(filelist, ascc, nobs, dtype, file_struct):
                 
                 if (nobs[i,j] > 0):
                     
-                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]].value
+                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]][()]
                     
     return curves
     
@@ -918,16 +918,16 @@ def _read_astrometry(filelist):
                 for key in grp.keys():
                     
                     if key not in astrometry.keys():
-                        astrometry[key] = [grp[key].value]
+                        astrometry[key] = [grp[key][()]]
                     else:
-                        astrometry[key].append(grp[key].value)
+                        astrometry[key].append(grp[key][()])
                     
     for key in astrometry.keys():
         astrometry[key] = np.array(astrometry[key])
 
     return astrometry
 
-def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1000):
+def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=None, ralims=None, nsteps=1000):
     
     filelist = np.sort(filelist)    
     
@@ -945,7 +945,28 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, nsteps=1
             pass 
     
     # Read the combined "stars" field and index the files.
-    stars, nobs, dtype = _read_stars(filelist, file_struct)    
+    stars, nobs, dtype = _read_stars(filelist, file_struct)  
+    
+    # Select ra and dec range.
+    if declims is not None:
+        mask = (stars['dec'] >= declims[0]) & (stars['dec'] < declims[1])
+        
+        for key in range(stars.keys()):
+            stars[key] = stars[key][mask]
+            nobs = nobs[:,mask]
+        
+    if len(stars['ascc']) < 1:
+        return
+        
+    if ralims is not None:
+        mask = (stars['ra'] >= ralims[0]) & (stars['ra'] < ralims[1])
+        
+        for key in range(stars.keys()):
+            stars[key] = stars[key][mask]
+            nobs = nobs[:,mask]
+    
+    if len(stars['ascc']) < 1:
+        return
     
     if siteid == 'LP':
         stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
@@ -1123,10 +1144,10 @@ def make_quarter(filename, filelist, nsteps=1000):
 
     return
     
-def merge_files(filetype, filename, filelist, nsteps=1000):
+def merge_files(filetype, filename, filelist, nsteps=1000, declims=None, ralims=None):
     
     if filetype == 'fast':
-        make_baseline(filename, filelist, nsteps)
+        make_baseline(filename, filelist, nsteps, declims=declims, ralims=ralims)
     elif filetype == 'red':
         make_quarter(filename, filelist, nsteps)
     else:
@@ -1147,10 +1168,14 @@ def main():
                         help='the files to combine')
     parser.add_argument('-n', '--nsteps', type=int, default=1000,
                         help='the number of stars to read in one go', dest='nsteps')
+    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90.,90.],
+                        help='the declination range to process', dest='declims')
+    parser.add_argument('-r', '--ralims', type=float, nargs=2, default=[0.,360.],
+                        help='the right ascension range to process', dest='ralims')
     
     args = parser.parse_args()
     
-    merge_files(args.filetype, args.filename, args.filelist, args.nsteps)
+    merge_files(args.filetype, args.filename, args.filelist, args.nsteps, args.declims, args.ralims)
     
     return
 
