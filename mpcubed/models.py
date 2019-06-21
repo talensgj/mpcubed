@@ -598,9 +598,9 @@ def read_emcee(filename):
         
         grp = f['data']
         
-        chain = grp['chain'].value
-        lnprob = grp['lnprob'].value
-        f_acc = grp['f_acc'].value
+        chain = grp['chain'][()]
+        lnprob = grp['lnprob'][()]
+        f_acc = grp['f_acc'][()]
         
     return chain, lnprob, f_acc, attrs
 
