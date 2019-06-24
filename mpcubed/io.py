@@ -951,9 +951,9 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
     if declims is not None:
         mask = (stars['dec'] >= declims[0]) & (stars['dec'] < declims[1])
         
-        for key in range(stars.keys()):
+        for key in stars.keys():
             stars[key] = stars[key][mask]
-            nobs = nobs[:,mask]
+        nobs = nobs[:,mask]
         
     if len(stars['ascc']) < 1:
         return
@@ -961,9 +961,9 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
     if ralims is not None:
         mask = (stars['ra'] >= ralims[0]) & (stars['ra'] < ralims[1])
         
-        for key in range(stars.keys()):
+        for key in stars.keys():
             stars[key] = stars[key][mask]
-            nobs = nobs[:,mask]
+        nobs = nobs[:,mask]
     
     if len(stars['ascc']) < 1:
         return

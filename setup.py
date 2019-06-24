@@ -15,7 +15,7 @@ setup(
     description = "The MASCARA Post-Processing Pipeline.",
     license = "CCC",
     packages = find_packages(),
-    long_description = read('README'),
+    long_description = read('README.md'),
     entry_points={'console_scripts': 
         ['merge_files = mpcubed.io:main',
          'run_calibration = mpcubed.calibration.cdecor:main',
