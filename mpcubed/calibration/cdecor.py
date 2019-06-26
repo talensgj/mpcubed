@@ -118,8 +118,14 @@ def _read_header(filename, camgrid, skygrid):
     stars['i'] = np.arange(len(stars['ascc']))
     _, stars['n'] = camgrid.radec2idx(stars['ra'], stars['dec'])
     stars['q'] = skygrid.radec2idx(stars['ra'], stars['dec'])
-    
-    return stars, settings, lstmin, lstmax
+
+    lstseq = []
+    for i in range(0, len(stars['ascc']), 250):
+        data = f.read_lightcurves(stars['ascc'][i:i+250], ['lstseq'], perstar=False)
+        lstseq.append(np.unique(data['lstseq']))
+    lstseq = np.unique(np.hstack(lstseq))
+
+    return stars, settings, lstmin, lstmax, lstseq
 
 def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     
@@ -446,7 +452,7 @@ class CoarseDecorrelation(object):
         """
         
         mngr = mp.Manager()
-        in_queue = mp.Queue(2*self.nprocs)
+        in_queue = mp.Queue(self.nprocs)
         out_queue = mngr.Queue()
         the_pool = mp.Pool(self.nprocs, worker_spatial, (in_queue, out_queue, self.kwargs))        
         
@@ -454,7 +460,7 @@ class CoarseDecorrelation(object):
             
             # Read data.
             mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, n, 'spatial', self.camgrid, self.ipxgrid, self.maglim)
-            data_t = data_t - self.clouds['lstmin']
+ #           data_t = data_t - self.clouds['lstmin']
             
             if (len(mag) == 0): continue
         
@@ -462,8 +468,9 @@ class CoarseDecorrelation(object):
         
             # Apply known temporal correction.
             if self.got_sky:
-                mag = mag - self.clouds['clouds'][data_q,data_t]
-                emag = np.sqrt(emag**2 + self.magnitudes['sigma'][data_i]**2 + self.clouds['sigma'][data_q,data_t]**2)
+                args = np.searchsorted(self.clouds['lstseq'], data_t)
+                mag = mag - self.clouds['clouds'][data_q,args]
+                emag = np.sqrt(emag**2 + self.magnitudes['sigma'][data_i]**2 + self.clouds['sigma'][data_q,args]**2)
             
             # Create unique indices.
             k, idx_k = np.unique(data_k, return_inverse=True)
@@ -501,7 +508,7 @@ class CoarseDecorrelation(object):
         """ Solve for the time-dependent sky transmission."""
         
         mngr = mp.Manager()
-        in_queue = mp.Queue(2*self.nprocs)
+        in_queue = mp.Queue(self.nprocs)
         out_queue = mngr.Queue()
         the_pool = mp.Pool(self.nprocs, worker_temporal, (in_queue, out_queue, self.kwargs))         
         
@@ -509,7 +516,7 @@ class CoarseDecorrelation(object):
             
             # Read data.
             mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data(self.photfile, self.aper, self.stars, q, 'temporal', self.camgrid, self.ipxgrid, self.maglim)
-            data_t = data_t - self.clouds['lstmin']
+ #           data_t = data_t - self.clouds['lstmin']
             
             if (len(mag) == 0): continue
             
@@ -520,14 +527,15 @@ class CoarseDecorrelation(object):
             # Create unique indices.
             i, idx_i = np.unique(data_i, return_inverse=True)
             t, idx_t = np.unique(data_t, return_inverse=True)
+            args = np.searchsorted(self.clouds['lstseq'], t)            
             
             self.magnitudes['nobs'][i] = np.bincount(idx_i)
-            self.clouds['nobs'][q,t] = np.bincount(idx_t)
+            self.clouds['nobs'][q,args] = np.bincount(idx_t)
 
             if self.fixed:
-                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,t], self.magnitudes['mag'][i]))
+                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,args], self.magnitudes['mag'][i]))
             else:
-                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,t], None))
+                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,args], None))
             
         for i in range(self.nprocs):
             in_queue.put('DONE')
@@ -545,8 +553,9 @@ class CoarseDecorrelation(object):
             self.magnitudes['mag'][i] = m_i
             self.magnitudes['sigma'][i] = sig_i
             
-            self.clouds['clouds'][q,t] = c_qt
-            self.clouds['sigma'][q,t] = sig_qt
+            args = np.searchsorted(self.clouds['lstseq'], t)
+            self.clouds['clouds'][q,args] = c_qt
+            self.clouds['sigma'][q,args] = sig_qt
             
             self.temporal['niter'][q] = quality.niter
             self.temporal['chisq'][q] = quality.chisq
@@ -584,7 +593,7 @@ class CoarseDecorrelation(object):
             raise IOError('Systematics file already exists: {}'.format(self.sysfile))
 
         # Read the required header data.
-        self.stars, settings, lstmin, lstmax = _read_header(self.photfile, self.camgrid, self.skygrid)
+        self.stars, settings, lstmin, lstmax, lstseq = _read_header(self.photfile, self.camgrid, self.skygrid)
         
         settings['outer_maxiter'] = self.outer_maxiter
         settings['inner_maxiter'] = self.inner_maxiter
@@ -637,9 +646,10 @@ class CoarseDecorrelation(object):
         self.clouds['lstmin'] = lstmin
         self.clouds['lstmax'] = lstmax
         self.clouds['lstlen'] = lstmax - lstmin + 1
-        self.clouds['nobs'] = np.zeros((self.skygrid.npix, lstmax - lstmin + 1), dtype='uint32')
-        self.clouds['clouds'] = np.full((self.skygrid.npix, lstmax - lstmin + 1), fill_value=np.nan)
-        self.clouds['sigma'] = np.zeros((self.skygrid.npix, lstmax - lstmin + 1))
+        self.clouds['lstseq'] = lstseq
+        self.clouds['nobs'] = np.zeros((self.skygrid.npix, len(lstseq)), dtype='uint32')
+        self.clouds['clouds'] = np.full((self.skygrid.npix, len(lstseq)), fill_value=np.nan)
+        self.clouds['sigma'] = np.zeros((self.skygrid.npix, len(lstseq)))
         
         self.got_sky = False
         
@@ -715,11 +725,16 @@ class ApplyDecorrelation(object):
     def get_clouds(self, ra, dec, lstseq):
       
         q = self.skygrid.radec2idx(ra, dec)
-        t = lstseq - self.clouds['lstmin']
+        args = np.searchsorted(self.clouds['lstseq'], lstseq)
         
-        clouds = self.clouds['clouds'][q,t]
-        sigma = self.clouds['sigma'][q,t]
-        nobs = self.clouds['nobs'][q,t]
+        clouds = self.clouds['clouds'][q,args]
+        sigma = self.clouds['sigma'][q,args]
+        nobs = self.clouds['nobs'][q,args]
+        
+        mask = np.in1d(lstseq, self.clouds['lstseq'])
+        clouds[~mask] = np.nan
+        sigma[~mask] = np.nan
+        nobs[~mask] = np.nan
         
         return clouds, sigma, nobs
         

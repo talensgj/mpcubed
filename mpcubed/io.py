@@ -112,14 +112,14 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp.attrs['ny'] = intrapix['num_n']
         
         # Write the sky transmission.
-        idx, lstseq = np.where(clouds['nobs'] > 0)
+        idx1, idx2 = np.where(clouds['nobs'] > 0)
 
         subgrp = grp.create_group('clouds')            
-        subgrp.create_dataset('idx', data=idx, dtype='uint32')
-        subgrp.create_dataset('lstseq', data=clouds['lstmin'] + lstseq, dtype='uint32')
-        subgrp.create_dataset('nobs', data=clouds['nobs'][idx, lstseq])
-        subgrp.create_dataset('clouds', data=clouds['clouds'][idx, lstseq], dtype='float32')
-        subgrp.create_dataset('sigma', data=clouds['sigma'][idx, lstseq], dtype='float32')
+        subgrp.create_dataset('idx', data=idx1, dtype='uint32')
+        subgrp.create_dataset('lstseq', data=clouds['lstseq'][idx2], dtype='uint32')
+        subgrp.create_dataset('nobs', data=clouds['nobs'][idx1,idx2])
+        subgrp.create_dataset('clouds', data=clouds['clouds'][idx1,idx2], dtype='float32')
+        subgrp.create_dataset('sigma', data=clouds['sigma'][idx1,idx2], dtype='float32')
         
         subgrp.attrs['grid'] = clouds['gridtype']
         subgrp.attrs['nx'] = clouds['num_q']
@@ -651,20 +651,23 @@ class SysFile(object):
             grid = grids.HealpixGrid(clouds['num_q'])
             
             idx = grp['idx'][()]
-            lstseq = grp['lstseq'][()] - clouds['lstmin']
-            
+            lstseq = grp['lstseq'][()]
+            lstseq, args = np.unique(lstseq, return_inverse=True)
+
             nobs_ = grp['nobs'][()]
             clouds_ = grp['clouds'][()]
             sigma_ = grp['sigma'][()]
-            
-        clouds['nobs'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['nobs'][idx, lstseq] = nobs_
         
-        clouds['clouds'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['clouds'][idx, lstseq] = clouds_
+        clouds['nobs'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['nobs'][idx, args] = nobs_
+        
+        clouds['clouds'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['clouds'][idx, args] = clouds_
     
-        clouds['sigma'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['sigma'][idx, lstseq] = sigma_
+        clouds['sigma'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['sigma'][idx, args] = sigma_
+        
+        clouds['lstseq'] = lstseq
         
         return grid, clouds
         
