@@ -123,6 +123,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         
         subgrp.attrs['grid'] = clouds['gridtype']
         subgrp.attrs['nx'] = clouds['num_q']
+        subgrp.attrs['ring'] = clouds['ring']
         subgrp.attrs['lstmin'] = clouds['lstmin']
         subgrp.attrs['lstmax'] = clouds['lstmax']
         subgrp.attrs['lstlen'] = clouds['lstlen']
@@ -644,11 +645,12 @@ class SysFile(object):
             
             clouds['gridtype'] = grp.attrs['grid']
             clouds['num_q'] = grp.attrs['nx']
+            clouds['ring'] = grp.attrs['ring']
             clouds['lstmin'] = grp.attrs['lstmin']
             clouds['lstmax'] = grp.attrs['lstmax']
             clouds['lstlen'] = grp.attrs['lstlen']
             
-            grid = grids.HealpixGrid(clouds['num_q'])
+            grid = grids.PolarEAGrid(clouds['num_q'])
             
             idx = grp['idx'][()]
             lstseq = grp['lstseq'][()]
@@ -658,13 +660,13 @@ class SysFile(object):
             clouds_ = grp['clouds'][()]
             sigma_ = grp['sigma'][()]
         
-        clouds['nobs'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['nobs'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
         clouds['nobs'][idx, args] = nobs_
         
-        clouds['clouds'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['clouds'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
         clouds['clouds'][idx, args] = clouds_
     
-        clouds['sigma'] = np.full((grid.npix, len(lstseq)), fill_value=np.nan)
+        clouds['sigma'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
         clouds['sigma'][idx, args] = sigma_
         
         clouds['lstseq'] = lstseq

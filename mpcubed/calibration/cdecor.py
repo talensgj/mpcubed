@@ -117,15 +117,16 @@ def _read_header(filename, camgrid, skygrid):
     # Compute star dependent indices.
     stars['i'] = np.arange(len(stars['ascc']))
     _, stars['n'] = camgrid.radec2idx(stars['ra'], stars['dec'])
-    stars['q'] = skygrid.radec2idx(stars['ra'], stars['dec'])
+    ring, stars['q'], idx = skygrid.radec2idx(stars['ra'], stars['dec'])
 
     lstseq = []
     for i in range(0, len(stars['ascc']), 250):
         data = f.read_lightcurves(stars['ascc'][i:i+250], ['lstseq'], perstar=False)
         lstseq.append(np.unique(data['lstseq']))
+
     lstseq = np.unique(np.hstack(lstseq))
 
-    return stars, settings, lstmin, lstmax, lstseq
+    return stars, settings, lstmin, lstmax, lstseq, ring[0]
 
 def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     
@@ -198,6 +199,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     mask = mask & (vmag >= maglim[0]) & (vmag <= maglim[1])
     flux = flux[mask]
     eflux = eflux[mask]
+    eflux = np.sqrt(flux)
     x = x[mask]
     y = y[mask]
     
@@ -422,13 +424,13 @@ def worker_temporal(in_queue, out_queue, kwargs):
 
 class CoarseDecorrelation(object):
     
-    def __init__(self, num_k=13500, num_l=270, num_n=720, num_q=8, **kwargs):
+    def __init__(self, num_k=13500, num_l=270, num_n=720, num_q=23, **kwargs):
         """ Perform a coarse decorrelation on all data in a given file."""
         
         # Initialize the coordinate grids.
         self.camgrid = grids.PolarGrid(num_k, num_n)        
         self.ipxgrid = grids.PolarGrid(num_l, num_n)
-        self.skygrid = grids.HealpixGrid(num_q)    
+        self.skygrid = grids.PolarEAGrid(num_q)
     
         # General parameters.
         self.dtol = kwargs.pop('dtol', 1e-3)
@@ -579,13 +581,13 @@ class CoarseDecorrelation(object):
 
         # The systematics file.
         if self.fixed:
-            prefix = 'sys{}_vmag_'.format(self.aper)
+            prefix = 'sys{}_vmag_pea_poi_'.format(self.aper)
         else:
-            prefix = 'sys{}_'.format(self.aper)        
+            prefix = 'sys{}_pea_poi_'.format(self.aper)
         
         if self.sysfile is None:
             head, tail = os.path.split(self.photfile)
-            tail = prefix + tail.rsplit('_')[-1]
+            tail = prefix + tail.split('_', 1)[-1]
             self.sysfile = os.path.join(head, tail)
         
         # Check of the systematics file exists.
@@ -593,7 +595,7 @@ class CoarseDecorrelation(object):
             raise IOError('Systematics file already exists: {}'.format(self.sysfile))
 
         # Read the required header data.
-        self.stars, settings, lstmin, lstmax, lstseq = _read_header(self.photfile, self.camgrid, self.skygrid)
+        self.stars, settings, lstmin, lstmax, lstseq, ring = _read_header(self.photfile, self.camgrid, self.skygrid)
         
         settings['outer_maxiter'] = self.outer_maxiter
         settings['inner_maxiter'] = self.inner_maxiter
@@ -642,14 +644,15 @@ class CoarseDecorrelation(object):
         # The cloud corrections.
         self.clouds = dict()
         self.clouds['gridtype'] = 'healpix'
-        self.clouds['num_q'] = self.skygrid.nside
+        self.clouds['num_q'] = self.skygrid.nrings
+        self.clouds['ring'] = ring
         self.clouds['lstmin'] = lstmin
         self.clouds['lstmax'] = lstmax
         self.clouds['lstlen'] = lstmax - lstmin + 1
         self.clouds['lstseq'] = lstseq
-        self.clouds['nobs'] = np.zeros((self.skygrid.npix, len(lstseq)), dtype='uint32')
-        self.clouds['clouds'] = np.full((self.skygrid.npix, len(lstseq)), fill_value=np.nan)
-        self.clouds['sigma'] = np.zeros((self.skygrid.npix, len(lstseq)))
+        self.clouds['nobs'] = np.zeros((self.skygrid.ncells[ring], len(lstseq)), dtype='uint32')
+        self.clouds['clouds'] = np.full((self.skygrid.ncells[ring], len(lstseq)), fill_value=np.nan)
+        self.clouds['sigma'] = np.zeros((self.skygrid.ncells[ring], len(lstseq)))
         
         self.got_sky = False
         
@@ -685,6 +688,14 @@ class ApplyDecorrelation(object):
         self.ipxgrid, self.intrapix = f.read_intrapix()  
         self.skygrid, self.clouds = f.read_clouds()        
         
+        # sig_c cutoff.
+        self.cutoff = 0.05
+#        mask = (np.isfinite(self.clouds['sigma'])) & (self.clouds['sigma'] > 0)
+#        mu, sigma = statistics.median_clip(self.clouds['sigma'][mask], ndev=3., maxiter=10)
+#        self.cutoff = mu + 3.*sigma
+
+        print self.cutoff
+
         return
         
     def get_magnitudes(self, ascc):
@@ -724,13 +735,13 @@ class ApplyDecorrelation(object):
         
     def get_clouds(self, ra, dec, lstseq):
       
-        q = self.skygrid.radec2idx(ra, dec)
+        ring, cell, q = self.skygrid.radec2idx(ra, dec)
         args = np.searchsorted(self.clouds['lstseq'], lstseq)
         
-        clouds = self.clouds['clouds'][q,args]
-        sigma = self.clouds['sigma'][q,args]
-        nobs = self.clouds['nobs'][q,args]
-        
+        clouds = self.clouds['clouds'][cell,args]
+        sigma = self.clouds['sigma'][cell,args]
+        nobs = self.clouds['nobs'][cell,args]
+
         mask = np.in1d(lstseq, self.clouds['lstseq'])
         clouds[~mask] = np.nan
         sigma[~mask] = np.nan
@@ -752,7 +763,7 @@ class ApplyDecorrelation(object):
         
         clouds, sigma, nobs = self.get_clouds(ra, dec, lstseq)
         flag = np.where(nobs < 25, flag+8, flag)
-        flag = np.where(sigma > .05, flag+16, flag)
+        flag = np.where(sigma > self.cutoff, flag+16, flag)
         
         systematics = trans + ipx + clouds
         flag = np.where(np.isnan(systematics), flag + 1, flag)
