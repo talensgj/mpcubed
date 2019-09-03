@@ -778,13 +778,13 @@ class ApplyDecorrelation(object):
          
         # The reduced lightcurves file.
         if 'vmag' in self.sysfile:
-            prefix = 'red{}_vmag_'.format(aper)
+            prefix = 'red{}_vmag_pea_poi_'.format(self.aper)
         else:
-            prefix = 'red{}_'.format(aper)
+            prefix = 'red{}_pea_poi_'.format(self.aper)
         
         if redfile is None:
             head, tail = os.path.split(photfile)
-            tail = prefix + tail.rsplit('_')[-1]
+            tail = prefix + tail.split('_', 1)[-1]
             redfile = os.path.join(head, tail)
         
         # Check if the reduced lightcurves file exists.
