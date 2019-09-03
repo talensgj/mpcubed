@@ -23,7 +23,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from .. import io, misc
-from lsreduce import io as lsio
+#from lsreduce import io as lsio
 
 def _hadec2xy(wcspars, ha, dec):
             
@@ -144,7 +144,7 @@ def fig_magnitudes(filename, figname=None):
     
     plt.scatter(vmag, sigma, color='black', marker='.', alpha=.5, edgecolor='none')
     
-    plt.ylim(0, 2)
+    plt.ylim(0, 0.5)
     
     plt.xlabel('V')
     plt.ylabel(r'$\sigma$')
@@ -360,7 +360,7 @@ def fig_sigma(filename, figname=None):
     
     plt.subplot(gs[1,0], xticks=[], yticks=[])
       
-    im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=2.)
+    im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=0.5)
     
     idx, = np.where(np.diff(idx2) > 50)
     for i in idx:
