@@ -100,7 +100,7 @@ def plot_boxcurve(box_pars):
     # Compute x and y values for plotting a boxfit.
     x = .5*T14/P        
     x = np.array([-.5, -x, -x, x, x, .5])
-    y = np.array([0, 0, delta, delta, 0, 0,])
+    y = np.array([0, 0, -delta, -delta, 0, 0])
     
     plt.plot(x, y, c=(146./255,0,0), lw=2, zorder=20)    
     
@@ -108,7 +108,7 @@ def plot_boxcurve(box_pars):
 
 def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     
-    args, = np.where(hdr['depth'] > 0)
+    args, = np.where(hdr['sde'] >= 5)
     
     box_pars = np.column_stack([hdr['epoch'], hdr['period'], hdr['duration'], hdr['depth']])
     
@@ -129,12 +129,12 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
         plt.subplot(gs[1,:4])
         
         plt.title('Periodogram')
-        plot_periodogram(data['freq'], data['dchisq'][:,i], box_pars[i,1])                     
+        plot_periodogram(data['freq'], data['dchisq_dec'][:,i], box_pars[i,1])
         
         plt.subplot(gs[1,4:])
         
         plt.title('Periodogram zoom')
-        plot_periodogram(data['freq'], data['dchisq'][:,i], box_pars[i,1], zoom=True)    
+        plot_periodogram(data['freq'], data['dchisq_dec'][:,i], box_pars[i,1], zoom=True)
         
         # Plot the data and the best-fit box-model.
         plt.subplot(gs[2:4,:4])
@@ -191,7 +191,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
     blsfiles = np.sort(blsfiles)
     
     # Get the photometry files.
-    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S') 
+    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S', delimiter=',')
 
     # Create the output directory.
     figdir = os.path.join(blsdir, 'figures')
@@ -207,8 +207,8 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
 
         # Read the box least-squares results.
         f = io.blsFile(blsfile)
-        hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration'])  
-        data = f.read_data(['freq', 'dchisq'])
+        hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration', 'sde'])
+        data = f.read_data(['freq', 'dchisq_dec'])
     
         # Read the lightcurves.
         time, lc2d, nobs = read_data(filelist, hdr['ascc'], aper=aper)

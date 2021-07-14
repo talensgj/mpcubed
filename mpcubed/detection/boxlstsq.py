@@ -188,7 +188,8 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     else:
         res_shape = (nfreq, flux.shape[1])
     
-    dchisq = np.zeros(res_shape)
+    dchisq_inc = np.zeros(res_shape)
+    dchisq_dec = np.zeros(res_shape)
     
     depth = np.zeros(res_shape)
     epoch = np.zeros(res_shape)
@@ -205,6 +206,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
         bins = np.linspace(0., 1., nbins[i] + 1)
         r_cum, s_cum, n_cum = cumsum_to_grid(phase, bins, wflux, weights, mask)
         nmax = n_cum[-1]
+
         # Extend the grid to account for all epochs.
         bins = np.append(bins, bins[1:NumSteps*ES] + bins[-1])
         n_cum = np.append(n_cum, n_cum[1:NumSteps*ES] + n_cum[-1], axis=0)
@@ -223,50 +225,62 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
         n = n_cum[i2] - n_cum[i1]
         r = r_cum[i2] - r_cum[i1]
         s = s_cum[i2] - s_cum[i1]
-        
+
+        # Compute the epoch and duration values.
         epoch_tmp = (bins[i1] + bins[i2])/(2*freq[i])
         duration_tmp = (bins[i2] - bins[i1])/freq[i]
-        
-        # Find the best fit.
+
+        # Compute the depth and dchisq values.
         with np.errstate(invalid='ignore', divide='ignore'):
+            depth_tmp = s*t/(r*(t - r))
             dchisq_tmp = s**2*t/(r*(t - r))
-        
+
         # Set dchisq to zero if all data is out-of-transit or in-transit.
         dchisq_tmp[n < 1] = 0
         dchisq_tmp[(nmax - n) < 1] = 0
-        
-        # Set dchisq to zero if too few points are in-transit.
+
+        depth_tmp[n < 1] = 0
+        depth_tmp[(nmax - n) < 1] = 0
+
+        # Set dchisq to zero if too few points are in-transit or too few out-of-transit.
         nmin = duration_tmp/exp_time
-        if (dchisq.ndim > 1):
-            dchisq_tmp[n < nmin[:,None]] = 0
+        if dchisq_dec.ndim > 1:
+
+            depth_tmp[n < nmin[:, None]] = 0
+            dchisq_tmp[n < nmin[:, None]] = 0
+            depth_tmp[(nmax - n) < nmin[:, None]] = 0
+            dchisq_tmp[(nmax - n) < nmin[:, None]] = 0
+
         else:
+
+            depth_tmp[n < nmin] = 0
             dchisq_tmp[n < nmin] = 0
+            depth_tmp[(nmax - n) < nmin] = 0
+            dchisq_tmp[(nmax - n) < nmin] = 0
 
         # Select the best solution.
-        args_1d = np.nanargmax(dchisq_tmp, axis=0)
+        args_inc_1d = np.nanargmax(dchisq_tmp*np.sign(depth_tmp), axis=0)
+        args_dec_1d = np.nanargmin(dchisq_tmp*np.sign(depth_tmp), axis=0)
         
         if (np.ndim(flux) == 2):
             args_2d = np.arange(flux.shape[1])
-            args_2d = (args_1d, args_2d)
+            args_inc_2d = (args_inc_1d, args_2d)
+            args_dec_2d = (args_dec_1d, args_2d)
         else:
-            args_2d = args_1d
+            args_inc_2d = args_inc_1d
+            args_dec_2d = args_dec_1d
+        
+        dchisq_inc[i] = dchisq_tmp[args_inc_2d]
+        dchisq_dec[i] = dchisq_tmp[args_dec_2d]
 
-        n = n[args_2d]
-        r = r[args_2d]
-        s = s[args_2d]
-        
-        dchisq[i] = dchisq_tmp[args_2d]
-        
-        with np.errstate(invalid='ignore', divide='ignore'):
-            depth[i] = s*t/(r*(t - r))
-            
-        epoch[i] = epoch_tmp[args_1d]
-        duration[i] = duration_tmp[args_1d]
-        nt[i] = n
+        depth[i] = depth_tmp[args_dec_2d]
+        epoch[i] = epoch_tmp[args_dec_1d]
+        duration[i] = duration_tmp[args_dec_1d]
+        nt[i] = n[args_dec_2d]
         
     epoch = epoch + time0
         
-    return freq, chisq0, dchisq, depth, epoch, duration, nt
+    return freq, chisq0, dchisq_inc, dchisq_dec, depth, epoch, duration, nt
 
 ###############################################################################
 ### Functions for reading the reduced lightcurves.
@@ -469,7 +483,7 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
         weights = np.where(lc2d['mask'], 1./lc2d['emag']**2, 0.)
         
     # Run the box least-squares search.    
-    freq, chisq0, dchisq, depth, epoch, duration, nt = boxlstsq(time['jd'], lc2d['mag'], weights, lc2d['mask'])
+    freq, chisq0, dchisq_inc, dchisq_dec, depth, epoch, duration, nt = boxlstsq(time['jd'], -lc2d['mag'], weights, lc2d['mask'])
     
     # Create arrays.
     nstars = len(ascc)
@@ -488,22 +502,22 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
     for i in range(nstars):
         
         # Best-fit parameters.
-        arg = np.argmax(dchisq[:,i])
+        arg = np.argmax(dchisq_dec[:,i])
         box_pars[i] = epoch[arg,i], 1./freq[arg], duration[arg,i], depth[arg,i]
         
         lc = lc2d[:,i]
         mask = lc['mask']
         
         # Quality criteria.
-        if np.any(mask) & (dchisq[arg,i] > 0):
+        if np.any(mask) & (dchisq_dec[arg,i] > 0):
             
-            sde, atr = criteria.boxlstsq_criteria(dchisq[:,i], depth[:,i])
-            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], lc['mag'][mask], lc['emag'][mask], box_pars[i])
+            sde, atr = criteria.boxlstsq_criteria(dchisq_dec[:,i], dchisq_inc[:,i])
+            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], -lc['mag'][mask], lc['emag'][mask], box_pars[i])
     
             blscrit[i] = sde, atr, gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp
             
     # Save the results to file.
-    io.write_boxlstsq(blsfile, ascc, chisq0, box_pars, blscrit, freq, dchisq, inj_pars)
+    io.write_boxlstsq(blsfile, ascc, chisq0, box_pars, blscrit, freq, dchisq_inc, dchisq_dec, inj_pars)
 
     return
     

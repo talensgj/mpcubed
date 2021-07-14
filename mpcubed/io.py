@@ -175,7 +175,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             
     return
 
-def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq, inj_pars=None):
+def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq_inc, dchisq_dec, inj_pars=None):
     
     with h5py.File(filename, 'w-') as f:
         
@@ -198,7 +198,8 @@ def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq, inj
         # Write the data.
         grp = f.create_group('data')
         grp.create_dataset('freq', data=freq)
-        grp.create_dataset('dchisq', data=dchisq, dtype='float32')
+        grp.create_dataset('dchisq_inc', data=dchisq_inc, dtype='float32')
+        grp.create_dataset('dchisq_dec', data=dchisq_dec, dtype='float32')
     
     return
 
@@ -1182,4 +1183,3 @@ def main():
 if __name__ == '__main__':
     
     main()
-    

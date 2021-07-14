@@ -32,16 +32,16 @@ def compute_sde(dchisq, width=2500, center=250):
     
     return sde
 
-def boxlstsq_criteria(dchisq, depth):
+def boxlstsq_criteria(dchisq_dec, dchisq_inc):
 
     with np.errstate(invalid='ignore', divide='ignore'):
 
         # Signal Detection Efficiency (SDE).    
-        sde = compute_sde(dchisq)   
+        sde = compute_sde(dchisq_dec)
         
         # Anti-transit ratio.
-        tmp = dchisq*np.sign(depth)
-        atr = -np.amax(tmp)/np.amin(tmp)
+        arg = np.argmax(dchisq_dec)
+        atr = dchisq_dec[arg]/dchisq_inc[arg]
 
     return sde, atr  
 
