@@ -173,13 +173,13 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     # Prepare the data for the loop.
     time0 = np.amin(time)
     time = time - time0
-    wflux = weights*flux
     mask = mask.astype('float64')
-    t = np.nansum(weights, axis=0) # Sum of weights.
+    t = np.nansum(weights, axis=0)  # Sum of weights.
     with np.errstate(invalid='ignore'):
-        flux = flux - np.nansum(weights*flux, axis=0)/t # Subtract average
-    chisq0 = np.nansum(weights*flux**2., axis=0) # Best fit constant model.
-    
+        flux = flux - np.nansum(weights*flux, axis=0)/t  # Subtract average
+    wflux = weights*flux
+    chisq0 = np.nansum(weights*flux**2., axis=0)  # Best fit constant model.
+
     # Create arrays.
     nfreq = len(freq)
     
