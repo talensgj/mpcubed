@@ -531,7 +531,19 @@ def search_skypatch_mp(queue):
         if (item == 'DONE'):
             break
         else:
-            search_skypatch(*item)
+
+            # Unpack the arguments.
+            item, method, tmpfile, blsfile, inj_pars = item
+
+            # Read the temporary file.
+            npzfile = np.load(tmpfile)
+            ascc, time, lc2d, nobs = npzfile['ascc'], npzfile['time'], npzfile['lc2d'], npzfile['nobs']
+
+            # Remove the temporary file.
+            os.remove(tmpfile)
+
+            # Call the search algorithm.
+            search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars)
     
     return
 
@@ -619,18 +631,25 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
             
         time['jd'] = misc.barycentric_dates(time['jd'], ra_, dec_)
         
-        # Filename for the output file. 
+        # Filenames for the output file and temporary data file.
         if not injection:
+            tmpfile = 'tmp_patch{:03d}.npz'.format(item)
             blsfile = 'bls{}_{}{}_patch{:03d}.hdf5'.format(aper, name, method, item)
         else:
+            tmpfile = 'tmp_ascc{}.npz'.format(ascc[item])
             blsfile = 'bls{}_{}{}_ascc{}.hdf5'.format(aper, name, method, ascc[item])
 
+        tmpfile = os.path.join(blsdir, tmpfile)
         blsfile = os.path.join(blsdir, blsfile)
-        
+
+        # Save the data arrays to a temporary file.
+        # Data volumes are too large to put directly in the queue.
+        np.savez(tmpfile, ascc=ascc_, time=time, lc2d=lc2d, nobs=nobs)
+
         if not injection:
-            the_queue.put((item, ascc_, time, lc2d, nobs, method, blsfile, None))
+            the_queue.put((item, method, tmpfile, blsfile, None))
         else:
-            the_queue.put((ascc[item], ascc_, time, lc2d, nobs, method, blsfile, inj_pars))
+            the_queue.put((ascc[item], method, tmpfile, blsfile, inj_pars))
     
     # End the multiprocessing.
     for i in range(nprocs):
