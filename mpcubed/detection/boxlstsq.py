@@ -642,7 +642,7 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
         tmpfile = os.path.join(blsdir, tmpfile)
         blsfile = os.path.join(blsdir, blsfile)
 
-        # Save the data arrays to a temporary file.
+        # Save the lightcurves to a temporary file.
         # Data volumes are too large to put directly in the queue.
         np.savez(tmpfile, ascc=ascc_, time=time, lc2d=lc2d, nobs=nobs)
 

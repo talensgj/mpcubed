@@ -176,8 +176,18 @@ def worker(queue, method, figdir):
         if (item == 'DONE'):
             break
         else:
-            
-            hdr, data, lc2d, nobs = item
+
+            # Unpack the arguments.
+            hdr, data, tmpfile = item
+
+            # Read the temporary file.
+            npzfile = np.load(tmpfile)
+            ascc, time, lc2d, nobs = npzfile['ascc'], npzfile['time'], npzfile['lc2d'], npzfile['nobs']
+
+            # Remove the temporary file.
+            os.remove(tmpfile)
+
+            # Make the diagnostic figures.
             figs_candidates(hdr, data, lc2d, nobs, method, figdir)
     
     return    
@@ -212,8 +222,13 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
     
         # Read the lightcurves.
         time, lc2d, nobs = read_data(filelist, hdr['ascc'], aper=aper)
-        
-        the_queue.put((hdr, data, lc2d, nobs))
+
+        # Save the lightcurves to a temporary file.
+        # Data volumes are too large to put directly in the queue.
+        tmpfile = os.path.splitext(blsfile)[0] + '.npz'
+        np.savez(tmpfile, ascc=hdr['ascc'], time=time, lc2d=lc2d, nobs=nobs)
+
+        the_queue.put((hdr, data, tmpfile))
         
     # End the multiprocessing.
     for i in range(nprocs):
