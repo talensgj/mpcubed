@@ -28,7 +28,7 @@ def ensure_dir(path):
 ### Code for writing files.
 ###############################################################################
 
-def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, intrapix, clouds):
+def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, intrapix, clouds, mode='vmag'):
     
     with h5py.File(filename, 'w-') as f:
 
@@ -116,17 +116,23 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
 
         subgrp = grp.create_group('clouds')            
         subgrp.create_dataset('idx', data=idx1, dtype='uint32')
-        subgrp.create_dataset('lstseq', data=clouds['lstseq'][idx2], dtype='uint32')
         subgrp.create_dataset('nobs', data=clouds['nobs'][idx1,idx2])
         subgrp.create_dataset('clouds', data=clouds['clouds'][idx1,idx2], dtype='float32')
         subgrp.create_dataset('sigma', data=clouds['sigma'][idx1,idx2], dtype='float32')
+        if mode == 'vmag':
+            subgrp.create_dataset('lstseq', data=clouds['lstmin'] + idx2, dtype='uint32')
+        elif mode == 'polar':
+            subgrp.create_dataset('lstseq', data=clouds['lstseq'][idx2], dtype='uint32')
+        else:
+            raise ValueError("mode must be 'vmag' or 'polar'")
         
         subgrp.attrs['grid'] = clouds['gridtype']
         subgrp.attrs['nx'] = clouds['num_q']
-        subgrp.attrs['ring'] = clouds['ring']
         subgrp.attrs['lstmin'] = clouds['lstmin']
         subgrp.attrs['lstmax'] = clouds['lstmax']
         subgrp.attrs['lstlen'] = clouds['lstlen']
+        if mode == 'polar':
+            subgrp.attrs['ring'] = clouds['ring']
 
     return
 
@@ -444,16 +450,232 @@ class PhotFile(object):
             return curves[ascc[0]]             
             
         return curves
-        
+
 class SysFile(object):
+    """ Read data from systematics files.
+
+    Attributes:
+        sysfile (str): The full path to the file.
+
+    """
+
+    def __init__(self, sysfile):
+        """ Initialize a reader of systematics files.
+
+        Args:
+            sysfile (str): The full path to the file.
+
+        """
+
+        self.sysfile = sysfile
+
+        return
+
+    def read_header(self):
+        """ Read all header attributes.
+
+        Returns:
+            data: A list of attribute (key, value) pairs.
+
+        """
+
+        with h5py.File(self.sysfile, 'r') as f:
+            data = f['header'].attrs.items()
+
+        return data
+
+    def read_pointing(self):
+        """ Read the pointing associated with the systematics.
+
+        Returns:
+            alt0 (float): The pointing altitude in degrees.
+            az0 (float): The pointing azimuth in degrees.
+            th0 (float): The pointing orientation in degrees.
+            x0 (float): The pointing center in pixels.
+            y0 (float): The pointing center in pixels.
+
+        """
+
+        with h5py.File(self.sysfile, 'r') as f:
+            alt0 = f['header'].attrs['alt0']
+            az0 = f['header'].attrs['az0']
+            th0 = f['header'].attrs['th0']
+            x0 = f['header'].attrs['x0']
+            y0 = f['header'].attrs['y0']
+
+        return alt0, az0, th0, x0, y0
+
+    def read_spatial(self):
+        """ Read the spatial quality statistics.
+
+        Returns:
+            spatial (dict): A dictionary containing the quality statistics.
+
+        """
+
+        spatial = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['header/spatial']
+
+            spatial['niter'] = grp['niter'][()]
+            spatial['chisq'] = grp['chisq'][()]
+            spatial['npoints'] = grp['npoints'][()]
+            spatial['npars'] = grp['npars'][()]
+
+        return spatial
+
+    def read_temporal(self):
+        """ Read the temporal quality statistics.
+
+        Returns:
+            temporal (dict): A dictionary containing the quality statistics.
+
+        """
+
+        temporal = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['header/temporal']
+
+            temporal['niter'] = grp['niter'][()]
+            temporal['chisq'] = grp['chisq'][()]
+            temporal['npoints'] = grp['npoints'][()]
+            temporal['npars'] = grp['npars'][()]
+
+        return temporal
+
+    def read_magnitudes(self):
+        """ Read the best-fit magnitudes.
+
+        Returns:
+            magnitudes (dict): Containing: ascc, vmag, nobs, mag and sigma.
+
+        """
+
+        magnitudes = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['data/magnitudes']
+
+            magnitudes['ascc'] = grp['ascc'][()]
+            magnitudes['vmag'] = grp['vmag'][()]
+            magnitudes['nobs'] = grp['nobs'][()]
+            magnitudes['mag'] = grp['mag'][()]
+            magnitudes['sigma'] = grp['sigma'][()]
+
+        return magnitudes
+
+    def read_trans(self):
+        """ Read the fitted transmission.
+
+        Returns:
+            grid: A polar grid instance corresponding to the transmission map.
+            trans (dict): Containing: grid, num_k, num_n, nobs, trans.
+
+        """
+
+        trans = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['data/trans']
+
+            trans['gridtype'] = grp.attrs['grid']
+            trans['num_k'] = grp.attrs['nx']
+            trans['num_n'] = grp.attrs['ny']
+
+            grid = grids.PolarGrid(trans['num_k'], trans['num_n'])
+
+            idx1 = grp['idx1'][()]
+            idx2 = grp['idx2'][()]
+            trans['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
+            trans['trans'] = grid.values2grid(idx1, idx2, grp['trans'][()])
+
+        return grid, trans
+
+    def read_intrapix(self):
+        """ Read the fitted intrapixel variations.
+
+        Returns:
+            grid: A polar grid instance corresponding to the intrapixel
+                variations.
+            intrapix (dict): Containing grid, num_l, num_n, nobs, amplitudes/
+
+        """
+
+        intrapix = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['data/intrapix']
+
+            intrapix['gridtype'] = grp.attrs['grid']
+            intrapix['num_l'] = grp.attrs['nx']
+            intrapix['num_n'] = grp.attrs['ny']
+
+            grid = grids.PolarGrid(intrapix['num_l'], intrapix['num_n'])
+
+            idx1 = grp['idx1'][()]
+            idx2 = grp['idx2'][()]
+
+            sinx = grid.values2grid(idx1, idx2, grp['sinx'][()])
+            cosx = grid.values2grid(idx1, idx2, grp['cosx'][()])
+            siny = grid.values2grid(idx1, idx2, grp['siny'][()])
+            cosy = grid.values2grid(idx1, idx2, grp['cosy'][()])
+
+            intrapix['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
+            intrapix['amplitudes'] = np.stack([sinx, cosx, siny, cosy], axis=-1)
+
+        return grid, intrapix
+
+    def read_clouds(self):
+        """ Read the fitted clouds.
+
+        Returns:
+            grid: A healpix grid instance corresponding to the clouds.
+            clouds (dict): Containing: gridtype, num_q, lstmin, lstmax, lstlen,
+                nobs, clouds, sigma.
+
+        """
+
+        clouds = dict()
+
+        with h5py.File(self.sysfile, 'r') as f:
+            grp = f['data/clouds']
+
+            clouds['gridtype'] = grp.attrs['grid']
+            clouds['num_q'] = grp.attrs['nx']
+            clouds['lstmin'] = grp.attrs['lstmin']
+            clouds['lstmax'] = grp.attrs['lstmax']
+            clouds['lstlen'] = grp.attrs['lstlen']
+
+            grid = grids.HealpixGrid(clouds['num_q'])
+
+            idx = grp['idx'][()]
+            lstseq = grp['lstseq'][()] - clouds['lstmin']
+
+            nobs_ = grp['nobs'][()]
+            clouds_ = grp['clouds'][()]
+            sigma_ = grp['sigma'][()]
+
+        clouds['nobs'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['nobs'][idx, lstseq] = nobs_
+
+        clouds['clouds'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['clouds'][idx, lstseq] = clouds_
+
+        clouds['sigma'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
+        clouds['sigma'][idx, lstseq] = sigma_
+
+        return grid, clouds
+
+class SysFilePolar(SysFile):
     """ Read data from systematics files.
     
     Attributes:
         sysfile (str): The full path to the file.
         
     """
-    
-    
+
     def __init__(self, sysfile):
         """ Initialize a reader of systematics files.
         
@@ -462,171 +684,9 @@ class SysFile(object):
             
         """
         
-        self.sysfile = sysfile
+        SysFile.__init__(self, sysfile)
         
         return
-        
-    def read_header(self):
-        """ Read all header attributes.
-        
-        Returns:
-            data: A list of attribute (key, value) pairs.
-        
-        """
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            data = f['header'].attrs.items()
-        
-        return data
-        
-    def read_pointing(self):
-        """ Read the pointing associated with the systematics.
-        
-        Returns:
-            alt0 (float): The pointing altitude in degrees.
-            az0 (float): The pointing azimuth in degrees. 
-            th0 (float): The pointing orientation in degrees.
-            x0 (float): The pointing center in pixels.
-            y0 (float): The pointing center in pixels.
-            
-        """
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            alt0 = f['header'].attrs['alt0']
-            az0 = f['header'].attrs['az0']
-            th0 = f['header'].attrs['th0']
-            x0 = f['header'].attrs['x0']
-            y0 = f['header'].attrs['y0']
-        
-        return alt0, az0, th0, x0, y0
-        
-    def read_spatial(self):
-        """ Read the spatial quality statistics.
-                
-        Returns:
-            spatial (dict): A dictionary containing the quality statistics.
-        
-        """
-        
-        spatial = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['header/spatial']
-            
-            spatial['niter'] = grp['niter'][()]
-            spatial['chisq'] = grp['chisq'][()]
-            spatial['npoints'] = grp['npoints'][()]
-            spatial['npars'] = grp['npars'][()]
-            
-        return spatial
-    
-    def read_temporal(self):
-        """ Read the temporal quality statistics.
-                
-        Returns:
-            temporal (dict): A dictionary containing the quality statistics.
-        
-        """
-        
-        temporal = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['header/temporal']
-            
-            temporal['niter'] = grp['niter'][()]
-            temporal['chisq'] = grp['chisq'][()]
-            temporal['npoints'] = grp['npoints'][()]
-            temporal['npars'] = grp['npars'][()]
-            
-        return temporal
-        
-    def read_magnitudes(self):
-        """ Read the best-fit magnitudes.
-        
-        Returns:
-            magnitudes (dict): Containing: ascc, vmag, nobs, mag and sigma.
-            
-        """
-        
-        magnitudes = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['data/magnitudes']
-            
-            magnitudes['ascc'] = grp['ascc'][()]
-            magnitudes['vmag'] = grp['vmag'][()]
-            magnitudes['nobs'] = grp['nobs'][()]
-            magnitudes['mag'] = grp['mag'][()]
-            magnitudes['sigma'] = grp['sigma'][()]
-            
-        return magnitudes
-        
-    def read_trans(self):
-        """ Read the fitted transmission.
-        
-        Returns:
-            grid: A polar grid instance corresponding to the transmission map.
-            trans (dict): Containing: grid, num_k, num_n, nobs, trans.
-        
-        """
-
-        trans = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['data/trans']
-            
-            trans['gridtype'] = grp.attrs['grid']
-            trans['num_k'] = grp.attrs['nx']
-            trans['num_n'] = grp.attrs['ny']
-            
-            grid = grids.PolarGrid(trans['num_k'], trans['num_n'])
-            
-            idx1 = grp['idx1'][()]
-            idx2 = grp['idx2'][()]
-            trans['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
-            trans['trans'] = grid.values2grid(idx1, idx2, grp['trans'][()])
-        
-        return grid, trans
-        
-    def read_intrapix(self):
-        """ Read the fitted intrapixel variations.
-        
-        Returns:
-            grid: A polar grid instance corresponding to the intrapixel
-                variations.
-            intrapix (dict): Containing grid, num_l, num_n, nobs, amplitudes/
-                
-        """
-        
-        intrapix = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['data/intrapix']
-            
-            intrapix['gridtype'] = grp.attrs['grid']
-            intrapix['num_l'] = grp.attrs['nx']
-            intrapix['num_n'] = grp.attrs['ny']
-            
-            grid = grids.PolarGrid(intrapix['num_l'], intrapix['num_n'])
-            
-            idx1 = grp['idx1'][()]
-            idx2 = grp['idx2'][()]
-            
-            sinx = grid.values2grid(idx1, idx2, grp['sinx'][()])
-            cosx = grid.values2grid(idx1, idx2, grp['cosx'][()])
-            siny = grid.values2grid(idx1, idx2, grp['siny'][()])
-            cosy = grid.values2grid(idx1, idx2, grp['cosy'][()])
-            
-            intrapix['nobs'] = grid.values2grid(idx1, idx2, grp['nobs'][()])
-            intrapix['amplitudes'] = np.stack([sinx, cosx, siny, cosy], axis=-1)
-            
-        return grid, intrapix
     
     def read_clouds(self):
         """ Read the fitted clouds.
@@ -962,7 +1022,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         nobs = nobs[:,mask]
         
     if len(stars['ascc']) < 1:
-        return
+        return None
         
     if ralims is not None:
         mask = (stars['ra'] >= ralims[0]) & (stars['ra'] < ralims[1])
@@ -972,7 +1032,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         nobs = nobs[:,mask]
     
     if len(stars['ascc']) < 1:
-        return
+        return None
     
     if siteid == 'LP':
         stars['lstsqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')
@@ -1068,7 +1128,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
             for key in astrometry.keys():
                 grp.create_dataset(key, data=astrometry[key])
 
-    return
+    return filename
 
 def make_quarter(filename, filelist, nsteps=1000):
     

@@ -23,7 +23,7 @@ rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
 from .. import io, misc
-#from lsreduce import io as lsio
+from lsreduce import io as lsio
 
 def _hadec2xy(wcspars, ha, dec):
             
