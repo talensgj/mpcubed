@@ -30,7 +30,7 @@ def ensure_dir(path):
 
 def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, intrapix, clouds):
     
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'w-') as f:
 
         # Write the header.
         hdr = f.create_group('header')
@@ -137,7 +137,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
     else:
         file_struct = {'header':'header', 'stars':'stars', 'lightcurves':'lightcurves'}
     
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'w-') as f:
         
         # Write the global information.
         grp = f.create_group(file_struct['header'])
@@ -176,9 +176,9 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             
     return
 
-def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq, inj_pars=None):
+def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq_inc, dchisq_dec, inj_pars=None):
     
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'w-') as f:
         
         # Write the header.
         grp = f.create_group('header')
@@ -199,7 +199,8 @@ def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq, inj
         # Write the data.
         grp = f.create_group('data')
         grp.create_dataset('freq', data=freq)
-        grp.create_dataset('dchisq', data=dchisq, dtype='float32')
+        grp.create_dataset('dchisq_inc', data=dchisq_inc, dtype='float32')
+        grp.create_dataset('dchisq_dec', data=dchisq_dec, dtype='float32')
     
     return
 
@@ -229,7 +230,7 @@ def table_boxlstsq(blsdir, outfile=None):
                 hdr[key] = np.append(hdr[key], hdr_[key])
          
     # Write the database table.
-    with h5py.File(outfile) as f:
+    with h5py.File(outfile, 'w-') as f:
     
         for key in hdr.keys():
             f.create_dataset(key, data=hdr[key])
@@ -984,7 +985,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
             
             for j in range(i, i+len(stars['ascc'][i:i+nsteps])):
              
@@ -997,7 +998,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
                 f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)    
 
     # Write the combined "stars" field.
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'a') as f:
         
         grp = f.create_group(file_struct['stars'])
         for key in stars.keys():
@@ -1010,7 +1011,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         
         attrdict, arrdict = _read_global(filelist)
         
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
             
             grp = f.create_group(file_struct['header'])
             
@@ -1031,7 +1032,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         header = _read_header(filelist)        
         
         # Write the "header" field..
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
             
             grp = f.create_group(file_struct['header'])
             
@@ -1049,7 +1050,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         station = _read_station(filelist)
         
         # Write the combined "station" field.
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
             
             grp = f.create_group(file_struct['station'])
             for key in station.keys():
@@ -1061,7 +1062,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         astrometry = _read_astrometry(filelist)
         
         # Write the combined "astrometry" field.
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
         
             grp = f.create_group('astrometry')
             for key in astrometry.keys():
@@ -1084,7 +1085,7 @@ def make_quarter(filename, filelist, nsteps=1000):
         
     data = dict(data)
     
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'a') as f:
         
         grp = f.create_group(file_struct['header'])
         
@@ -1116,7 +1117,7 @@ def make_quarter(filename, filelist, nsteps=1000):
         curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
-        with h5py.File(filename) as f:
+        with h5py.File(filename, 'a') as f:
             
             for j in range(i, i+len(stars['ascc'][i:i+nsteps])):
              
@@ -1140,7 +1141,7 @@ def make_quarter(filename, filelist, nsteps=1000):
                 f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)                
 
     idx, = np.where(stars['nobs'] > 0)
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'a') as f:
         
         grp = f.create_group(file_struct['stars'])
         
@@ -1187,4 +1188,3 @@ def main():
 if __name__ == '__main__':
     
     main()
-    

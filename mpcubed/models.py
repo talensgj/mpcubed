@@ -571,7 +571,7 @@ def phot2lc(jd, mag, emag):
 
 def write_emcee(filename, chain, lnprob, f_acc, attrs={}):
     
-    with h5py.File(filename) as f:
+    with h5py.File(filename, 'w-') as f:
         
         grp = f.create_group('header')
         
