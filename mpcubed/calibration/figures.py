@@ -9,6 +9,8 @@ import os
 
 import numpy as np
 
+from astropy import wcs
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -22,36 +24,56 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from .. import io, misc
-from lsreduce import io as lsio
+from .. import io
 
-def _hadec2xy(wcspars, ha, dec):
+fiducial = dict()
+fiducial['LSC'] = np.array([-0.1, -32.5, 2004., 1336., 183.2])
+fiducial['LSN'] = np.array([1.4, 12.1, 2004., 1336., 1.7])
+fiducial['LSE'] = np.array([-45.1, -19.8, 2004., 1336., 291.6])
+fiducial['LSS'] = np.array([-3.6, -69.7, 2004., 1336., 184.7])
+fiducial['LSW'] = np.array([45.0, -23.9, 2004., 1336., 72.6])
+fiducial['LPC'] = np.array([0.24, 28.65, 2054.0, 1356.0, 181.5])
+fiducial['LPN'] = np.array([3.9, 69.8, 2056, 1273, 4.3])
+fiducial['LPE'] = np.array([314.8, 22.3, 2004, 1329, 252.0])
+fiducial['LPS'] = np.array([359.0, -12.1, 2024, 1287, 181.3])
+fiducial['LPW'] = np.array([44.5, 20.0, 2030, 1280, 111])
+
+
+def initial_wcs(pars, scale=9e-3/24., lst=0.):
+
+    # Extract parameters.
+    ha0, dec0 = pars[0], pars[1]
+    x0, y0 = pars[2], pars[3]
+    th0 = pars[4]
+
+    # Convert HA to RA.
+    ra0 = np.mod(15. * lst - ha0, 360.)
+
+    # Compute PC matrix.
+    sn = np.sin(th0 * np.pi / 180.)
+    cs = np.cos(th0 * np.pi / 180.)
+    pc0 = np.array([[cs, -sn], [sn, cs]])
+
+    # Convert scale to degrees.
+    scale = np.rad2deg(scale)
+
+    # Generate WCS object.
+    w = wcs.WCS(naxis=2)
+    w.wcs.crpix = [x0, y0]
+    w.wcs.cdelt = [scale, scale]
+    w.wcs.crval = [ra0, dec0]
+    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    w.wcs.pc = pc0
+
+    return w
+
+def _hadec2xy(pars, ha, dec):
             
     # Perfrom the coordinate transformations.
-    try:
-        wcspars['lst']
-    except:
-        
-        import mascara 
-        
-        tmp = ha.shape
-        ha, dec = ha.ravel(), dec.ravel()
-        
-        alt0, az0, th0, x0, y0 = wcspars
-        site = mascara.observer.Site(28.76025,  -17.8792,  2364.)
-        cam = mascara.observer.Camera(altitude=alt0, azimuth=az0, orientation=th0, Xo=x0, Yo=y0, nx=4008, ny=2672)
-        
-        alt, az = site.hadec2altaz(ha, dec, degree=True)
-        phi, theta, goodpoint = cam.Hor2PhiThe(alt, az)
-        x, y = cam.PhiThe2XY(phi, theta)
-        x, y = x.reshape(tmp), y.reshape(tmp)
-        
-    else:
-        
-        from lsreduce import astrometry
-        
-        ra = astrometry.ha2ra(ha, 0.)    
-        x, y = astrometry.world2wcs(wcspars, ra, dec, 0.)
+    w = initial_wcs(pars)
+
+    ra = np.mod(0. - ha, 360.)
+    x, y = w.all_world2pix(ra, dec, 0)
         
     return x, y
 
@@ -156,7 +178,7 @@ def fig_magnitudes(filename, figname=None):
     
     return figname
 
-def fig_transmission(filename, astromaster=None, figname=None):
+def fig_transmission(filename, wcspars, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
@@ -168,10 +190,8 @@ def fig_transmission(filename, astromaster=None, figname=None):
     # Read the transmission map.
     f = io.SysFile(filename)
     
-    if astromaster is None:
-        wcspars = f.read_pointing()
-    else:
-        wcspars, polpars, astromask = lsio.read_astromaster(astromaster) 
+    if isinstance(wcspars, basestring):
+        wcspars = fiducial[wcspars]
         
     camgrid, trans = f.read_trans()
     
@@ -206,7 +226,7 @@ def fig_transmission(filename, astromaster=None, figname=None):
     
     return figname
     
-def fig_intrapix(filename, astromaster=None, figname=None):
+def fig_intrapix(filename, wcspars, figname=None):
     
     if figname is None:
         head, tail = os.path.split(filename)
@@ -216,12 +236,10 @@ def fig_intrapix(filename, astromaster=None, figname=None):
         figname = os.path.join(path, figname)  
     
     # Read the intrapixel amplitudes.
-    f = io.SysFile(filename) 
-    
-    if astromaster is None:
-        wcspars = f.read_pointing()
-    else:
-        wcspars, polpars, astromask = lsio.read_astromaster(astromaster)
+    f = io.SysFile(filename)
+
+    if isinstance(wcspars, basestring):
+        wcspars = fiducial[wcspars]
         
     ipxgrid, intrapix = f.read_intrapix() 
     
