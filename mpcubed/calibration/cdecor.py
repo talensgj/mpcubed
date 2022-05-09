@@ -1113,12 +1113,22 @@ class ApplyDecorrelation(object):
 
     def get_clouds(self, ra, dec, lstseq):
 
-        q = self.skygrid.radec2idx(ra, dec)
-        t = lstseq - self.clouds['lstmin']
+        if 'ring' not in self.clouds:
+            idx = self.skygrid.radec2idx(ra, dec)
+            args = lstseq - self.clouds['lstmin']
+        else:
+            _, idx, _ = self.skygrid.radec2idx(ra, dec)
+            args = np.searchsorted(self.clouds['lstseq'], lstseq)
 
-        clouds = self.clouds['clouds'][q, t]
-        sigma = self.clouds['sigma'][q, t]
-        nobs = self.clouds['nobs'][q, t]
+        clouds = self.clouds['clouds'][idx, args]
+        sigma = self.clouds['sigma'][idx, args]
+        nobs = self.clouds['nobs'][idx, args]
+
+        if 'ring' in self.clouds:
+            mask = np.in1d(lstseq, self.clouds['lstseq'])
+            clouds[~mask] = np.nan
+            sigma[~mask] = np.nan
+            nobs[~mask] = np.nan
 
         return clouds, sigma, nobs
 
@@ -1150,14 +1160,10 @@ class ApplyDecorrelation(object):
             raise IOError('Photometry file not found: {}'.format(photfile))
 
         # The reduced lightcurves file.
-        if 'vmag' in self.sysfile:
-            prefix = 'red{}_vmag_'.format(aper)
-        else:
-            prefix = 'red{}_'.format(aper)
-
         if redfile is None:
-            head, tail = os.path.split(photfile)
-            tail = prefix + tail.rsplit('_')[-1]
+            prefix = 'red{}_'.format(aper)
+            head, tail = os.path.split(self.sysfile)
+            tail = prefix + tail.split('_', 1)[-1]
             redfile = os.path.join(head, tail)
 
         # Check if the reduced lightcurves file exists.
@@ -1326,268 +1332,6 @@ class ApplyDecorrelation(object):
 
         return redfile
 
-class ApplyDecorPolar(object):
-
-    def __init__(self, sysfile):
-        
-        self.sysfile = sysfile
-        
-        f = io.SysFile(self.sysfile)
-    
-        self.magnitudes = f.read_magnitudes()    
-        self.camgrid, self.trans = f.read_trans()
-        self.ipxgrid, self.intrapix = f.read_intrapix()  
-        self.skygrid, self.clouds = f.read_clouds()
-
-        return
-        
-    def get_magnitudes(self, ascc):
-
-        mask = self.magnitudes['ascc'] == ascc
-        mag = self.magnitudes['mag'][mask]
-        sigma = self.magnitudes['sigma'][mask]
-        nobs = self.magnitudes['nobs'][mask]
-        
-        return mag, sigma, nobs        
-        
-    def get_transmission(self, ra, dec, lst):
-        
-        ha = np.mod(lst*15 - ra, 360.)
-        dec = np.repeat(dec, len(lst))
-
-        k, n = self.camgrid.radec2idx(ha, dec)
-
-        trans = self.trans['trans'][k,n]
-        nobs = self.trans['nobs'][k,n]
-        
-        return trans, nobs
-        
-    def get_intrapix(self, ra, dec, lst, x, y):
-        
-        ha = np.mod(lst*15 - ra, 360.)
-        dec = np.repeat(dec, len(lst))
-
-        b_mat = intrapix.ipxmat(x, y)
-
-        l, n = self.ipxgrid.radec2idx(ha, dec)
-        ipx = intrapix.ipxmod(self.intrapix['amplitudes'][l,n], b_mat)
-
-        nobs = self.intrapix['nobs'][l,n] 
-        
-        return ipx, nobs
-        
-    def get_clouds(self, ra, dec, lstseq):
-      
-        ring, cell, q = self.skygrid.radec2idx(ra, dec)
-        args = np.searchsorted(self.clouds['lstseq'], lstseq)
-        
-        clouds = self.clouds['clouds'][cell,args]
-        sigma = self.clouds['sigma'][cell,args]
-        nobs = self.clouds['nobs'][cell,args]
-
-        mask = np.in1d(lstseq, self.clouds['lstseq'])
-        clouds[~mask] = np.nan
-        sigma[~mask] = np.nan
-        nobs[~mask] = np.nan
-        
-        return clouds, sigma, nobs
-        
-    def get_systematics(self, ascc, ra, dec, lstseq, lst, x, y):
-
-        flag = np.zeros(len(lstseq), dtype='uint8')
-        
-        mag, sigma, nobs = self.get_magnitudes(ascc)        
-        
-        trans, nobs = self.get_transmission(ra, dec, lst)
-        flag = np.where(nobs < 25, flag+2, flag)
-        
-        ipx, nobs = self.get_intrapix(ra, dec, lst, x, y)
-        flag = np.where(nobs < 25, flag+4, flag)
-        
-        clouds, sigma, nobs = self.get_clouds(ra, dec, lstseq)
-        flag = np.where(nobs < 25, flag+8, flag)
-        flag = np.where(sigma > .05, flag+16, flag)
-        
-        systematics = trans + ipx + clouds
-        flag = np.where(np.isnan(systematics), flag + 1, flag)
-
-        return mag, trans, ipx, clouds, flag 
-
-    def __call__(self, photfile, aper, redfile=None):
-        
-        # Check if the photometry file exists.
-        if not os.path.isfile(photfile):
-            raise IOError('Photometry file not found: {}'.format(photfile))
-         
-        # The reduced lightcurves file.
-        if 'vmag' in self.sysfile:
-            prefix = 'red{}_vmag_pea_poi_'.format(aper)
-        else:
-            prefix = 'red{}_pea_poi_'.format(aper)
-        
-        if redfile is None:
-            head, tail = os.path.split(photfile)
-            tail = prefix + tail.split('_', 1)[-1]
-            redfile = os.path.join(head, tail)
-        
-        # Check if the reduced lightcurves file exists.
-        if os.path.isfile(redfile):
-            raise IOError('Reduced lightcurves file already exists: {}'.format(redfile))
-        
-        print 'Reading corrections from: {}'.format(self.sysfile) 
-        print 'Applying corrections to aperture {} of file: {}'.format(aper, photfile)
-        print 'Writing results to: {}'.format(redfile)
-        
-        # Read the raw photometry.
-        f = io.PhotFile(photfile)
-    
-        settings = f.read_header()
-    
-        if f.get_siteid() == 'LP':
-            
-            stars = f.read_stars(['ascc', 'ra', 'dec', 'vmag', 'bmag', 'spectype'])
-            
-            stars['nobs'] = np.zeros(len(stars['ascc']), dtype='uint32')  
-            stars['lstseqmin'] = np.zeros(len(stars['ascc']), dtype='uint32')     
-            stars['lstseqmax'] = np.zeros(len(stars['ascc']), dtype='uint32')
-            
-        else:
-            
-            stars = f.read_stars()
-            station = f.read_station()
-        
-        # Fields and datatypes for the binned lightcurves.
-        lightcurves = dict()
-        
-        if f.get_siteid() == 'LP':
-            names = ['lstseq', 'nobs', 'lst', 'jdmid', 'x', 'y', 'sky', 'esky', 'mag{}'.format(aper), 'emag{}'.format(aper), 'trans{}'.format(aper), 'etrans{}'.format(aper), 'clouds{}'.format(aper), 'eclouds{}'.format(aper)]
-            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']            
-        else:
-            names = ['lstseq', 'nobs', 'lst', 'jd', 'exptime', 'x', 'y', 'sky', 'esky', 'mag{}'.format(aper), 'emag{}'.format(aper), 'trans{}'.format(aper), 'etrans{}'.format(aper), 'clouds{}'.format(aper), 'eclouds{}'.format(aper)]
-            formats = ['uint32', 'uint8', 'float64', 'float64', 'float32', 'float32', 'float32', 'float64', 'float64', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
-        
-        for i in range(len(stars['ascc'])):                    
-                
-            # Read the lightcurve.
-            lc = f.read_lightcurves(ascc=stars['ascc'][i])
-            
-            # Remove flagged data.
-            if f.get_siteid() == 'LP':
-                mask = (lc['flux{}'.format(aper)] > 0) & (lc['eflux{}'.format(aper)] > 0) & (lc['flag'] < 1) & (lc['sky'] > 0)
-            else:
-                mask = (lc['aflag'] == 0) & (lc['pflag'] == 0)
-           
-            if np.all(~mask):
-                stars['nobs'][i] = 0
-                continue   
-            
-            lc = lc[mask]
-    
-            # Unpack the data.
-            lstseq = lc['lstseq']
-            x, y = lc['x'], lc['y']
-            flux, eflux = lc['flux{}'.format(aper)], lc['eflux{}'.format(aper)]
-            sky = lc['sky']
-            
-            if f.get_siteid() == 'LP':
-                
-                jd = lc['jdmid']
-                lst = lc['lst']
-                
-                x, y = x.astype('float64'), y.astype('float64')
-                
-            else:
-                
-                idx = np.searchsorted(station['lstseq'], lstseq) 
-                jd = station['jd'][idx]
-                lst = station['lst'][idx]
-                exptime = station['exptime'][idx]
-                
-                flux, eflux = flux/exptime, eflux/exptime
-                
-            # Compute the corrected lightcurve.
-            mag0, trans, ipx, clouds, cflag = self.get_systematics(stars['ascc'][i], stars['ra'][i], stars['dec'][i], lstseq, lst, x, y)
-            
-            mag, emag = misc.flux2mag(flux, eflux)
-            mag = mag - trans - ipx - clouds  
-            
-            if f.get_siteid() == 'LP':
-                mag = mag - mag0
-                trans = trans + mag0
-                
-            # Remove flagged data.
-            mask = (cflag < 1)         
-            
-            if np.all(~mask):
-                stars['nobs'][i] = 0
-                continue 
-            
-            jd = jd[mask]
-            lst = lst[mask]
-            lstseq = lstseq[mask]
-            x = x[mask]
-            y = y[mask]
-            sky = sky[mask]
-            mag = mag[mask]
-            emag = emag[mask]
-            trans = trans[mask]
-            ipx = ipx[mask]
-            clouds = clouds[mask] 
-            
-            if f.get_siteid() != 'LP':
-                exptime = exptime[mask]
-                
-            # Compute the final binned lightcurve.
-            lstseq, binidx, nobs = np.unique(lstseq//50, return_inverse=True, return_counts=True)        
-            
-            lc_bin = np.recarray(len(lstseq), names=names, formats=formats)        
-            
-            lc_bin['lstseq'] = lstseq
-            lc_bin['nobs'] = nobs # Number of raw points used for each binned point.        
-            
-            # Take special care for LST=0 in bin.
-            lst_bin1 = statistics.idxstats(binidx, lst, statistic='mean')
-            lst_bin2 = statistics.idxstats(binidx, np.mod(lst + 12., 24.), statistic='mean')
-            lst_bin2 = np.mod(lst_bin2 - 12., 24.)
-            
-            lst_ptp = statistics.idxstats(binidx, lst, statistic=np.ptp)
-            lst_bin = np.where(lst_ptp > 1., lst_bin2, lst_bin1)
-            
-            if f.get_siteid() == 'LP':
-                lc_bin['jdmid'] = statistics.idxstats(binidx, jd, statistic='mean')
-                lc_bin['lst'] = lst_bin
-            else:
-                lc_bin['jd'] = statistics.idxstats(binidx, jd, statistic='mean')
-                lc_bin['lst'] = lst_bin
-                lc_bin['exptime'] = statistics.idxstats(binidx, exptime, statistic='sum')            
-
-            lc_bin['x'] = statistics.idxstats(binidx, x, statistic='mean')
-            lc_bin['y'] = statistics.idxstats(binidx, y, statistic='mean')        
-            
-            lc_bin['mag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='mean')
-            lc_bin['emag{}'.format(aper)] = statistics.idxstats(binidx, mag, statistic='std')/np.sqrt(nobs)
-            lc_bin['sky'] = statistics.idxstats(binidx, sky, statistic='mean')
-            lc_bin['esky'] = statistics.idxstats(binidx, sky, statistic='std')/np.sqrt(nobs)        
-            
-            lc_bin['trans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='mean')
-            lc_bin['etrans{}'.format(aper)] = statistics.idxstats(binidx, trans, statistic='std')/np.sqrt(nobs)
-            lc_bin['clouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='mean')
-            lc_bin['eclouds{}'.format(aper)] = statistics.idxstats(binidx, clouds, statistic='std')/np.sqrt(nobs)            
-            
-            lightcurves[stars['ascc'][i]] = lc_bin
-        
-            stars['nobs'][i] = len(lstseq)
-            if f.get_siteid() == 'LP':
-                stars['lstseqmin'][i] = lstseq[0]
-                stars['lstseqmax'][i] = lstseq[-1] 
-            else:
-                stars['lstsqmin'][i] = lstseq[0]
-                stars['lstsqmax'][i] = lstseq[-1]
-               
-        io.write_reduced(redfile, settings, stars, lightcurves, f.get_siteid())
-            
-        return redfile
-
 def run_calibration(date, part, aper, cameras, source, dest):
     
     cal = CoarseDecorrelation()
@@ -1678,8 +1422,32 @@ def run_polar_calibration(year, quarter, aper, cameras, source, dest):
 
                 sysfile = cal(photfile, aper)
 
-                sys = ApplyDecorPolar(sysfile)
+                sys = ApplyDecorrelation(sysfile)
                 redfile = sys(photfile, aper)
+
+    return
+
+def cmd_polar_calibration():
+
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Perform the polar coarse decorrelation on a baseline.')
+    parser.add_argument('year', type=str,
+                        help='the year to calibrate')
+    parser.add_argument('quarter', type=str, choices=['Q1', 'Q2', 'Q3', 'Q4'],
+                        help='the quarter to calibrate')
+    parser.add_argument('dest', type=str,
+                        help='Location where the products will be written, e.g. /data3/mascara/reduced/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
+    parser.add_argument('-c', '--cam', type=str, nargs='+',
+                        default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
+                        help='the camera(s) to perform the combination for', dest='cameras')
+    parser.add_argument('-a', '--aper', type=int, choices=[0, 1], default=0,
+                        help='the aperture to perform the coarse decorrelation on', dest='aper')
+    parser.add_argument('-d', '--data', type=str, default='/data2/mascara/LaPalma',
+                        help='Location of the raw data.', dest='source')
+    args = parser.parse_args()
+
+    run_polar_calibration(args.year, args.quarter, args.aper, args.cameras, args.source, args.dest)
 
     return
 

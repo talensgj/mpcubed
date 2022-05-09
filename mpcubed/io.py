@@ -648,92 +648,34 @@ class SysFile(object):
             clouds['lstmax'] = grp.attrs['lstmax']
             clouds['lstlen'] = grp.attrs['lstlen']
 
-            grid = grids.HealpixGrid(clouds['num_q'])
-
             idx = grp['idx'][()]
-            lstseq = grp['lstseq'][()] - clouds['lstmin']
-
             nobs_ = grp['nobs'][()]
             clouds_ = grp['clouds'][()]
             sigma_ = grp['sigma'][()]
 
-        clouds['nobs'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['nobs'][idx, lstseq] = nobs_
+            if 'ring' in grp.attrs:
+                grid = grids.PolarEAGrid(clouds['num_q'])
+                lstseq, args = np.unique(grp['lstseq'][()], return_inverse=True)
+                ncols = len(lstseq)
 
-        clouds['clouds'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['clouds'][idx, lstseq] = clouds_
+                clouds['ring'] = grp.attrs['ring']
+                clouds['lstseq'] = lstseq
+            else:
+                grid = grids.HealpixGrid(clouds['num_q'])
+                args = grp['lstseq'][()] - clouds['lstmin']
+                ncols = clouds['lstlen']
 
-        clouds['sigma'] = np.full((grid.npix, clouds['lstlen']), fill_value=np.nan)
-        clouds['sigma'][idx, lstseq] = sigma_
-
-        return grid, clouds
-
-class SysFilePolar(SysFile):
-    """ Read data from systematics files.
-    
-    Attributes:
-        sysfile (str): The full path to the file.
-        
-    """
-
-    def __init__(self, sysfile):
-        """ Initialize a reader of systematics files.
-        
-        Args:
-            sysfile (str): The full path to the file.
-            
-        """
-        
-        SysFile.__init__(self, sysfile)
-        
-        return
-    
-    def read_clouds(self):
-        """ Read the fitted clouds.
-        
-        Returns:
-            grid: A healpix grid instance corresponding to the clouds.
-            clouds (dict): Containing: gridtype, num_q, lstmin, lstmax, lstlen,
-                nobs, clouds, sigma.
-        
-        """
-        
-        clouds = dict()
-        
-        with h5py.File(self.sysfile, 'r') as f:
-            
-            grp = f['data/clouds']
-            
-            clouds['gridtype'] = grp.attrs['grid']
-            clouds['num_q'] = grp.attrs['nx']
-            clouds['ring'] = grp.attrs['ring']
-            clouds['lstmin'] = grp.attrs['lstmin']
-            clouds['lstmax'] = grp.attrs['lstmax']
-            clouds['lstlen'] = grp.attrs['lstlen']
-            
-            grid = grids.PolarEAGrid(clouds['num_q'])
-            
-            idx = grp['idx'][()]
-            lstseq = grp['lstseq'][()]
-            lstseq, args = np.unique(lstseq, return_inverse=True)
-
-            nobs_ = grp['nobs'][()]
-            clouds_ = grp['clouds'][()]
-            sigma_ = grp['sigma'][()]
-        
-        clouds['nobs'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
+        clouds['nobs'] = np.full((grid.npix, ncols), fill_value=np.nan)
         clouds['nobs'][idx, args] = nobs_
-        
-        clouds['clouds'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
+
+        clouds['clouds'] = np.full((grid.npix, ncols), fill_value=np.nan)
         clouds['clouds'][idx, args] = clouds_
-    
-        clouds['sigma'] = np.full((grid.ncells[clouds['ring']], len(lstseq)), fill_value=np.nan)
+
+        clouds['sigma'] = np.full((grid.npix, ncols), fill_value=np.nan)
         clouds['sigma'][idx, args] = sigma_
-        
-        clouds['lstseq'] = lstseq
-        
+
         return grid, clouds
-        
+
 class blsFile(object):
     
     def __init__(self, filename):
