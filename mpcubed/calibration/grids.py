@@ -168,6 +168,8 @@ class PolarEAGrid(object):
             
         """
         
+        ra, dec = np.atleast_1d(ra), np.atleast_1d(dec)
+        
         # Find the ring each datapoint belongs to.
         ring = np.searchsorted(self.yedges, dec, 'right')
         

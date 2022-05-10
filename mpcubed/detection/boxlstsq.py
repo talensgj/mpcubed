@@ -399,11 +399,13 @@ def read_data(filelist, ascc, aper=0):
         time.append(time_)
         lc2d.append(lc2d_)
         nobs.append(nobs_)
+    
+    if len(time) == 0:
+        return np.array([]), np.array([]), np.array([])
 
-    if len(time) > 0:
-        time = np.concatenate(time)
-        lc2d = np.concatenate(lc2d)
-        nobs = np.stack(nobs)
+    time = np.concatenate(time)
+    lc2d = np.concatenate(lc2d)
+    nobs = np.stack(nobs)
 
     return time, lc2d, nobs
 
