@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
 import numpy as np
+
+from astropy import time, coordinates, units
+
 
 def flux2mag(flux, eflux=None, m0=25.):
     
@@ -13,9 +17,8 @@ def flux2mag(flux, eflux=None, m0=25.):
     
     return mag
 
+
 def barycentric_dates(jdmid, ra, dec, site='Roque de los Muchachos'):
-    
-    from astropy import time, coordinates, units    
     
     star = coordinates.SkyCoord(ra, dec, frame='icrs', unit=[units.deg, units.deg])
     site = coordinates.EarthLocation.of_site(site)
@@ -28,6 +31,7 @@ def barycentric_dates(jdmid, ra, dec, site='Roque de los Muchachos'):
     
     return jdbar
 
+
 def find_ns(lstseq):
     """ Number of sampling points in LST, takes wrapping into account."""
     
@@ -37,7 +41,7 @@ def find_ns(lstseq):
     lstidx = np.mod(lstidx + 135, 270)
     option2 = np.ptp(lstidx) + 1
     
-    if (option2 >= option1):
+    if option2 >= option1:
         return option1, False
     else:
         return option2, True 

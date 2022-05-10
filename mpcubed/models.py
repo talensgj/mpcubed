@@ -9,6 +9,8 @@ Created on Mon Oct  1 15:14:19 2018
 import h5py
 import numpy as np
 
+from scipy.optimize import minimize
+
 import emcee
 import batman
 
@@ -18,9 +20,10 @@ import matplotlib.pyplot as plt
 from . import misc, statistics
 from .detection import detrend
 
-###############################################################################
-### Parameter helper functions.
-###############################################################################
+###############################
+# Parameter helper functions. #
+###############################
+
 
 def T142axis(T14, P, p, b):
     
@@ -29,12 +32,14 @@ def T142axis(T14, P, p, b):
     
     return np.sqrt(a_sq)
 
+
 def axis2T14(a, P, p, b):
     
     sin_sq = ((1 + p)**2 - b**2)/(a**2 - b**2)
     T14 = P/np.pi*np.arcsin(np.sqrt(sin_sq))
     
     return T14
+
 
 def T232axis(T23, P, p, b):
     
@@ -43,6 +48,7 @@ def T232axis(T23, P, p, b):
     
     return np.sqrt(a_sq)
 
+
 def axis2T23(a, P, p, b):
     
     sin_sq = ((1 - p)**2 - b**2)/(a**2 - b**2)
@@ -50,17 +56,20 @@ def axis2T23(a, P, p, b):
     
     return T23
 
+
 def impact2inc(b, a):
     
     inc = np.arccos(b/a)
     
     return inc
 
+
 def inc2impact(inc, a):
     
     b = a*np.cos(inc)
     
     return b
+
 
 def xy2eccomg(x, y):
     
@@ -69,12 +78,14 @@ def xy2eccomg(x, y):
     
     return ecc, omg
 
+
 def eccomg2xy(ecc, omg):
     
     x = np.sqrt(ecc)*np.cos(omg)
     y = np.sqrt(ecc)*np.sin(omg)
     
     return x, y
+
 
 def axis2dens(a, P):
     
@@ -83,7 +94,8 @@ def axis2dens(a, P):
     rho = (3.*np.pi*a**3)/(G*P**2)
     
     return rho
-    
+
+
 def dens2axis(rho, P):
     
     G = 498.211      
@@ -92,6 +104,7 @@ def dens2axis(rho, P):
     
     return a
 
+
 def time2phase(time, P, T0):
     
     phase = (time - T0)/P
@@ -99,11 +112,13 @@ def time2phase(time, P, T0):
     
     return phase
 
+
 def mean_anomaly(time, P, Tp):
     
     M = 2.*np.pi*time2phase(time, P, Tp)
     
     return M
+
 
 def _mean2eccentric(M, ecc, E, dtol=1e-10):
     """ Use Newton's method to solve Kepler's equation. """
@@ -115,6 +130,7 @@ def _mean2eccentric(M, ecc, E, dtol=1e-10):
         E = E + dE
 
     return E
+
 
 def mean2eccentric(M, ecc, dtol=1e-10):
     """ Solve Kepler's equation following Mikola (1987) """
@@ -160,11 +176,13 @@ def mean2eccentric(M, ecc, dtol=1e-10):
     
     return E
 
+
 def eccentric2mean(E, ecc):
     
     M = E - ecc*np.sin(E)
     
     return M
+
 
 def eccentric2true(E, ecc):
     
@@ -174,7 +192,8 @@ def eccentric2true(E, ecc):
     nu = 2.*np.arctan2(y, x)
 
     return nu
-    
+
+
 def true2eccentric(nu, ecc):
     
     x = np.sqrt(1. + ecc)*np.cos(nu/2.)
@@ -183,6 +202,7 @@ def true2eccentric(nu, ecc):
     E = 2.*np.arctan2(y, x) 
     
     return E
+
 
 def transit2elliptic(lc_pars):
     
@@ -196,6 +216,7 @@ def transit2elliptic(lc_pars):
     
     return lc_pars
 
+
 def radvel2elliptic(rv_pars):
     
     rv_pars = np.asarray(rv_pars)
@@ -205,18 +226,26 @@ def radvel2elliptic(rv_pars):
     
     return rv_pars
 
-###############################################################################
-### The transit model and fitting functions.
-###############################################################################
+############################################
+# The transit model and fitting functions. #
+############################################
 
-def transit_model(time, lc_pars, ld_pars=[0.6], ld_type='linear'):
+
+def transit_model(time, lc_pars, ld_pars=None, ld_type='linear'):
     """A full transit model."""
     
-    if (len(lc_pars) == 5):
+    if len(lc_pars) == 5:
         lc_pars = transit2elliptic(lc_pars)
-    elif (len(lc_pars) != 7):
+    elif len(lc_pars) != 7:
         raise ValueError('lc_pars must have length 5 or 7')
-    
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
     T0, P, a, p, b, x, y = lc_pars
 
     # Convert parameters.
@@ -245,8 +274,19 @@ def transit_model(time, lc_pars, ld_pars=[0.6], ld_type='linear'):
     
     return phase, model
 
-def transit_evaluate(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}):
-    
+
+def transit_evaluate(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None):
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
+
     # Evaluate the transit model.
     phase, model = transit_model(lc['jd'], lc_pars, ld_pars, ld_type)
 
@@ -255,8 +295,19 @@ def transit_evaluate(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method=
     
     return phase, model, lc
 
-def transit_chisq(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}):  
+
+def transit_chisq(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None):
     """Compute the chi-squared value."""
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
 
     # Evaluate the transit and baseline models.
     phase, model, lc = transit_evaluate(lc_pars, lc, nobs, ld_pars, ld_type, method, options)
@@ -266,32 +317,43 @@ def transit_chisq(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='le
 
     return chisq
 
-def transit_lstsq(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}):
+
+def transit_lstsq(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None):
     """Find the best-fit parameters."""
-    
-    from scipy.optimize import minimize
-    
-    if (len(lc_pars) == 5):
+
+    if len(lc_pars) == 5:
         bounds = [(None, None), (0, None), (0, None), (0, None), (0, 1)]
     else:
-        ValueError('lc_pars must have length 5, transit_lstsq only solves circular orbits')
+        raise ValueError('lc_pars must have length 5, transit_lstsq only solves circular orbits')
 
-    res = minimize(transit_chisq, lc_pars, args=(lc, nobs, ld_pars, ld_type, method, options), bounds=bounds)
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
+
+    args = (lc, nobs, ld_pars, ld_type, method, options)
+    res = minimize(transit_chisq, lc_pars, args=args, bounds=bounds)
     
     return res.x
 
+
 def transit_prior(lc_pars):
     
-    if (len(lc_pars) == 5):
+    if len(lc_pars) == 5:
         
         # Unpack the transit parameters.
         T0, P, T14, p, b = lc_pars
         
         # Priors on the parameters.
-        if (P < 0):
+        if P < 0:
             return True
             
-        if (T14 > P/2.): # Equivalent to a < (1 + p).
+        if T14 > P/2.:  # Equivalent to a < (1 + p).
             return True
             
         if (p < 0.) | (p > 1.):
@@ -300,7 +362,7 @@ def transit_prior(lc_pars):
         if (b < 0.) | (b > (1. + p)):
             return True
         
-    elif (len(lc_pars) == 7):
+    elif len(lc_pars) == 7:
         
         # Unpack the transit parameters.
         T0, P, a, p, b, x, y = lc_pars  
@@ -309,10 +371,10 @@ def transit_prior(lc_pars):
         ecc, omg = xy2eccomg(x, y)
         
         # Priors on the parameters.
-        if (P < 0):
+        if P < 0:
             return True
             
-        if (a*(1 - ecc) < (1 + p)):
+        if a*(1 - ecc) < (1 + p):
             return True
             
         if (p < 0) | (p > 1):
@@ -321,7 +383,7 @@ def transit_prior(lc_pars):
         if (b < 0) | (b > (1 + p)):
             return True
     
-        if (ecc < 0) | (ecc > 0.999): # Avoids e=1. Not clean, but works. 
+        if (ecc < 0) | (ecc > 0.999):  # Avoids e=1. Not clean, but works.
             return True
         
     else:
@@ -329,12 +391,23 @@ def transit_prior(lc_pars):
 
     return False
 
-def transit_lnlike(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}):  
+
+def transit_lnlike(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None):
     """Compute the log-likelihood value."""
 
     if transit_prior(lc_pars):
         return -np.inf
-        
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
+
     # Evaluate the transit and baseline models.
     phase, model, lc = transit_evaluate(lc_pars, lc, nobs, ld_pars, ld_type, method, options)
     
@@ -343,8 +416,19 @@ def transit_lnlike(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='l
 
     return lnlike
 
-def transit_emcee(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}, **kwargs):
+
+def transit_emcee(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None, **kwargs):
     """Find the best-fit parameters."""
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with default value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
 
     # Set up the model.
     npars = len(lc_pars) 
@@ -356,23 +440,24 @@ def transit_emcee(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='le
     
     # Initial walker states.
     pos = np.zeros((nwalkers, npars))
-    pos[:,0] = lc_pars[0] + 2e-3*np.random.randn(nwalkers) # T0 [JD]
-    pos[:,1] = lc_pars[1] + 2e-5*np.random.randn(nwalkers) # P [days]
-    pos[:,2] = lc_pars[2] + 2e-3*np.random.randn(nwalkers) # T14 [days] or a/R_*
-    pos[:,3] = lc_pars[3] + 2e-2*np.random.randn(nwalkers) # R_p/R_*
-    pos[:,4] = np.sqrt(0.75)*np.random.rand(nwalkers) # b = a/R_*cos(i)
+    pos[:, 0] = lc_pars[0] + 2e-3*np.random.randn(nwalkers)  # T0 [JD]
+    pos[:, 1] = lc_pars[1] + 2e-5*np.random.randn(nwalkers)  # P [days]
+    pos[:, 2] = lc_pars[2] + 2e-3*np.random.randn(nwalkers)  # T14 [days] or a/R_*
+    pos[:, 3] = lc_pars[3] + 2e-2*np.random.randn(nwalkers)  # R_p/R_*
+    pos[:, 4] = np.sqrt(0.75)*np.random.rand(nwalkers)  # b = a/R_*cos(i)
     
-    if (npars == 7):
+    if npars == 7:
     
-        ecc = np.sqrt(0.75)*np.random.rand(nwalkers) # e
-        omg = 2*np.pi*np.random.rand(nwalkers) # w
+        ecc = np.sqrt(0.75)*np.random.rand(nwalkers)  # e
+        omg = 2*np.pi*np.random.rand(nwalkers)  # w
         
         x, y = eccomg2xy(ecc, omg)
-        pos[:,5] = x # sqrt(e)cos(w)
-        pos[:,6] = y # sqrt(e)sin(w)
+        pos[:, 5] = x  # sqrt(e)cos(w)
+        pos[:, 6] = y  # sqrt(e)sin(w)
     
     # Run the model.
-    sampler = emcee.EnsembleSampler(nwalkers, npars, transit_lnlike, args=(lc, nobs, ld_pars, ld_type, method, options), threads=threads)
+    args = (lc, nobs, ld_pars, ld_type, method, options)
+    sampler = emcee.EnsembleSampler(nwalkers, npars, transit_lnlike, args=args, threads=threads)
     sampler.run_mcmc(pos, nsteps)
     
     f_acc = sampler.acceptance_fraction
@@ -381,15 +466,16 @@ def transit_emcee(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='le
     
     return chain, lnprob, f_acc
 
-###############################################################################
-### The radial velocity model and fitting functions.
-###############################################################################
+####################################################
+# The radial velocity model and fitting functions. #
+####################################################
+
 
 def radvel_model(time, rv_pars):
     
-    if (len(rv_pars) == 4):
+    if len(rv_pars) == 4:
         rv_pars = radvel2elliptic(rv_pars)
-    elif (len(rv_pars) != 6):
+    elif len(rv_pars) != 6:
         raise ValueError('rv_pars must have length 4 or 6')
     
     Tp, P, K, gamma, x, y = rv_pars
@@ -406,6 +492,7 @@ def radvel_model(time, rv_pars):
     
     return phase, model
 
+
 def radvel_chisq(rv_pars, time, rv, erv):  
     """Compute the chi-squared value."""
 
@@ -417,25 +504,26 @@ def radvel_chisq(rv_pars, time, rv, erv):
 
     return chisq
 
+
 def radvel_lstsq(rv_pars, time, rv, erv):
     """Find the best-fit parameters."""
-    
-    from scipy.optimize import minimize
-    
-    if (len(rv_pars) == 4):
+
+    if len(rv_pars) == 4:
         bounds = [(None, None), (0, None), (None, None), (None, None)]
     else:
-        ValueError('rv_pars must have length 4, radvel_lstsq only solves circular orbits')
+        raise ValueError('rv_pars must have length 4, radvel_lstsq only solves circular orbits')
 
-    res = minimize(radvel_chisq, rv_pars, args=(time, rv, erv), bounds=bounds)
+    args = (time, rv, erv)
+    res = minimize(radvel_chisq, rv_pars, args=args, bounds=bounds)
     
     return res.x
 
+
 def radvel_prior(rv_pars):
 
-    if (len(rv_pars) == 4):
+    if len(rv_pars) == 4:
         rv_pars = radvel2elliptic(rv_pars)
-    elif (len(rv_pars) != 6):
+    elif len(rv_pars) != 6:
         raise ValueError('rv_pars must have length 4 or 6')
 
     # Unpack the parameters.
@@ -445,13 +533,14 @@ def radvel_prior(rv_pars):
     ecc, omg = xy2eccomg(x, y)
     
     # Priors on the parameters.
-    if (P < 0):
+    if P < 0:
         return True
 
-    if (ecc < 0) | (ecc > 0.999): # Avoids e=1. Not clean, but works. 
+    if (ecc < 0) | (ecc > 0.999):  # Avoids e=1. Not clean, but works.
         return True
     
     return False
+
 
 def radvel_lnlike(rv_pars, time, rv, erv):  
     """Compute the log-likelihood value."""
@@ -467,6 +556,7 @@ def radvel_lnlike(rv_pars, time, rv, erv):
 
     return lnlike
 
+
 def radvel_emcee(rv_pars, time, rv, erv, **kwargs):
     """Find the best-fit parameters of a circular transit model."""
 
@@ -480,22 +570,23 @@ def radvel_emcee(rv_pars, time, rv, erv, **kwargs):
     
     # Initial walker states.
     pos = np.zeros((nwalkers, npars))
-    pos[:,0] = rv_pars[0] + 2e-3*np.random.randn(nwalkers) # Tp [JD]
-    pos[:,1] = rv_pars[1] + 2e-5*np.random.randn(nwalkers) # P [days]
-    pos[:,2] = rv_pars[2] + 2e-3*np.random.randn(nwalkers) # K [km/s]
-    pos[:,3] = rv_pars[3] + 2e-2*np.random.randn(nwalkers) # gamma [km/s] 
+    pos[:, 0] = rv_pars[0] + 2e-3*np.random.randn(nwalkers)  # Tp [JD]
+    pos[:, 1] = rv_pars[1] + 2e-5*np.random.randn(nwalkers)  # P [days]
+    pos[:, 2] = rv_pars[2] + 2e-3*np.random.randn(nwalkers)  # K [km/s]
+    pos[:, 3] = rv_pars[3] + 2e-2*np.random.randn(nwalkers)  # gamma [km/s]
     
-    if (npars == 6):
+    if npars == 6:
     
-        ecc = np.sqrt(0.75)*np.random.rand(nwalkers) # e
-        omg = 2*np.pi*np.random.rand(nwalkers) # w
+        ecc = np.sqrt(0.75)*np.random.rand(nwalkers)  # e
+        omg = 2*np.pi*np.random.rand(nwalkers)  # w
         
         x, y = eccomg2xy(ecc, omg)
-        pos[:,4] = x # sqrt(e)cos(w)
-        pos[:,5] = y # sqrt(e)sin(w)
+        pos[:, 4] = x  # sqrt(e)cos(w)
+        pos[:, 5] = y  # sqrt(e)sin(w)
     
     # Run the model.
-    sampler = emcee.EnsembleSampler(nwalkers, npars, radvel_lnlike, args=(time, rv, erv), threads=threads)
+    args = (time, rv, erv)
+    sampler = emcee.EnsembleSampler(nwalkers, npars, radvel_lnlike, args=args, threads=threads)
     sampler.run_mcmc(pos, nsteps)
     
     f_acc = sampler.acceptance_fraction
@@ -504,10 +595,11 @@ def radvel_emcee(rv_pars, time, rv, erv, **kwargs):
     
     return chain, lnprob, f_acc
 
-###############################################################################
-### For reading MASCARA photometry for fitting.
-###############################################################################
-    
+###############################################
+# For reading MASCARA photometry for fitting. #
+###############################################
+
+
 def _apply_mask(lc, nobs):
     
     mask = lc['mask']
@@ -528,14 +620,18 @@ def _apply_mask(lc, nobs):
     
     return lc_new, nobs_new
 
-def read_mascara(filelist, ascc, ra, dec, aper=0, method='legendre', options={'maxiter':1}):
+
+def read_mascara(filelist, ascc, ra, dec, aper=0, method='legendre', options=None):
     
     from .detection.boxlstsq import read_data
+
+    if options is None:
+        options = {'maxiter': 1}
     
     # Read the data.
     time, lc2d, nobs = read_data(filelist, [ascc], aper=aper)
     
-    lc = lc2d[:,0]
+    lc = lc2d[:, 0]
     
     # Perform barycentric correction.
     lc['jd'] = misc.barycentric_dates(lc['jd'], ra, dec)
@@ -546,10 +642,11 @@ def read_mascara(filelist, ascc, ra, dec, aper=0, method='legendre', options={'m
     
     return lc, nobs
 
-###############################################################################
-### To prepare non-MASCARA photometry for fitting.
-###############################################################################
-    
+##################################################
+# To prepare non-MASCARA photometry for fitting. #
+##################################################
+
+
 def phot2lc(jd, mag, emag):
     
     nobs = np.array([jd.size])
@@ -565,12 +662,16 @@ def phot2lc(jd, mag, emag):
 
     return lc, nobs
 
-###############################################################################
-### For reading and writing MCMC results.
-###############################################################################
+#########################################
+# For reading and writing MCMC results. #
+#########################################
 
-def write_emcee(filename, chain, lnprob, f_acc, attrs={}):
-    
+
+def write_emcee(filename, chain, lnprob, f_acc, attrs=None):
+
+    if attrs is None:
+        attrs = {}
+
     with h5py.File(filename, 'w-') as f:
         
         grp = f.create_group('header')
@@ -585,6 +686,7 @@ def write_emcee(filename, chain, lnprob, f_acc, attrs={}):
         grp.create_dataset('f_acc', data=f_acc)
     
     return
+
 
 def read_emcee(filename):
     
@@ -608,6 +710,7 @@ def read_emcee(filename):
 # For determining the best-fit values.
 ###############################################################################
 
+
 def round2significance(value, error1, error2=None):
     """Round values to significant digits based on the uncertainties."""
     
@@ -625,6 +728,7 @@ def round2significance(value, error1, error2=None):
     
     return ndigits, value, error1, error2
 
+
 def best_values(flatchain):
     """Get the best fit values from a flattened MCMC chain."""
     
@@ -636,9 +740,10 @@ def best_values(flatchain):
     
     return m50, m68, m84 - m50, m16 - m50
 
-###############################################################################
-### For visualization of the data and model.
-###############################################################################
+############################################
+# For visualization of the data and model. #
+############################################
+
 
 def plot_radvel(rv_pars, time, rv, erv):
     
@@ -671,16 +776,27 @@ def plot_radvel(rv_pars, time, rv, erv):
     
     return
 
-def plot_transit(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='legendre', options={'maxiter':1}):
+
+def plot_transit(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='legendre', options=None):
     
     if len(lc_pars) == 5:
         T0, P, T14, p, b = lc_pars
     elif len(lc_pars) == 7:
         T0, P, a, p, b, x, y = lc_pars
-        T14 = axis2T14(a, P, p, b) # Not exact, but good enough for plotting.
+        T14 = axis2T14(a, P, p, b)  # Not exact, but good enough for plotting.
     else:
         raise ValueError('lc_pars must have length 5 or 7')
-    
+
+    if ld_pars is None:
+        if ld_type == 'linear':
+            ld_pars = [0.6]
+            print('Using linear limb-darkening set with value of 0.6')
+        else:
+            raise ValueError('No limb-darkening parameters set for {} limb-darkening.'.format(ld_type))
+
+    if options is None:
+        options = {'maxiter': 1}
+
     phase, model, lc = transit_evaluate(lc_pars, lc, nobs, ld_pars, ld_type, method, options)
     
     plt.figure(figsize=(8, 3))
@@ -718,9 +834,10 @@ def plot_transit(lc_pars, lc, nobs, ld_pars=[0.6], ld_type='linear', method='leg
     
     return
 
-###############################################################################
-### For visualization of emcee results.
-###############################################################################
+#######################################
+# For visualization of emcee results. #
+#######################################
+
 
 def plot_walkers(data, label):
     
@@ -735,9 +852,10 @@ def plot_walkers(data, label):
     
     return
 
+
 def plot_acceptance(f_acc, f_min):
     
-    plt.hist(f_acc, bins=np.linspace(0,1,21))
+    plt.hist(f_acc, bins=np.linspace(0, 1, 21))
     plt.axvline(f_min, c='k')
     
     plt.xlabel('$f_{acc}$')
@@ -748,6 +866,7 @@ def plot_acceptance(f_acc, f_min):
     plt.close()
     
     return
+
 
 def plot_corner(array, labels, figname=None):
         
@@ -761,6 +880,7 @@ def plot_corner(array, labels, figname=None):
     
     return
 
+
 def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
     
     nwalkers, nsteps, npars = chain.shape
@@ -768,7 +888,7 @@ def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
     
     # Plot the walkers for inspection.
     for i in range(npars):
-        plot_walkers(chain[:,:,i].T, labels[i])
+        plot_walkers(chain[:, :, i].T, labels[i])
         
     plot_walkers(lnprob.T, '$\ln L$')
     
@@ -777,8 +897,8 @@ def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
     
     # Remove burn-in and bad walkers.
     good = f_acc > f_min
-    flatchain = chain[good,nburn:].reshape((-1,chain.shape[2]))
-    flatlnprob = lnprob[good,nburn:].ravel()
+    flatchain = chain[good, nburn:].reshape((-1, chain.shape[2]))
+    flatlnprob = lnprob[good, nburn:].ravel()
 
     # Make the corner plot.
     array = np.column_stack([flatchain, flatlnprob])
@@ -791,13 +911,15 @@ def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
         
         ndigits, best, epos, eneg = round2significance(pars[i], p16[i], p84[i])    
     
-        print labels[i], ndigits, best, epos, eneg
+        print(labels[i], ndigits, best, epos, eneg)
     
     return pars, p68, p16, p84
+
 
 def main():
     
     return
+
 
 if __name__ == '__main__':
     

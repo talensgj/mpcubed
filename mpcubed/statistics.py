@@ -4,12 +4,12 @@
 import numpy as np
 
 
-def mad(data, K = 1.4826, axis = None):
+def mad(data, scale_factor=1.4826, axis=None):
     """ Compute the median absolute deviation of an array.
     
     Args:
-        array: An array of data.
-        K (float): A scale factot so that the mad of a gaussian distribution
+        data: An array of data.
+        scale_factor (float): A scale factot so that the mad of a gaussian distribution
             is equal to it standard deviation.
         axis (int): The axis along whic to compute the mad.
         
@@ -18,23 +18,26 @@ def mad(data, K = 1.4826, axis = None):
     
     """
     
-    med = np.nanmedian(data, axis = axis, keepdims = True)
-    mad = np.nanmedian(np.abs(data - med), axis = axis)
+    medval = np.nanmedian(data, axis=axis, keepdims=True)
+    madval = np.nanmedian(np.abs(data - medval), axis=axis)
     
-    return K*mad
-    
+    return scale_factor*madval
+
+
 def sigma_clip(array, axis=None, ndev=5., niter=5):
     """ Compute a robust mean and standard deviation."""  
 
+    mean, stdev = None, None
     weights = np.ones(array.shape)
     for i in range(niter):
         
-        mu = np.sum(weights*array, axis=axis)/np.sum(weights, axis=axis)
-        sigma = np.sqrt(np.sum(weights*(array - mu)**2., axis=axis)/np.sum(weights, axis=axis))
+        mean = np.sum(weights*array, axis=axis)/np.sum(weights, axis=axis)
+        stdev = np.sqrt(np.sum(weights*(array - mean)**2., axis=axis)/np.sum(weights, axis=axis))
     
-        weights = np.where(np.abs(array - mu) < ndev*sigma, 1., 0.)
+        weights = np.where(np.abs(array - mean) < ndev*stdev, 1., 0.)
         
-    return mu, sigma
+    return mean, stdev
+
 
 def bin_data(x, y, bins, yerr=None):
     
@@ -67,12 +70,13 @@ def bin_data(x, y, bins, yerr=None):
         
     return x_bin, y_bin, yerr_bin
 
+
 def idxstats(indices, values, statistic='mean', keeplength=False):
     """ Compute a statistic for all values with the same index.
     
     Args:
-        indices (int): An array of indices.
-        values (float): An array of values.
+        indices (np.ndarray): An array of indices.
+        values (np.ndarray): An array of values.
         statistic (string or function): The statistic to compute on values
             that have the same index may be any of 'mean', 'std', 'count',
             'sum', 'median' or a function. Default is 'mean'.
@@ -91,7 +95,7 @@ def idxstats(indices, values, statistic='mean', keeplength=False):
         raise ValueError('invalid statistic {}'.format(statistic))
     
     # Make sure the indices are integers.
-    indices = indices.astype('int') # It would be better to return an error if they are not integer, but how...
+    indices = indices.astype('int')  # It would be better to return an error if they are not integer, but how...
     
     # If only one scalar index is given bincount will not work.
     if np.isscalar(indices):
