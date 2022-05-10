@@ -7,15 +7,17 @@ Created on Tue May  9 16:23:14 2017
 
 import os
 import glob
+import argparse
 
 import h5py
 import numpy as np
 
 from .calibration import grids
 
-###############################################################################
-### Some basic functions.
-###############################################################################
+#########################
+# Some basic functions. #
+#########################
+
 
 def ensure_dir(path):
     
@@ -24,9 +26,10 @@ def ensure_dir(path):
         
     return
 
-###############################################################################
-### Code for writing files.
-###############################################################################
+###########################
+# Code for writing files. #
+###########################
+
 
 def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, intrapix, clouds, mode='vmag'):
     
@@ -45,7 +48,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
             hdr.attrs['th0'] = settings['th0']
             hdr.attrs['x0'] = settings['x0']
             hdr.attrs['y0'] = settings['y0']
-        except:
+        except KeyError:
             pass
         
         hdr.attrs['outer_maxiter'] = settings['outer_maxiter']
@@ -88,8 +91,8 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp = grp.create_group('trans')          
         subgrp.create_dataset('idx1', data=idx1, dtype='uint32')
         subgrp.create_dataset('idx2', data=idx2, dtype='uint32')          
-        subgrp.create_dataset('nobs', data=trans['nobs'][idx1,idx2])
-        subgrp.create_dataset('trans', data=trans['trans'][idx1,idx2], dtype='float32')
+        subgrp.create_dataset('nobs', data=trans['nobs'][idx1, idx2])
+        subgrp.create_dataset('trans', data=trans['trans'][idx1, idx2], dtype='float32')
         
         subgrp.attrs['grid'] = trans['gridtype']
         subgrp.attrs['nx'] = trans['num_k']
@@ -101,11 +104,11 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         subgrp = grp.create_group('intrapix')           
         subgrp.create_dataset('idx1', data=idx1, dtype='uint32')
         subgrp.create_dataset('idx2', data=idx2, dtype='uint32')
-        subgrp.create_dataset('nobs', data=intrapix['nobs'][idx1,idx2])
-        subgrp.create_dataset('sinx', data=intrapix['amplitudes'][idx1,idx2,0], dtype='float32')
-        subgrp.create_dataset('cosx', data=intrapix['amplitudes'][idx1,idx2,1], dtype='float32')
-        subgrp.create_dataset('siny', data=intrapix['amplitudes'][idx1,idx2,2], dtype='float32')
-        subgrp.create_dataset('cosy', data=intrapix['amplitudes'][idx1,idx2,3], dtype='float32')
+        subgrp.create_dataset('nobs', data=intrapix['nobs'][idx1, idx2])
+        subgrp.create_dataset('sinx', data=intrapix['amplitudes'][idx1, idx2, 0], dtype='float32')
+        subgrp.create_dataset('cosx', data=intrapix['amplitudes'][idx1, idx2, 1], dtype='float32')
+        subgrp.create_dataset('siny', data=intrapix['amplitudes'][idx1, idx2, 2], dtype='float32')
+        subgrp.create_dataset('cosy', data=intrapix['amplitudes'][idx1, idx2, 3], dtype='float32')
         
         subgrp.attrs['grid'] = intrapix['gridtype']
         subgrp.attrs['nx'] = intrapix['num_l']
@@ -116,9 +119,9 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
 
         subgrp = grp.create_group('clouds')            
         subgrp.create_dataset('idx', data=idx1, dtype='uint32')
-        subgrp.create_dataset('nobs', data=clouds['nobs'][idx1,idx2])
-        subgrp.create_dataset('clouds', data=clouds['clouds'][idx1,idx2], dtype='float32')
-        subgrp.create_dataset('sigma', data=clouds['sigma'][idx1,idx2], dtype='float32')
+        subgrp.create_dataset('nobs', data=clouds['nobs'][idx1, idx2])
+        subgrp.create_dataset('clouds', data=clouds['clouds'][idx1, idx2], dtype='float32')
+        subgrp.create_dataset('sigma', data=clouds['sigma'][idx1, idx2], dtype='float32')
         if mode == 'vmag':
             subgrp.create_dataset('lstseq', data=clouds['lstmin'] + idx2, dtype='uint32')
         elif mode == 'polar':
@@ -136,12 +139,13 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
 
     return
 
+
 def write_reduced(filename, settings, stars, lightcurves, siteid):
 
     if siteid == 'LP':
-        file_struct = {'header':'global', 'stars':'header', 'lightcurves':'data'}
+        file_struct = {'header': 'global', 'stars': 'header', 'lightcurves': 'data'}
     else:
-        file_struct = {'header':'header', 'stars':'stars', 'lightcurves':'lightcurves'}
+        file_struct = {'header': 'header', 'stars': 'stars', 'lightcurves': 'lightcurves'}
     
     with h5py.File(filename, 'w-') as f:
         
@@ -151,7 +155,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
         if siteid == 'LP':
             grp.attrs['station'] = settings['station']
             grp.attrs['camera'] = settings['camera']
-            grp.attrs['exptime'] = 6.4 # Hardcoded ...
+            grp.attrs['exptime'] = 6.4  # Hardcoded ...
             grp.attrs['naper'] = settings['naper']
             grp.attrs['aper0'] = settings['aper0']
             grp.attrs['aper1'] = settings['aper1']
@@ -162,7 +166,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             grp.create_dataset('aversion', data=settings['aversion'])
             grp.create_dataset('rversion', data=settings['rversion'])
             grp.create_dataset('cversion', data=settings['cversion'])
-            grp.attrs['pversion'] = '1.0.0' # Hardcoded ...
+            grp.attrs['pversion'] = '1.0.0'  # Hardcoded ...
             
         else:
             grp.attrs['site-obs'] = settings['site-obs']
@@ -181,6 +185,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             grp.create_dataset(key, data=lightcurves[key])
             
     return
+
 
 def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq_inc, dchisq_dec, inj_pars=None):
     
@@ -210,6 +215,7 @@ def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq_inc,
     
     return
 
+
 def table_boxlstsq(blsdir, outfile=None):
     
     # Name of the table file.
@@ -225,7 +231,7 @@ def table_boxlstsq(blsdir, outfile=None):
     for filename in filelist:
             
         # Read the header.
-        f = blsFile(filename)
+        f = BoxlstsqFile(filename)
         hdr_ = f.read_header()
         
         # Append the header.
@@ -243,9 +249,10 @@ def table_boxlstsq(blsdir, outfile=None):
             
     return
 
-###############################################################################
-### Code for reading files.
-###############################################################################
+###########################
+# Code for reading files. #
+###########################
+
 
 class PhotFile(object):
     
@@ -261,7 +268,7 @@ class PhotFile(object):
         
         # Check the siteid.
         if siteid not in ['LP', 'LS', 'SA', 'AU']:
-           raise ValueError('Unknown site: {}'.format(siteid))
+            raise ValueError('Unknown site: {}'.format(siteid))
             
         # Determine filetype from filename. 
         if filetype is None:
@@ -285,7 +292,8 @@ class PhotFile(object):
         if siteid == 'LP':
             
             # For a 'fast' file.
-            file_struct = {'header':'global', 'stars':'header_table', 'station':None, 'lightcurves':'data', 'astrometry':None}
+            file_struct = {'header': 'global', 'stars': 'header_table',
+                           'station': None, 'lightcurves': 'data', 'astrometry': None}
             
             # How are 'slow' and 'red' files different.
             if filetype == 'slow':
@@ -296,7 +304,8 @@ class PhotFile(object):
         else:
             
             # For a 'fast' file.
-            file_struct = {'header':'header', 'stars':'stars', 'station':'station', 'lightcurves':'lightcurves', 'astrometry':'astrometry'}
+            file_struct = {'header': 'header', 'stars': 'stars',
+                           'station': 'station', 'lightcurves': 'lightcurves', 'astrometry': 'astrometry'}
             
             # How are 'slow' and 'red' files different.
             if filetype == 'slow':
@@ -310,6 +319,7 @@ class PhotFile(object):
         self.siteid = siteid
         self.filetype = filetype
         self.file_struct = file_struct
+        self.ascc0 = None
         
         return
     
@@ -355,7 +365,7 @@ class PhotFile(object):
                 if field in grp.keys():
                     stars[field] = grp[field][()]
                 else:
-                    print 'Warning: skipping field {}, field not found.'.format(field)
+                    print('Warning: skipping field {}, field not found.'.format(field))
                     
         return stars
     
@@ -380,7 +390,7 @@ class PhotFile(object):
                 if field in grp.keys():
                     station[field] = grp[field][()]
                 else:
-                    print 'Warning: skipping field {}, field not found.'.format(field)
+                    print('Warning: skipping field {}, field not found.'.format(field))
         
         if lstseq is not None:
             
@@ -398,7 +408,7 @@ class PhotFile(object):
             stars = self.read_stars(['ascc'])
             ascc = stars['ascc']
             
-        elif isinstance(ascc, basestring):
+        elif isinstance(ascc, str):
             onestar = True
             ascc = [ascc]
        
@@ -411,7 +421,7 @@ class PhotFile(object):
             
             grp = f[self.file_struct['lightcurves']]
             
-            if not hasattr(self, 'ascc0'):
+            if self.ascc0 is None:
                 self.ascc0 = set(grp.keys())            
             
             for i in range(nstars):
@@ -421,7 +431,7 @@ class PhotFile(object):
                     
                 else:
                     if verbose:
-                        print 'Warning: skipping star {}, star not found.'.format(ascc[i])
+                        print('Warning: skipping star {}, star not found.'.format(ascc[i]))
                     continue
                 
                 nobs[i] = len(curves[ascc[i]])
@@ -450,6 +460,7 @@ class PhotFile(object):
             return curves[ascc[0]]             
             
         return curves
+
 
 class SysFile(object):
     """ Read data from systematics files.
@@ -676,7 +687,8 @@ class SysFile(object):
 
         return grid, clouds
 
-class blsFile(object):
+
+class BoxlstsqFile(object):
     
     def __init__(self, filename):
         
@@ -716,9 +728,10 @@ class blsFile(object):
         
         return data
         
-###############################################################################
-### Code for combining files.
-###############################################################################
+#############################
+# Code for combining files. #
+#############################
+
 
 def _read_global(filelist):
     
@@ -747,61 +760,95 @@ def _read_global(filelist):
             
             grp = f['global']
             
-            if (i < 1):
+            if i < 1:
+
+                try:
+                    attrdict['station'] = grp.attrs['station']
+                except KeyError:
+                    attrdict['station'] = grp.attrs['STATION']
+            
+                try:
+                    attrdict['camera'] = grp.attrs['camera']
+                except KeyError:
+                    attrdict['camera'] = grp.attrs['CAMERA']
+            
+                try:
+                    attrdict['naper'] = grp.attrs['naper']
+                except KeyError:
+                    attrdict['naper'] = grp.attrs['NAPER']
                 
-                try: attrdict['station'] = grp.attrs['station']
-                except: attrdict['station'] = grp.attrs['STATION']
-            
-                try: attrdict['camera'] = grp.attrs['camera']
-                except: attrdict['camera'] = grp.attrs['CAMERA']
-            
-                try: attrdict['naper'] = grp.attrs['naper']
-                except: attrdict['naper'] = grp.attrs['NAPER']
+                try:
+                    attrdict['aper0'] = grp.attrs['aper0']
+                except KeyError:
+                    attrdict['aper0'] = grp.attrs['APER0']
                 
-                try: attrdict['aper0'] = grp.attrs['aper0']
-                except: attrdict['aper0'] = grp.attrs['APER0']
+                try:
+                    attrdict['aper1'] = grp.attrs['aper1']
+                except KeyError:
+                    attrdict['aper1'] = grp.attrs['APER1']
                 
-                try: attrdict['aper1'] = grp.attrs['aper1']
-                except: attrdict['aper1'] = grp.attrs['APER1']
+                try:
+                    attrdict['skyrad0'] = grp.attrs['skyrad0']
+                except KeyError:
+                    attrdict['skyrad0'] = grp.attrs['SKYRAD0']
                 
-                try: attrdict['skyrad0'] = grp.attrs['skyrad0']
-                except: attrdict['skyrad0'] = grp.attrs['SKYRAD0']
-                
-                try: attrdict['skyrad1'] = grp.attrs['skyrad1']
-                except: attrdict['skyrad1'] = grp.attrs['SKYRAD1']
+                try:
+                    attrdict['skyrad1'] = grp.attrs['skyrad1']
+                except KeyError:
+                    attrdict['skyrad1'] = grp.attrs['SKYRAD1']
             
-            try: alt0[i] = grp.attrs['alt0']
-            except: alt0[i] = grp.attrs['ALT0']
+            try:
+                alt0[i] = grp.attrs['alt0']
+            except KeyError:
+                alt0[i] = grp.attrs['ALT0']
             
-            try: az0[i] = grp.attrs['az0']
-            except: az0[i] = grp.attrs['AZ0']
+            try:
+                az0[i] = grp.attrs['az0']
+            except KeyError:
+                az0[i] = grp.attrs['AZ0']
             
-            try: th0[i] = grp.attrs['th0']
-            except: th0[i] = grp.attrs['TH0']
+            try:
+                th0[i] = grp.attrs['th0']
+            except KeyError:
+                th0[i] = grp.attrs['TH0']
             
-            try: x0[i] = grp.attrs['x0']
-            except: x0[i] = grp.attrs['X0']
+            try:
+                x0[i] = grp.attrs['x0']
+            except KeyError:
+                x0[i] = grp.attrs['X0']
             
-            try: y0[i] = grp.attrs['y0']
-            except: y0[i] = grp.attrs['Y0']
+            try:
+                y0[i] = grp.attrs['y0']
+            except KeyError:
+                y0[i] = grp.attrs['Y0']
             
-            try: aversion.append(grp.attrs['aversion'])
-            except: aversion.append(grp.attrs['AVERSION'])
+            try:
+                aversion.append(grp.attrs['aversion'])
+            except KeyError:
+                aversion.append(grp.attrs['AVERSION'])
             
-            try: rversion.append(grp.attrs['rversion'])
-            except: rversion.append(grp.attrs['RVERSION'])
+            try:
+                rversion.append(grp.attrs['rversion'])
+            except KeyError:
+                rversion.append(grp.attrs['RVERSION'])
             
-            try: cversion.append(grp.attrs['cversion'])
-            except: cversion.append(grp.attrs['CVERSION'])
+            try:
+                cversion.append(grp.attrs['cversion'])
+            except KeyError:
+                cversion.append(grp.attrs['CVERSION'])
             
-            try: exptime[i] = grp.attrs['exptime']
-            except: exptime[i] = grp.attrs['EXPTIME']
+            try:
+                exptime[i] = grp.attrs['exptime']
+            except KeyError:
+                exptime[i] = grp.attrs['EXPTIME']
             
-            try: ccdtemp[i] = grp.attrs['ccdtemp']
-            except: ccdtemp[i] = grp.attrs['CCDTEMP']
+            try:
+                ccdtemp[i] = grp.attrs['ccdtemp']
+            except KeyError:
+                ccdtemp[i] = grp.attrs['CCDTEMP']
     
     # Put result in dictionary
-    arrdict = {}
+    arrdict = dict()
     arrdict['alt0'] = alt0
     arrdict['az0'] = az0
     arrdict['th0'] = th0
@@ -812,8 +859,9 @@ def _read_global(filelist):
     arrdict['cversion'] = np.array(cversion)
     arrdict['ccdtemp'] = ccdtemp
     arrdict['exptime'] = exptime
-    
+
     return attrdict, arrdict
+
 
 def _read_header(filelist):
     
@@ -825,6 +873,7 @@ def _read_header(filelist):
             header[key] = grp.attrs[key]
             
     return header
+
 
 def _read_stars(filelist, file_struct):
     
@@ -868,6 +917,7 @@ def _read_stars(filelist, file_struct):
     
     return stars, nobs, dtype
 
+
 def _read_station(filelist):
     
     station = dict()
@@ -886,13 +936,14 @@ def _read_station(filelist):
                 
     return station
 
+
 def _read_lightcurves(filelist, ascc, nobs, dtype, file_struct):
     
     nfiles = len(filelist)
     nstars = len(ascc)
     
     strides = np.row_stack([nstars*[0], np.cumsum(nobs, axis=0)]).astype('int')
-    curves = {ascc[i]:np.recarray(strides[-1,i], dtype=dtype) for i in range(nstars)}
+    curves = {ascc[i]: np.recarray(strides[-1, i], dtype=dtype) for i in range(nstars)}
     
     for i in range(nfiles):
         
@@ -904,12 +955,13 @@ def _read_lightcurves(filelist, ascc, nobs, dtype, file_struct):
             
             for j in range(nstars):
                 
-                if (nobs[i,j] > 0):
+                if nobs[i, j] > 0:
                     
-                    curves[ascc[j]][strides[i,j]:strides[i+1,j]] = grp[ascc[j]][()]
+                    curves[ascc[j]][strides[i, j]:strides[i+1, j]] = grp[ascc[j]][()]
                     
     return curves
-    
+
+
 def _read_astrometry(filelist):
     
     astrometry = dict()
@@ -919,7 +971,7 @@ def _read_astrometry(filelist):
             
             try:
                 grp = f['astrometry']
-            except:
+            except KeyError:
                 continue
             else:
                 
@@ -935,6 +987,7 @@ def _read_astrometry(filelist):
 
     return astrometry
 
+
 def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=None, ralims=None, nsteps=1000):
     
     filelist = np.sort(filelist)    
@@ -949,7 +1002,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
     if overwrite:
         try:
             os.remove(filename)
-        except:
+        except FileNotFoundError:
             pass 
     
     # Read the combined "stars" field and index the files.
@@ -961,7 +1014,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         
         for key in stars.keys():
             stars[key] = stars[key][mask]
-        nobs = nobs[:,mask]
+        nobs = nobs[:, mask]
         
     if len(stars['ascc']) < 1:
         return None
@@ -971,7 +1024,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
         
         for key in stars.keys():
             stars[key] = stars[key][mask]
-        nobs = nobs[:,mask]
+        nobs = nobs[:, mask]
     
     if len(stars['ascc']) < 1:
         return None
@@ -984,7 +1037,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
     for i in range(0, nstars, nsteps):
         
         # Read the combined lightcurves for a group of stars.
-        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
+        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:, i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
         with h5py.File(filename, 'a') as f:
@@ -1009,7 +1062,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
     lstmin = np.amin(stars['lstsqmin'])
     lstmax = np.amax(stars['lstsqmax'])
         
-    if (siteid == 'LP'):
+    if siteid == 'LP':
         
         attrdict, arrdict = _read_global(filelist)
         
@@ -1022,11 +1075,11 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
             
             grp.create_dataset('filelist', data=filelist)
             
-            for key, value in attrdict.iteritems():
+            for key, value in attrdict.items():
                 grp.attrs[key] = value
                 
-            for key, value in arrdict.iteritems():
-                grp.create_dataset(key, data = value)
+            for key, value in arrdict.items():
+                grp.create_dataset(key, data=value)
         
     else:
         
@@ -1046,7 +1099,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
             for key in header.keys():
                 grp.attrs[key] = header[key]
         
-    if (siteid != 'LP'):
+    if siteid != 'LP':
         
         # Read the combined "station" field.
         station = _read_station(filelist)
@@ -1071,6 +1124,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
                 grp.create_dataset(key, data=astrometry[key])
 
     return filename
+
 
 def make_quarter(filename, filelist, nsteps=1000):
     
@@ -1116,7 +1170,7 @@ def make_quarter(filename, filelist, nsteps=1000):
     for i in range(0, nstars, nsteps):
         
         # Read the combined lightcurves for a group of stars.
-        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:,i:i+nsteps], dtype, file_struct)
+        curves = _read_lightcurves(filelist, stars['ascc'][i:i+nsteps], nobs[:, i:i+nsteps], dtype, file_struct)
              
         # Write the combined lightcurves for a group of stars.
         with h5py.File(filename, 'a') as f:
@@ -1125,7 +1179,8 @@ def make_quarter(filename, filelist, nsteps=1000):
              
                 tmp = curves[stars['ascc'][j]]
                 
-                if (len(tmp) == 0): continue                
+                if len(tmp) == 0:
+                    continue
                 
                 stars['nobs'][j] = len(tmp)
                 
@@ -1147,25 +1202,25 @@ def make_quarter(filename, filelist, nsteps=1000):
         
         grp = f.create_group(file_struct['stars'])
         
-        for key, value in stars.iteritems():
-            grp.create_dataset(key, data = value[idx])
+        for key, value in stars.items():
+            grp.create_dataset(key, data=value[idx])
 
     return
-    
-def merge_files(filetype, filename, filelist, nsteps=1000, declims=None, ralims=None):
+
+
+def merge_files(filetype, filename, filelist, declims=None, ralims=None, nsteps=1000):
     
     if filetype == 'fast':
-        make_baseline(filename, filelist, nsteps, declims=declims, ralims=ralims)
+        make_baseline(filename, filelist, declims=declims, ralims=ralims, nsteps=nsteps)
     elif filetype == 'red':
-        make_quarter(filename, filelist, nsteps)
+        make_quarter(filename, filelist, nsteps=nsteps)
     else:
         raise ValueError('Filetype {}, is not suported.'.format(filetype))
     
     return
 
+
 def main():
-    
-    import argparse
 
     parser = argparse.ArgumentParser(description='Combine temporary lightcurve files.')
     parser.add_argument('filetype', type=str, default=['fast', 'red'],
@@ -1176,16 +1231,18 @@ def main():
                         help='the files to combine')
     parser.add_argument('-n', '--nsteps', type=int, default=1000,
                         help='the number of stars to read in one go', dest='nsteps')
-    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90.,90.],
+    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90., 90.],
                         help='the declination range to process', dest='declims')
-    parser.add_argument('-r', '--ralims', type=float, nargs=2, default=[0.,360.],
+    parser.add_argument('-r', '--ralims', type=float, nargs=2, default=[0., 360.],
                         help='the right ascension range to process', dest='ralims')
     
     args = parser.parse_args()
     
-    merge_files(args.filetype, args.filename, args.filelist, args.nsteps, args.declims, args.ralims)
+    merge_files(args.filetype, args.filename, args.filelist,
+                declims=args.declims, ralims=args.ralims, nsteps=args.nsteps)
     
     return
+
 
 if __name__ == '__main__':
     

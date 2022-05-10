@@ -216,7 +216,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
         print blsfile
 
         # Read the box least-squares results.
-        f = io.blsFile(blsfile)
+        f = io.BoxlstsqFile(blsfile)
         hdr = f.read_header(['ascc', 'period', 'epoch', 'depth', 'duration', 'sde'])
         data = f.read_data(['freq', 'dchisq_dec'])
     
