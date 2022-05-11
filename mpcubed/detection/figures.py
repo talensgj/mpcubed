@@ -7,9 +7,10 @@ Created on Tue Apr 25 16:17:22 2017
 
 import os
 import glob
+import argparse
+import multiprocessing as mp
 
 import numpy as np
-import multiprocessing as mp
 
 import matplotlib
 matplotlib.use('Agg')
@@ -28,10 +29,12 @@ rcParams['axes.titlesize'] = 'xx-large'
 from .. import io, statistics
 from . import detrend
 
+
 def plot_periodogram(freq, dchisq, period, zoom=False):
     """ Plot the box least-squares periodogram. """
 
-    plt.annotate(r'$P = {:.5f}$'.format(period), (0, 1), xytext=(10, -10), xycoords='axes fraction', textcoords='offset points', va='top', ha='left', size='x-large', backgroundcolor='w')    
+    plt.annotate(r'$P = {:.5f}$'.format(period), (0, 1), xytext=(10, -10), xycoords='axes fraction',
+                 textcoords='offset points', va='top', ha='left', size='x-large', backgroundcolor='w')
     
     # Plot the box least-squares periodogram.
     plt.plot(freq, dchisq, c='k')
@@ -44,24 +47,25 @@ def plot_periodogram(freq, dchisq, period, zoom=False):
     
     # Add lines indicating the peak, and integer harmonics.
     freq = 1/period
-    plt.axvline(freq, c=(0./255,109./255,219./255), zorder=-10)
+    plt.axvline(freq, c=(0./255, 109./255, 219./255), zorder=-10)
     for n in range(2, 5):
-        plt.axvline(n*freq, c=(0./255,109./255,219./255), ls='--', zorder=-10)
-        plt.axvline(freq/n, c=(0./255,109./255,219./255), ls='--', zorder=-10)
+        plt.axvline(n*freq, c=(0./255, 109./255, 219./255), ls='--', zorder=-10)
+        plt.axvline(freq/n, c=(0./255, 109./255, 219./255), ls='--', zorder=-10)
         
     # Add lines indicating the 1 day systematic and harmonics.
     freq = 1/.9972
-    plt.axvline(freq, c=(146./255,0,0), lw=2, ymax=.1)
+    plt.axvline(freq, c=(146./255, 0, 0), lw=2, ymax=.1)
     for n in range(2, 5):
-        plt.axvline(n*freq, c=(146./255,0,0), lw=2, ymax=.1)
-        plt.axvline(freq/n, c=(146./255,0,0), lw=2, ymax=.1)
+        plt.axvline(n*freq, c=(146./255, 0, 0), lw=2, ymax=.1)
+        plt.axvline(freq/n, c=(146./255, 0, 0), lw=2, ymax=.1)
         
     for n in range(1, 5):
-        plt.axvline(n*freq/(n+1), c=(146./255,0,0), lw=2, ymax=.1)
-        plt.axvline((n+1)*freq/n, c=(146./255,0,0), lw=2, ymax=.1)     
+        plt.axvline(n*freq/(n+1), c=(146./255, 0, 0), lw=2, ymax=.1)
+        plt.axvline((n+1)*freq/n, c=(146./255, 0, 0), lw=2, ymax=.1)
     
     return  
-    
+
+
 def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False):
     """ Plot a lightcurve with the box least-squares best fit overplotted. """    
     
@@ -79,7 +83,7 @@ def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False
         nbins = np.ceil(9*P/T14)
         bins = np.linspace(-offset, 1-offset, nbins+1)   
         xbin, ybin, eybin = statistics.bin_data(phase, mag, bins, emag)
-        plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255,109./255,219./255))
+        plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255, 109./255, 219./255))
     
     if zoom:
         plt.xlim(-1.5*T14/P, 1.5*T14/P)
@@ -92,7 +96,8 @@ def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False
     plt.ylabel(r'$\Delta m$') 
     
     return
-    
+
+
 def plot_boxcurve(box_pars):
     
     T0, P, T14, delta = box_pars
@@ -102,9 +107,10 @@ def plot_boxcurve(box_pars):
     x = np.array([-.5, -x, -x, x, x, .5])
     y = np.array([0, 0, -delta, -delta, 0, 0])
     
-    plt.plot(x, y, c=(146./255,0,0), lw=2, zorder=20)    
+    plt.plot(x, y, c=(146./255, 0, 0), lw=2, zorder=20)
     
     return
+
 
 def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     
@@ -115,7 +121,7 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
     for i in args:
                 
         # Perform the secondary calibration.
-        lc = detrend.remove_trend(lc2d[:,i], nobs, method=method)
+        lc = detrend.remove_trend(lc2d[:, i], nobs, method=method)
         lc = lc[lc['mask']]
     
         # Create the figure.
@@ -123,42 +129,42 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
         
         plt.suptitle('ASCC {}'.format(hdr['ascc'][i]), size='xx-large')    
         
-        gs = gridspec.GridSpec(6, 6, height_ratios = [.5, 10, 10, .5, 10, .5])
+        gs = gridspec.GridSpec(6, 6, height_ratios=[.5, 10, 10, .5, 10, .5])
         
         # Plot the periodogram.
-        plt.subplot(gs[1,:4])
+        plt.subplot(gs[1, :4])
         
         plt.title('Periodogram')
-        plot_periodogram(data['freq'], data['dchisq_dec'][:,i], box_pars[i,1])
+        plot_periodogram(data['freq'], data['dchisq_dec'][:, i], box_pars[i, 1])
         
-        plt.subplot(gs[1,4:])
+        plt.subplot(gs[1, 4:])
         
         plt.title('Periodogram zoom')
-        plot_periodogram(data['freq'], data['dchisq_dec'][:,i], box_pars[i,1], zoom=True)
+        plot_periodogram(data['freq'], data['dchisq_dec'][:, i], box_pars[i, 1], zoom=True)
         
         # Plot the data and the best-fit box-model.
-        plt.subplot(gs[2:4,:4])
+        plt.subplot(gs[2:4, :4])
     
         plt.title('Photometry')
-        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i])
+        plot_lightcurve(lc['jd'], lc['mag'] - lc['trend'], lc['emag'], box_pars[i])
         plot_boxcurve(box_pars[i])
         
-        plt.subplot(gs[2:4,4:])
+        plt.subplot(gs[2:4, 4:])
     
         plt.title('Photometry zoom')
-        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], zoom=True)
+        plot_lightcurve(lc['jd'], lc['mag'] - lc['trend'], lc['emag'], box_pars[i], zoom=True)
         plot_boxcurve(box_pars[i])
     
-        plt.subplot(gs[4,:3])
+        plt.subplot(gs[4, :3])
     
-        box_pars[i,1] = .5*box_pars[i,1] # Half original period.
-        plt.title(r'Half-period, $P = {:.5f}$'.format(box_pars[i,1]))
-        plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], binned=False)
+        box_pars[i, 1] = .5*box_pars[i, 1]  # Half original period.
+        plt.title(r'Half-period, $P = {:.5f}$'.format(box_pars[i, 1]))
+        plot_lightcurve(lc['jd'], lc['mag'] - lc['trend'], lc['emag'], box_pars[i], binned=False)
     
-        plt.subplot(gs[4,3:])
+        plt.subplot(gs[4, 3:])
     
-        box_pars[i,1] = 4.*box_pars[i,1] # Twice original period.
-        plt.title(r'Double-period, $P = {:.5f}$'.format(box_pars[i,1]))
+        box_pars[i, 1] = 4.*box_pars[i, 1]  # Twice original period.
+        plt.title(r'Double-period, $P = {:.5f}$'.format(box_pars[i, 1]))
         plot_lightcurve(lc['jd'], lc['mag']-lc['trend'], lc['emag'], box_pars[i], offset=0.25, binned=False)        
             
         plt.tight_layout()
@@ -166,14 +172,15 @@ def figs_candidates(hdr, data, lc2d, nobs, method, figdir):
         plt.close()    
     
     return
- 
+
+
 def worker(queue, method, figdir):
 
     while True:
         
         item = queue.get()
         
-        if (item == 'DONE'):
+        if item == 'DONE':
             break
         else:
 
@@ -191,6 +198,7 @@ def worker(queue, method, figdir):
             figs_candidates(hdr, data, lc2d, nobs, method, figdir)
     
     return    
+
 
 def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6): 
 
@@ -211,9 +219,11 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
     the_queue = mp.Queue(nprocs)
     the_pool = mp.Pool(nprocs, worker, (the_queue, method, figdir))
 
+    print('Making boxlstsq diagnostic figures for:')
+
     for blsfile in blsfiles:
         
-        print blsfile
+        print(' ', blsfile)
 
         # Read the box least-squares results.
         f = io.BoxlstsqFile(blsfile)
@@ -239,17 +249,16 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
 
     return
 
+
 def main():
-    
-    import argparse
 
     parser = argparse.ArgumentParser(description='Make figures for the database.')
     parser.add_argument('blsdir', type=str,
                         help='the BLS run to create the figures for')
     parser.add_argument('-a', '--aper', type=int, default=0,
-                        help ='the aperture to use', dest='aper')
+                        help='the aperture to use', dest='aper')
     parser.add_argument('-m', '--method', type=str, default='legendre',
-                        help ='detrending method', dest='method')
+                        help='detrending method', dest='method')
     parser.add_argument('-n', '--nprocs', type=int, default=6,
                         help='the number of processes to use', dest='nprocs')
     args = parser.parse_args()
@@ -257,6 +266,7 @@ def main():
     figs_boxlstsq(args.blsdir, args.aper, args.method, args.nprocs)
     
     return
+
 
 if __name__ == '__main__':
     

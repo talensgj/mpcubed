@@ -5,9 +5,10 @@ import numpy as np
 
 from .. import misc, statistics
 
-###############################################################################
-### Helper functions.
-###############################################################################
+#####################
+# Helper functions. #
+#####################
+
 
 def wrap_lst(lst):
     """ Wrap the LST. """
@@ -15,14 +16,15 @@ def wrap_lst(lst):
     sort = np.argsort(lst)
     gap = np.amax(np.diff(lst[sort])) 
     arg = np.argmax(np.diff(lst[sort]))
-    gap0 = 24. - np.ptp(lst) # Gap across lst=0.
+    gap0 = 24. - np.ptp(lst)  # Gap across lst=0.
     
-    if (gap > gap0):
+    if gap > gap0:
         
         lst = np.mod(lst - lst[sort][arg+1], 24.)
     
     return lst
-    
+
+
 def scale(x):
     """ Scale a coordinate to run from -1 to 1. """
     
@@ -34,9 +36,10 @@ def scale(x):
     
     return x
 
-###############################################################################
-### Detrending methods.
-###############################################################################
+#######################
+# Detrending methods. #
+#######################
+
 
 def polynomial(jd, mag, emag, deg=0):
     
@@ -45,7 +48,7 @@ def polynomial(jd, mag, emag, deg=0):
     mat = np.polynomial.legendre.legvander(x, deg)
     
     # Compute the best fit.
-    pars = np.linalg.lstsq(mat/emag[:,np.newaxis], mag/emag, rcond=None)[0]
+    pars = np.linalg.lstsq(mat/emag[:, np.newaxis], mag/emag, rcond=None)[0]
     
     # Evaluate the best fit.
     trend = np.sum(pars*mat, axis=1)
@@ -53,31 +56,37 @@ def polynomial(jd, mag, emag, deg=0):
     
     return trend, mat, pars, chisq
 
-def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50):
+
+def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, nsig=10., maxiter=50):
     """ Fit long-term and psf-variations using legendre polynomials.
     
     Args:
-        jd (float): The julian dates of the observations in UT days.
-        lst (float): The sidereal times of the observations in sidereal hours.
-        sky (float): The sky values associated with the data.
-        mag (float): The data.
-        emag (float): The uncertainties on the data.
-        scale0 (float): Smallest scale of the long-term variations on days.
-        scale1 (float): Smallest scale of the psf-variations on days.
+        jd (np.ndarray[float]): The julian dates of the observations in UT days.
+        lst (np.ndarray[float]): The sidereal times of the observations in sidereal hours.
+        sky (np.ndarray[float]): The sky values associated with the data.
+        mag (np.ndarray[float]): The data.
+        emag (np.ndarray[float]): The uncertainties on the data.
+        s_jd (float): Smallest scale of the long-term variations in days.
+        s_lst (float): Smallest scale of the psf-variations in sidereal hours.
+        nsig (float): Number of sigma to use for oulier clipping.
+        maxiter (int): Maximum number of iterations.
     
     Returns:
-        mat (array): The matrix of babsis functions used in the fit.
-        fit1 (float): The best-fitting long-term variations.
-        fit2 (float): The best fitting psf-variations.
+        mat (np.ndarray[float]): The matrix of babsis functions used in the fit.
+        fit1 (np.ndarray[float]): The best-fitting long-term variations.
+        fit2 (np.ndarray[float]): The best fitting psf-variations.
         
-    """       
-    
+    """
+
+    if maxiter < 1:
+        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
+
     mat = []    
         
     # Long-term variations.
     deg0 = int(np.floor(np.ptp(jd)/s_jd))
     x = scale(jd)
-    mat0 = np.polynomial.legendre.legvander(x, deg0)[:,1:]
+    mat0 = np.polynomial.legendre.legvander(x, deg0)[:, 1:]
     mat.append(mat0)        
         
     # PSF variations.
@@ -88,7 +97,7 @@ def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50)
     mat.append(mat1)
 
     # Sky dependency.    
-    mat.append(mat1*sky[:,np.newaxis]/np.amax(sky))    
+    mat.append(mat1*sky[:, np.newaxis]/np.amax(sky))
     
     # Solve.
     mat = np.column_stack(mat)
@@ -97,7 +106,7 @@ def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50)
     for niter in range(maxiter):
 
         # Compute the best fit.
-        pars = np.linalg.lstsq(mat[mask]/emag[mask,np.newaxis], mag[mask]/emag[mask], rcond=None)[0]
+        pars = np.linalg.lstsq(mat[mask]/emag[mask, np.newaxis], mag[mask]/emag[mask], rcond=None)[0]
         fit = np.sum(pars*mat, axis=1)
         
         # Compute the residuals.
@@ -107,7 +116,7 @@ def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50)
 
         # Update the mask.
         mask_old = np.copy(mask)
-        mask = np.abs(res - m0) < sig*m1         
+        mask = np.abs(res - m0) < nsig*m1
         
         # End the iterative process.
         if np.all(mask == mask_old):
@@ -121,6 +130,7 @@ def legendre(jd, lst, sky, mag, emag, s_jd=5.0, s_lst=0.25, sig=10., maxiter=50)
     chisq = np.sum(((mag - trend)/emag)**2)
 
     return trend, mat, pars, chisq
+
 
 def linfit(lstidx, x, y, sky, mag, emag):
     
@@ -145,7 +155,7 @@ def linfit(lstidx, x, y, sky, mag, emag):
     mat = np.column_stack([np.ones_like(mag), x-xbar[idx], y-ybar[idx], sky])
     
     pars = np.zeros((len(nobs), 4))
-    pars[:,0] = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
+    pars[:, 0] = np.bincount(idx, mag/emag**2)/np.bincount(idx, 1/emag**2)
     
     for i in range(len(nobs)):
         
@@ -155,11 +165,12 @@ def linfit(lstidx, x, y, sky, mag, emag):
         i1 = strides[i]
         i2 = strides[i+1]
         
-        pars[i] = np.linalg.lstsq(mat[i1:i2]/emag[i1:i2,np.newaxis], mag[i1:i2]/emag[i1:i2], rcond=None)[0]
+        pars[i] = np.linalg.lstsq(mat[i1:i2]/emag[i1:i2, np.newaxis], mag[i1:i2]/emag[i1:i2], rcond=None)[0]
 
     trend = np.sum(pars[idx]*mat, axis=1)
 
     return trend[invsort], (nobs > 4)[idx][invsort] 
+
 
 def moving_mean(x, y, yerr=None, window=3.):
     """ Compute a moving mean along the x-axis. """
@@ -183,8 +194,12 @@ def moving_mean(x, y, yerr=None, window=3.):
     
     return mean
 
+
 def local_linear(jd, lstseq, x, y, sky, mag, emag, window=5., maxiter=50, dtol=1e-3):
-    
+
+    if maxiter < 1:
+        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
+
     lstidx = (lstseq % 270)
     
     trend = np.zeros_like(mag)
@@ -209,6 +224,7 @@ def local_linear(jd, lstseq, x, y, sky, mag, emag, window=5., maxiter=50, dtol=1
         
     return trend, mask, chisq 
 
+
 def fourier_matrix(time, freq):
     
     tmp = 2.*np.pi*np.outer(time, freq)
@@ -216,18 +232,19 @@ def fourier_matrix(time, freq):
     
     return mat
 
-def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
+
+def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591, 320./3600.)):
     """ Fit long-term and psf-variations using sine and cosine waves.
     
     Args:
-        jd (float): The julian dates of the observations in UT days.
-        lst (float): The sidereal times of the observations in sidereal hours.
-        mag (float): The data.
-        emag (float): The uncertainties on the data.
-        ns (int): Tuple containig the sample baseline of the observations in 
+        jd (np.ndarray[float]): The julian dates of the observations in UT days.
+        lst (np.ndarray[float]): The sidereal times of the observations in sidereal hours.
+        mag (np.ndarray[float]): The data.
+        emag (np.ndarray[float]): The uncertainties on the data.
+        ns (tuple[int, int]): Tuple containig the sample baseline of the observations in
                   julian dates and sidereal times.
         wrap (bool): If True wrap the sidereal times by 12 hours.
-        step (float): Tuple containing the sample interval in UT days and sidereal hours.
+        step (tuple[float, float]): Tuple containing the sample interval in UT days and sidereal hours.
     
     Returns:
         mat (array): The matrix of babsis functions used in the fit.
@@ -244,7 +261,7 @@ def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     freq1 = np.append(np.amin(freq1)/2., freq1)
     freq1 = freq1[freq1 < 1/6.]
     
-    if (len(freq1) != 0):
+    if len(freq1) != 0:
         mat1 = fourier_matrix(jd, freq1)
     else:
         mat1 = np.empty((len(jd), 0))
@@ -254,7 +271,7 @@ def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     freq2 = np.append(np.amin(freq2)/2., freq2)
     freq2 = freq2[freq2 < 1/.5]
     
-    if (len(freq2) != 0):
+    if len(freq2) != 0:
         mat2 = fourier_matrix(lst, freq2)
     else:
         mat2 = np.empty((len(jd), 0))
@@ -262,11 +279,11 @@ def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
     # Compute the full matrix of basis functions.
     mat = np.column_stack([mat1, mat2])
     
-    if (mat.shape[1] == 0):
+    if mat.shape[1] == 0:
         return np.zeros_like(jd), mat, [], np.sum((mag/emag)**2)
     
     # Calculate the best fit parameters.
-    pars = np.linalg.lstsq(mat/emag[:,np.newaxis], mag/emag, rcond=None)[0]
+    pars = np.linalg.lstsq(mat/emag[:, np.newaxis], mag/emag, rcond=None)[0]
     
     # Evaluate the fit.
     trend = np.sum(mat*pars, axis=1)
@@ -274,11 +291,12 @@ def fourier(jd, lst, mag, emag, ns, wrap, step=(.003693591 ,320./3600.)):
 
     return trend, mat, pars, chisq
 
-###############################################################################
-### Remove trend from light curve.
-###############################################################################
-    
-def remove_trend(lc, nobs, model=None, method='legendre', options={}):
+##################################
+# Remove trend from light curve. #
+##################################
+
+
+def remove_trend(lc, nobs, model=None, method='legendre', **kwargs):
 
     strides = np.append(0, np.cumsum(nobs))
 
@@ -309,31 +327,32 @@ def remove_trend(lc, nobs, model=None, method='legendre', options={}):
         
         elif method == 'polynomial':
             
-            trend, mat, pars, chisq = polynomial(tmp['jd'], mag, tmp['emag'], **options)
+            trend, mat, pars, chisq = polynomial(tmp['jd'], mag, tmp['emag'], **kwargs)
         
             lc['trend'][i1:i2][mask] = trend
         
         elif method == 'legendre':        
         
-            trend, mat, pars, chisq = legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **options)
+            trend, mat, pars, chisq = legendre(tmp['jd'], tmp['lst'], tmp['sky'], mag, tmp['emag'], **kwargs)
 
             lc['trend'][i1:i2][mask] = trend
 
         elif method == 'loclin':
             
-            trend, flag, chisq = local_linear(tmp['jd'], tmp['lstseq'], tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **options)
+            trend, flag, chisq = local_linear(tmp['jd'], tmp['lstseq'],
+                                              tmp['x'], tmp['y'], tmp['sky'], mag, tmp['emag'], **kwargs)
             
             lc['trend'][i1:i2][mask] = trend
             lc['mask'][i1:i2][mask] = flag
               
         elif method == 'fourier':        
     
-            ns = [0,0]
+            ns = [0, 0]
             ns[0] = np.ptp(tmp['lstseq']) + 1
             ns[1], wrap = misc.find_ns(tmp['lstseq'])
             ns = np.maximum(ns, 2)
             
-            trend, mat, pars, chisq = fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **options)
+            trend, mat, pars, chisq = fourier(tmp['jd'], tmp['lst'], mag, tmp['emag'], ns, wrap, **kwargs)
             
             lc['trend'][i1:i2][mask] = trend
             

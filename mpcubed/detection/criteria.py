@@ -9,9 +9,10 @@ import numpy as np
 
 from .. import statistics
 
-###############################################################################
-### Criteria from the box least-squares periodogram.
-###############################################################################
+####################################################
+# Criteria from the box least-squares periodogram. #
+####################################################
+
 
 def compute_sde(dchisq, width=2500, center=250):
 
@@ -23,7 +24,7 @@ def compute_sde(dchisq, width=2500, center=250):
     x = np.abs(np.arange(len(sr)) - arg)
     mask = (x <= width) & (x > center)
     
-    if np.all(sr[mask] == 0.): # Some periodograms are pathalogical.
+    if np.all(sr[mask] == 0.):  # Some periodograms are pathalogical.
         return 0.
     
     # Compute the signal detection efficiency.
@@ -31,6 +32,7 @@ def compute_sde(dchisq, width=2500, center=250):
     sde = (sr[arg] - mu)/std
     
     return sde
+
 
 def boxlstsq_criteria(dchisq_dec, dchisq_inc):
 
@@ -45,14 +47,15 @@ def boxlstsq_criteria(dchisq_dec, dchisq_inc):
 
     return sde, atr  
 
-###############################################################################
-### Criteria from the lightcurve.
-###############################################################################
+#################################
+# Criteria from the lightcurve. #
+#################################
+
 
 def box_model(time, box_pars):
     """A simple box model of a transit."""
     
-    if (len(box_pars) != 4):
+    if len(box_pars) != 4:
         raise ValueError('box_pars must have length 4')
     
     T0, P, T14, delta = box_pars
@@ -62,6 +65,7 @@ def box_model(time, box_pars):
     model = np.where(np.abs(phase) < .5*T14/P, delta, 0.)
     
     return phase, model
+
 
 def phase_gap(jd, box_pars):
     
@@ -78,7 +82,8 @@ def phase_gap(jd, box_pars):
     gap = gap*box_pars['period']/box_pars['duration']
     
     return gap, sym    
-    
+
+
 def transits(jd, box_pars):
 
     # Determine to which orbit and phase each point belongs.
@@ -96,13 +101,14 @@ def transits(jd, box_pars):
 
     return len(intransit), intransit
 
+
 def ellipsoidal_variations(jd, mag, emag, box_pars):
     
     weights = 1/emag**2
     
     # Evaluate the box-model. 
     phase, model = box_model(jd, box_pars)
-    m = np.sum(weights*(mag - model))/np.sum(weights) # Out-of-transit level.
+    m = np.sum(weights*(mag - model))/np.sum(weights)  # Out-of-transit level.
     model = model + m   
     
     # Find in-transit points.
@@ -112,7 +118,7 @@ def ellipsoidal_variations(jd, mag, emag, box_pars):
     
     # Create the ellipsoidal model.
     p = np.cos(4.*np.pi*phase)
-    weights[mask] = 0. # Only fit out-of-transit data.    
+    weights[mask] = 0.  # Only fit out-of-transit data.
     
     # Find the amplitude and S/N of the model.
     u = np.sum(weights*(mag - model)*p)
@@ -121,6 +127,7 @@ def ellipsoidal_variations(jd, mag, emag, box_pars):
     sne = u/np.sqrt(v)     
         
     return eps, sne
+
 
 def pink_noise(jd, mag, box_pars):
     
@@ -145,6 +152,7 @@ def pink_noise(jd, mag, box_pars):
     sigma_red = statistics.mad(resbin)    
     
     return sigma_white, sigma_red
+
 
 def lightcurve_criteria(jd, mag, emag, box_pars):
     

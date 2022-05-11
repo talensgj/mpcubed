@@ -2,27 +2,28 @@
 # -*- coding: utf-8 -*-
 
 import os
-import glob
+import argparse
+import multiprocessing as mp
 
 import numpy as np
 from numba import jit
-import multiprocessing as mp
 
 from .. import io, misc, statistics, models
 from . import detrend, criteria
 from ..calibration import grids
 
-## Constants ##
-G = 6.67384e-11 # [m^3 kg^-1 s^-2]
-SecInDay = 60*60*24 # number of seconds in one day
-Msun = 1.9891e30 # [kg]
-Rsun = 696342e3 # [m]  
+# Constants
+G = 6.67384e-11  # [m^3 kg^-1 s^-2]
+SecInDay = 60*60*24  # number of seconds in one day
+Msun = 1.9891e30  # [kg]
+Rsun = 696342e3  # [m]
 
 np.random.seed(19910909)
 
-###############################################################################
-### The Box Least-Squares Algorithm (Kovacs+ 2002, Ofir 2014)
-###############################################################################
+#############################################################
+# The Box Least-Squares Algorithm (Kovacs+ 2002, Ofir 2014) #
+#############################################################
+
 
 def phase_duration(freq, M, R):
     """ Compute the expected transit duration."""
@@ -31,12 +32,13 @@ def phase_duration(freq, M, R):
     M = M*Msun
     R = R*Rsun
 
-    q = (2.*np.pi)**(2./3)/np.pi * R/(G*M)**(1./3) * (freq)**(2./3)
+    q = (2.*np.pi)**(2./3)/np.pi * R/(G*M)**(1./3) * freq**(2./3)
     
     return q
 
+
 def freq_max(M, R):
-    """ Compute the maximum orbital frequency from the Roche limit."""
+    """Compute the maximum orbital frequency from the Roche limit."""
     
     M = M*Msun
     R = R*Rsun
@@ -46,9 +48,10 @@ def freq_max(M, R):
     fmax = fmax*SecInDay
     
     return fmax
-    
+
+
 def freqs(fmin, fmax, S, OS, M, R):
-    """ Compute the ideal sample frequencies. """
+    """Compute the ideal sample frequencies. """
     
     fmin = fmin/SecInDay
     fmax = fmax/SecInDay
@@ -67,6 +70,7 @@ def freqs(fmin, fmax, S, OS, M, R):
     
     return freq
 
+
 @jit(nopython=True)
 def mycounts(idx, weights, nbins):
     
@@ -76,18 +80,18 @@ def mycounts(idx, weights, nbins):
         
     return hist
 
+
 def cumsum_to_grid(time, bin_edges, wflux, weights, mask):
     
     ndim = wflux.ndim    
     
-    if (ndim == 1):
+    if ndim == 1:
         wflux = np.atleast_2d(wflux).T
         weights = np.atleast_2d(weights).T
         mask = np.atleast_2d(mask).T
 
     # Get the sizes of the arrays.
     nbins = len(bin_edges) 
-    npoints, nstars = wflux.shape 
 
     # Find the bin indices.
     idx = np.searchsorted(bin_edges, time, 'right') 
@@ -102,12 +106,13 @@ def cumsum_to_grid(time, bin_edges, wflux, weights, mask):
     s_cum = np.cumsum(s_cum, axis=0)
     n_cum = np.cumsum(n_cum, axis=0)
 
-    if (ndim == 1):
-        r_cum = r_cum[:,0]
-        s_cum = s_cum[:,0]
-        n_cum = n_cum[:,0]
+    if ndim == 1:
+        r_cum = r_cum[:, 0]
+        s_cum = s_cum[:, 0]
+        n_cum = n_cum[:, 0]
 
     return r_cum, s_cum, n_cum
+
 
 def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     """ Compute the box least-square periodogram for multiple stars."""
@@ -116,13 +121,13 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     flux = np.asarray(flux)
     weights = np.asarray(weights)
     
-    if (len(time) != len(flux)):
+    if len(time) != len(flux):
         raise ValueError('time and flux must have the same first dimension.')
     
-    if (np.ndim(flux) > 2):
+    if np.ndim(flux) > 2:
         raise ValueError('flux must be a 1d or a 2d array.')
     
-    if (np.shape(flux) != np.shape(weights)):
+    if np.shape(flux) != np.shape(weights):
         raise ValueError('flux and weights must be the same shape.')
     
     # Get the options.
@@ -142,25 +147,25 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     
     # Frequency sampling.
     if freq is not None:
-        print 'Using user specified frequencies, ignoring fmin, fmax, OS.'
+        print('Using user specified frequencies, ignoring fmin, fmax, OS.')
     
     else:
 
         # Defaults for fmin and fmax.
-        fmin_def = np.maximum(12./S, 1./30) # Reasonable limits on longest period.
-        fmax_def = freq_max(M, R) # Smallest orbit determined by the Roche limit.
+        fmin_def = np.maximum(12./S, 1./30)  # Reasonable limits on longest period.
+        fmax_def = freq_max(M, R)  # Smallest orbit determined by the Roche limit.
         
         if fmin is None:
             fmin = fmin_def
-        elif (fmin < fmin_def):
-            print 'Warning: minimum frequency contains <2 events or exceeds 30 days.'
+        elif fmin < fmin_def:
+            print('Warning: minimum frequency contains <2 events or exceeds 30 days.')
             
         if fmax is None:
             fmax = fmax_def
-        elif (fmax > fmax_def):
-            print 'Warning: maximum frequency is inside the Hill radius.'
+        elif fmax > fmax_def:
+            print('Warning: maximum frequency is inside the Hill radius.')
                 
-        if (fmax < fmin):
+        if fmax < fmin:
             raise ValueError('fmax must be larger than fmin.')
         
         # Compute optimal sampling frequencies in range fmin, fmax.
@@ -183,7 +188,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     # Create arrays.
     nfreq = len(freq)
     
-    if (np.ndim(flux) == 1):
+    if np.ndim(flux) == 1:
         res_shape = (nfreq,)
     else:
         res_shape = (nfreq, flux.shape[1])
@@ -197,7 +202,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
     nt = np.zeros(res_shape)
     
     # Loop over frequency domain.
-    for i in xrange(nfreq):
+    for i in range(nfreq):
         
         # Phase fold the lightcurve. 
         phase = np.mod(freq[i]*time, 1.)
@@ -262,7 +267,7 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
         args_inc_1d = np.nanargmax(dchisq_tmp*np.sign(depth_tmp), axis=0)
         args_dec_1d = np.nanargmin(dchisq_tmp*np.sign(depth_tmp), axis=0)
         
-        if (np.ndim(flux) == 2):
+        if np.ndim(flux) == 2:
             args_2d = np.arange(flux.shape[1])
             args_inc_2d = (args_inc_1d, args_2d)
             args_dec_2d = (args_dec_1d, args_2d)
@@ -282,9 +287,10 @@ def boxlstsq(time, flux, weights, mask, exp_time=320./86400., **options):
         
     return freq, chisq0, dchisq_inc, dchisq_dec, depth, epoch, duration, nt
 
-###############################################################################
-### Functions for reading the reduced lightcurves.
-###############################################################################
+##################################################
+# Functions for reading the reduced lightcurves. #
+##################################################
+
 
 def read_header(filelist):
     """ Read the combined header given reduced lightcurves."""
@@ -313,6 +319,7 @@ def read_header(filelist):
     
     return ascc, ra, dec, vmag
 
+
 def _read_data(filename, ascc, aper=0):
     """ Read the lightcurves of a group of stars."""
     
@@ -329,21 +336,21 @@ def _read_data(filename, ascc, aper=0):
         # See if there was data.
         try:
             tmp = data[ascc[i]]
-        except:
+        except KeyError:
             continue
 
         # Select data binned from >45 exposures.
         tmp = tmp[tmp['nobs'] > 45]
         
         # Check that there are at least 2 points.
-        if (len(tmp) < 2):
+        if len(tmp) < 2:
             continue
                     
         # Add the results to the arrays.
         lc.append(tmp)
         staridx.append(i*np.ones_like(tmp['lstseq']))
 
-    if (len(lc) == 0):
+    if len(lc) == 0:
         return [], [], 0
 
     lc = np.concatenate(lc)
@@ -355,30 +362,39 @@ def _read_data(filename, ascc, aper=0):
     dtype = [('lstseq', 'uint32'), ('jd', 'float64'), ('lst', 'float64')]
 
     time = np.recarray((len(args),), dtype=dtype)
-    
-    time['lstseq'] = lstseq
-    try: time['jd'] = lc['jd'][args]
-    except: time['jd'] = lc['jdmid'][args]
+
     time['lst'] = lc['lst'][args]
+    time['lstseq'] = lstseq
+    try:
+        time['jd'] = lc['jd'][args]
+    except ValueError:
+        time['jd'] = lc['jdmid'][args]
 
     # Cast the data to a 2D array.
-    dtype = [('lstseq', 'uint32'), ('jd', 'float64'), ('lst', 'float64'), ('mag', 'float64'), ('emag', 'float64'), ('x', 'float64'), ('y', 'float64'), ('sky', 'float64'), ('trend', 'float64'), ('mask', 'bool')]
+    dtype = [('lstseq', 'uint32'), ('jd', 'float64'), ('lst', 'float64'),
+             ('mag', 'float64'), ('emag', 'float64'),
+             ('x', 'float64'), ('y', 'float64'), ('sky', 'float64'),
+             ('trend', 'float64'), ('mask', 'bool')]
 
     lc2d = np.recarray((len(args), len(ascc)), dtype=dtype)
-    lc2d[:,:] = 0
-    
-    lc2d['lstseq'][idx,staridx] = lc['lstseq']
-    try: lc2d['jd'][idx,staridx] = lc['jd']
-    except: lc2d['jd'][idx,staridx] = lc['jdmid']
-    lc2d['lst'][idx,staridx] = lc['lst']
-    lc2d['mag'][idx,staridx] = lc['mag{}'.format(aper)]
-    lc2d['emag'][idx,staridx] = lc['emag{}'.format(aper)]
-    lc2d['x'][idx,staridx] = lc['x']
-    lc2d['y'][idx,staridx] = lc['y']
-    lc2d['sky'][idx,staridx] = lc['sky']
-    lc2d['mask'][idx,staridx] = True
+    lc2d[:, :] = 0
+
+    lc2d['lst'][idx, staridx] = lc['lst']
+    lc2d['lstseq'][idx, staridx] = lc['lstseq']
+    try:
+        lc2d['jd'][idx, staridx] = lc['jd']
+    except ValueError:
+        lc2d['jd'][idx, staridx] = lc['jdmid']
+
+    lc2d['mag'][idx, staridx] = lc['mag{}'.format(aper)]
+    lc2d['emag'][idx, staridx] = lc['emag{}'.format(aper)]
+    lc2d['x'][idx, staridx] = lc['x']
+    lc2d['y'][idx, staridx] = lc['y']
+    lc2d['sky'][idx, staridx] = lc['sky']
+    lc2d['mask'][idx, staridx] = True
 
     return time, lc2d, len(args)
+
 
 def read_data(filelist, ascc, aper=0):
     """ Read the data from a list of reduced lightcurve files."""
@@ -393,7 +409,7 @@ def read_data(filelist, ascc, aper=0):
         # Read the data.
         time_, lc2d_, nobs_ = _read_data(filename, ascc, aper)
         
-        if (nobs_ == 0):
+        if nobs_ == 0:
             continue
         
         time.append(time_)
@@ -408,6 +424,7 @@ def read_data(filelist, ascc, aper=0):
     nobs = np.stack(nobs)
 
     return time, lc2d, nobs
+
 
 def clip_outliers(lc, nsig=3., floor=0.05):
             
@@ -425,7 +442,9 @@ def clip_outliers(lc, nsig=3., floor=0.05):
 
     return lc
 
-def transit_params(nsets, P_range=[1., 5.], p_choices=np.sqrt([0.005, 0.01, 0.02]), b_choices=[0.0, 0.5], rho_choices=[0.4, 0.9, 1.4]):
+
+def transit_params(nsets, P_range=(1., 5.), p_choices=np.sqrt([0.005, 0.01, 0.02]),
+                   b_choices=(0.0, 0.5), rho_choices=(0.4, 0.9, 1.4)):
     
     names = ['T0', 'P', 'T14', 'p', 'b']
     formats = ['float64', 'float64', 'float32', 'float32', 'float32']
@@ -442,6 +461,7 @@ def transit_params(nsets, P_range=[1., 5.], p_choices=np.sqrt([0.005, 0.01, 0.02
     
     return pars
 
+
 def inject_transit(lc, lc_pars):
     
     mask = lc['mask']
@@ -456,26 +476,27 @@ def inject_transit(lc, lc_pars):
         
     return lc
 
-###############################################################################
-### Functions for running the box least-squares algorithm.
-###############################################################################
+##########################################################
+# Functions for running the box least-squares algorithm. #
+##########################################################
+
 
 def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None):
     """ Perform the box least-squares and flag non-detections."""
     
-    print 'Computing boxlstsq for:', item
+    print('Computing boxlstsq for:', item)
     
     for i in range(lc2d.shape[1]):
             
         # Inject transit signals in the lightcurves.
         if (inj_pars is not None) & (i > 0):
-            lc2d[:,i] = inject_transit(lc2d[:,i], inj_pars[i])
+            lc2d[:, i] = inject_transit(lc2d[:, i], inj_pars[i])
             
         # Perform the secondary calibration.
-        lc2d[:,i] = detrend.remove_trend(lc2d[:,i], nobs, method=method)
+        lc2d[:, i] = detrend.remove_trend(lc2d[:, i], nobs, method=method)
         
         # Mask outlying data points.
-        lc2d[:,i] = clip_outliers(lc2d[:,i])
+        lc2d[:, i] = clip_outliers(lc2d[:, i])
     
     # Apply the secondary calibration.
     lc2d['mag'] = lc2d['mag'] - lc2d['trend']
@@ -485,8 +506,9 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
         weights = np.where(lc2d['mask'], 1./lc2d['emag']**2, 0.)
         
     # Run the box least-squares search.    
-    freq, chisq0, dchisq_inc, dchisq_dec, depth, epoch, duration, nt = boxlstsq(time['jd'], -lc2d['mag'], weights, lc2d['mask'])
-    
+    result = boxlstsq(time['jd'], -lc2d['mag'], weights, lc2d['mask'])
+    freq, chisq0, dchisq_inc, dchisq_dec, depth, epoch, duration, nt = result
+
     # Create arrays.
     nstars = len(ascc)
 
@@ -495,8 +517,10 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
     box_pars = np.recarray((nstars,), names=names, formats=formats)
     box_pars[:] = 0
     
-    names = ['sde', 'atr', 'gap', 'sym', 'ntr', 'ntp', 'mst', 'eps', 'sne', 'sw', 'sr', 'snp']
-    formats = ['float32', 'float32', 'float32', 'float32', 'int32', 'int32', 'float32', 'float32', 'float32', 'float32', 'float32', 'float32'] 
+    names = ['sde', 'atr', 'gap', 'sym', 'ntr', 'ntp',
+             'mst', 'eps', 'sne', 'sw', 'sr', 'snp']
+    formats = ['float32', 'float32', 'float32', 'float32', 'int32', 'int32',
+               'float32', 'float32', 'float32', 'float32', 'float32', 'float32']
     blscrit = np.recarray((nstars,), names=names, formats=formats)
     blscrit[:] = 0
 
@@ -504,25 +528,27 @@ def search_skypatch(item, ascc, time, lc2d, nobs, method, blsfile, inj_pars=None
     for i in range(nstars):
         
         # Best-fit parameters.
-        arg = np.argmax(dchisq_dec[:,i])
-        box_pars[i] = epoch[arg,i], 1./freq[arg], duration[arg,i], depth[arg,i]
+        arg = np.argmax(dchisq_dec[:, i])
+        box_pars[i] = epoch[arg, i], 1./freq[arg], duration[arg, i], depth[arg, i]
         
-        lc = lc2d[:,i]
+        lc = lc2d[:, i]
         mask = lc['mask']
         
         # Quality criteria.
-        if np.any(mask) & (dchisq_dec[arg,i] > 0):
+        if np.any(mask) & (dchisq_dec[arg, i] > 0):
             
-            sde, atr = criteria.boxlstsq_criteria(dchisq_dec[:,i], dchisq_inc[:,i])
-            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = criteria.lightcurve_criteria(time['jd'][mask], -lc['mag'][mask], lc['emag'][mask], box_pars[i])
-    
+            sde, atr = criteria.boxlstsq_criteria(dchisq_dec[:, i], dchisq_inc[:, i])
+            result = criteria.lightcurve_criteria(time['jd'][mask], -lc['mag'][mask], lc['emag'][mask], box_pars[i])
+            gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp = result
+
             blscrit[i] = sde, atr, gap, sym, ntr, ntp, mst, eps, sne, sw, sr, snp
             
     # Save the results to file.
     io.write_boxlstsq(blsfile, ascc, chisq0, box_pars, blscrit, freq, dchisq_inc, dchisq_dec, inj_pars)
 
     return
-    
+
+
 def search_skypatch_mp(queue):
     """ Use multiprocessing to perform the transit search."""
     
@@ -530,7 +556,7 @@ def search_skypatch_mp(queue):
         
         item = queue.get()
         
-        if (item == 'DONE'):
+        if item == 'DONE':
             break
         else:
 
@@ -549,12 +575,14 @@ def search_skypatch_mp(queue):
     
     return
 
-def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], outdir='/data3/talens/boxlstsq', nprocs=6, injection=False, nstars=5000, nsignals=11):
+
+def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=(-90., 90.),
+                 outdir='/data3/talens/boxlstsq', nprocs=6, injection=False, nstars=5000, nsignals=11):
     """ Perform detrending and transit search given reduced lightcurves."""
 
-    print 'Trying to run the box least-squares on aperture {} of:'.format(aper) 
+    print('Trying to run the box least-squares on aperture {} of:'.format(aper))
     for filename in filelist:
-        print ' ', filename
+        print(' ', filename)
     
     # Create directories for the output.
     if injection:
@@ -564,11 +592,11 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
     blsdir = os.path.join(outdir, 'bls')
     io.ensure_dir(blsdir)
     
-    if (len(os.listdir(blsdir)) > 0):
-        print 'Error: the output directory {} is not empty.'.format(outdir)
+    if len(os.listdir(blsdir)) > 0:
+        print('Error: the output directory {} is not empty.'.format(outdir))
         exit()
     else:
-        print 'Writing results to:', outdir
+        print('Writing results to:', outdir)
     
     # Write the a file containg the reduced data files used.
     fname = os.path.join(outdir, 'data.txt')
@@ -616,13 +644,13 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
         time, lc2d, nobs = read_data(filelist, ascc_, aper=aper)
     
         # Make sure there was data.
-        if (len(time) == 0):
-            print 'Skipping {}, no good data found.'.format(item) 
+        if len(time) == 0:
+            print('Skipping {}, no good data found.'.format(item))
             continue
         
         # Do not run if the baseline falls short of 60 days.
-        if (np.ptp(time['jd']) < 60.):
-            print 'Skipping {}, insufficient baseline.'.format(item) 
+        if np.ptp(time['jd']) < 60.:
+            print('Skipping {}, insufficient baseline.'.format(item))
             continue    
             
         # Compute the barycentric julian date.
@@ -665,23 +693,22 @@ def run_boxlstsq(filelist, name, aper=0, method='legendre', declims=[-90.,90.], 
     
     return
 
+
 def main():
-    
-    import argparse
 
     parser = argparse.ArgumentParser(description='Run the box least-squares on a collection of reduced data.')
     parser.add_argument('files', type=str, nargs='+',
                         help='the file(s) to process')
     parser.add_argument('name', type=str,
-                        help ='the name of this box least-squares run')
+                        help='the name of this box least-squares run')
     parser.add_argument('-a', '--aper', type=int, default=0,
-                        help ='the aperture to use', dest='aper')
+                        help='the aperture to use', dest='aper')
     parser.add_argument('-m', '--method', type=str, default='legendre',
-                        help ='the detrending method', dest='method')
-    parser.add_argument('-d', '--declims', type=float, nargs=2, default=[-90.,90.],
+                        help='the detrending method', dest='method')
+    parser.add_argument('-d', '--declims', type=float, nargs=2, default=(-90., 90.),
                         help='the declination range to process', dest='declims')
     parser.add_argument('-o', '--outdir', type=str, default='/data3/talens/boxlstsq',
-                        help ='the location to write the results', dest='outdir')
+                        help='the location to write the results', dest='outdir')
     parser.add_argument('-n', '--nprocs', type=int, default=6,
                         help='the number of processes to use', dest='nprocs')
     parser.add_argument('--injection', action='store_true', 
@@ -693,10 +720,12 @@ def main():
     
     args = parser.parse_args()
     
-    run_boxlstsq(args.files, args.name, args.aper, args.method, args.declims, args.outdir, args.nprocs, args.injection, args.nstars, args.nsignals)
+    run_boxlstsq(args.files, args.name, args.aper, args.method, args.declims,
+                 args.outdir, args.nprocs, args.injection, args.nstars, args.nsignals)
     
     return
-    
+
+
 if __name__ == '__main__':
     
     main()

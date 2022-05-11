@@ -383,7 +383,10 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
             number of datapoints and the number of parameters of the fit.
     
     """
-    
+
+    if maxiter < 1:
+        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
+
     sort = np.argsort(idx_l)
     idx_k = idx_k[sort]
     idx_l = idx_l[sort]
@@ -471,6 +474,9 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
             number of datapoints and the number of parameters of the fit.
     
     """
+
+    if maxiter < 1:
+        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
     
     # Determine the number of datapoints and parameters to fit.
     npoints = len(mag)
