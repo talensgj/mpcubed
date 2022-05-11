@@ -4,6 +4,7 @@
 import numpy as np
 from numba import jit    
 
+
 @jit(nopython=True)
 def _par_sigma_function(idx, res, errsq, err):
     
@@ -13,13 +14,14 @@ def _par_sigma_function(idx, res, errsq, err):
     
     return par, diff
 
+
 @jit(nopython=True)
 def find_par_sigma(idx, res, errsq, maxiter=10):
     
     # Search for a solution between 0 and 2.
-    N = np.amax(idx) + 1
-    err1 = np.zeros(N)
-    err2 = 2*np.ones(N)
+    nvals = np.amax(idx) + 1
+    err1 = np.zeros(nvals)
+    err2 = 2*np.ones(nvals)
     
     # Compute the value of the function at the beginning the interval.
     par, diff1 = _par_sigma_function(idx, res, errsq, err1)
@@ -46,6 +48,7 @@ def find_par_sigma(idx, res, errsq, maxiter=10):
     
     return par, err3
 
+
 @jit(nopython=True)
 def _sigma_function(idx, ressq, errsq, err):
     
@@ -55,13 +58,14 @@ def _sigma_function(idx, ressq, errsq, err):
     
     return term
 
+
 @jit(nopython=True)
 def find_sigma(idx, residuals, errsq, maxiter=10):
     
     # Search for a solution between 0 and 2.
-    N = np.amax(idx) + 1
-    err1 = np.zeros(N)
-    err2 = 2*np.ones(N)
+    nvals = np.amax(idx) + 1
+    err1 = np.zeros(nvals)
+    err2 = 2*np.ones(nvals)
     
     ressq = residuals*residuals
     

@@ -4,6 +4,7 @@
 import os 
 import glob
 import datetime
+import argparse
 
 import numpy as np
 
@@ -16,9 +17,10 @@ from collections import namedtuple
 
 Quality = namedtuple('Quality', 'niter chisq npoints npars') 
 
-###############################################################################
-### Functions for reading the raw data.
-###############################################################################
+#######################################
+# Functions for reading the raw data. #
+#######################################
+
 
 def baseline(date, part, camera, source, dest):
     
@@ -29,17 +31,17 @@ def baseline(date, part, camera, source, dest):
         raise ValueError("Incorrect date format, should be YYYYMM")
         
     # Get the photometry files matching the date, part and camera.
-    if (part == 'A'): 
+    if part == 'A':
      
         filelist = glob.glob(os.path.join(source, '*/*/f*_{}0?{}.hdf5'.format(date, camera)))
         filelist = filelist + glob.glob(os.path.join(source, '*/*/f*_{}1[0-5]{}.hdf5'.format(date, camera)))
     
-    elif (part == 'B'):
+    elif part == 'B':
     
         filelist = glob.glob(os.path.join(source, '*/*/f*_{}1[6-9]{}.hdf5'.format(date, camera)))
         filelist = filelist + glob.glob(os.path.join(source, '*/*/f*_{}[23]?{}.hdf5'.format(date, camera)))
     
-    elif (part == 'C'):
+    elif part == 'C':
 
         filelist = glob.glob(os.path.join(source, '*/*/f*_{}??{}.hdf5'.format(date, camera)))         
     
@@ -48,15 +50,15 @@ def baseline(date, part, camera, source, dest):
     
     # Check that there are valid files.
     if len(filelist) == 0:
-        print 'No valid data found.'
+        print('No valid data found.')
         return None
 
     # Sort the filelist.
     filelist = np.sort(filelist)    
     
-    print 'Combining files:'
+    print('Combining files:')
     for filename in filelist:
-        print '    {}'.format(filename) 
+        print('    {}'.format(filename))
 
     # Create the destination directory.    
     outpath = os.path.join(dest, camera)    
@@ -74,10 +76,10 @@ def baseline(date, part, camera, source, dest):
     # Check that the destination file does not exist.
     photfile = os.path.join(outpath, '{}_{}{}{}.hdf5'.format(prefix, date, part, camera)) 
     if os.path.isfile(photfile):
-        print 'Output file already exists: {}'.format(photfile)
+        print('Output file already exists: {}'.format(photfile))
         return photfile
     else:
-        print 'Writing results to: {}'.format(photfile)
+        print('Writing results to: {}'.format(photfile))
     
     # Combine the files.
     io.make_baseline(photfile, filelist)
@@ -212,6 +214,7 @@ def _read_data(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
 
     return mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q
 
+
 def _read_header_polar(filename, camgrid, skygrid):
     
     f = io.PhotFile(filename)
@@ -259,6 +262,7 @@ def _read_header_polar(filename, camgrid, skygrid):
         lstseq = station['lstseq']
 
     return stars, settings, lstmin, lstmax, lstseq, ring[0]
+
 
 def _read_data_polar(filename, aper, stars, index, method, camgrid, ipxgrid, maglim):
     
@@ -351,19 +355,20 @@ def _read_data_polar(filename, aper, stars, index, method, camgrid, ipxgrid, mag
     
     return mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q
     
-###############################################################################
-### Code for calibrating the raw data, inspired by Collier Cameron+ 2006.
-###############################################################################
+#########################################################################
+# Code for calibrating the raw data, inspired by Collier Cameron+ 2006. #
+#########################################################################
+
 
 def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with intrapixel variations.
     
     Args:
-        idx_k (int): Indices for calculating the transmission corrections.
-        idx_l (int): Indices for calculating the intrapixel corrections.
-        mag (float): Magnitude points.
-        emag (float): The uncertainties corresponding to the magnitude points.
-        b_mat (float): Matrix of sine functions for the intrapixel corrections. 
+        idx_k (np.ndarray[int]): Indices for calculating the transmission corrections.
+        idx_l (np.ndarray[int]): Indices for calculating the intrapixel corrections.
+        mag (np.ndarray[float]): Magnitude points.
+        emag (np.ndarray[float]): The uncertainties corresponding to the magnitude points.
+        b_mat (np.ndarray[float]): Matrix of sine functions for the intrapixel corrections.
         maxiter (int): The maximum number of iterations to perform. Defualt
             is 100.
         dtol (float): Maximum allowed change in the parameters, iteration
@@ -371,8 +376,8 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
         verbose (bool): Output the current iteration. Default is False.
         
     Returns:
-        T (float): The transmission corrections.
-        a (float): The intrapixel corrections.
+        T (np.ndarray[float]): The transmission corrections.
+        a (np.ndarray[float]): The intrapixel corrections.
         quality: A named tuple with fields niter, chisq, npoints and npars
             describing the number of iterations, the chi-square value, the
             number of datapoints and the number of parameters of the fit.
@@ -400,11 +405,11 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
     
     strides = np.cumsum(np.bincount(idx_l))
     strides = np.append(0, strides)
-    
+
     for niter in range(maxiter):
         
         if verbose:
-            print 'niter = {}'.format(niter)
+            print('niter = {}'.format(niter))
         
         # Compute the parameters.
         T = np.bincount(idx_k, weights*(mag - ipx))/np.bincount(idx_k, weights)
@@ -418,7 +423,7 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
             a[i], ipx[i1:i2] = intrapix.ipxsol(res[i1:i2], weights[i1:i2], b_mat[i1:i2])
         
         # Check if the solution has converged.
-        if (niter > 0):
+        if niter > 0:
             
             dcrit_T = np.nanmax(np.abs(T - T_old))
             dcrit_a = np.nanmax(np.abs(a - a_old))
@@ -434,20 +439,21 @@ def cdecor_spatial(idx_k, idx_l, mag, emag, b_mat, maxiter=100, dtol=1e-3, verbo
     chisq = np.sum(chisq)
     
     return T, a, Quality(niter, chisq, npoints, npars)
-    
+
+
 def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, dtol=1e-3, verbose=False):
     """ Perform a coarse decorrelation with extra error terms.
     
     Args:
-        idx_i (int): Indices for calculating the stellar magnitudes.
-        idx_t (int): Indices for calculating the atmospheric corrections.
-        mag (float): Magnitude points.
-        emag (float): The uncertainties corresponding to the magnitude points.
-        sig_m (float): Initial value for the extra error corresponding to
+        idx_i (np.ndarray[int]): Indices for calculating the stellar magnitudes.
+        idx_t (np.ndarray[int]): Indices for calculating the atmospheric corrections.
+        mag (np.ndarray[float]): Magnitude points.
+        emag (np.ndarray[float]): The uncertainties corresponding to the magnitude points.
+        sig_m (np.ndarray[float]): Initial value for the extra error corresponding to
             idx1.
-        sig_c (float): Initial value for the extra error corresponding to
+        sig_c (np.ndarray[float]): Initial value for the extra error corresponding to
             idx2.
-        m (float): Values for the stellar magnitudes. If provided they are
+        m (np.ndarray[float]): Values for the stellar magnitudes. If provided they are
             assumed to be fixed.
         maxiter (int): The maximum number of iterations to perform. Defualt
             is 100.
@@ -456,10 +462,10 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
         verbose (bool): Output the current iteration. Default is True.
         
     Returns:
-        m (float): The stellar magnitudes.
-        c (float): The atmospheric corrections.
-        sig_m (float): Extra error corresponding to the stellar magnitudes.
-        sig_c (float): Extra error corresponding to the atmospheric corrections.
+        m (np.ndarray[float]): The stellar magnitudes.
+        c (np.ndarray[float]): The atmospheric corrections.
+        sig_m (np.ndarray[float]): Extra error corresponding to the stellar magnitudes.
+        sig_c (np.ndarray[float]): Extra error corresponding to the atmospheric corrections.
         quality: A named tuple with fields niter, chisq, npoints and npars
             describing the number of iterations, the chi-square value, the
             number of datapoints and the number of parameters of the fit.
@@ -484,7 +490,7 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
     for niter in range(maxiter):
         
         if verbose:
-            print 'niter = {}'.format(niter)
+            print('niter = {}'.format(niter))
             
         # Compute the parameters.
         if fixed:
@@ -495,7 +501,7 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
         c, sig_c = sigmas.find_par_sigma(idx_t, mag - m[idx_i], emag**2 + (sig_m**2)[idx_i])
         
         # Check if the solution has converged.
-        if (niter > 0):
+        if niter > 0:
             
             dcrit_m = np.nanmax(np.abs(m - m_old))
             dcrit_c = np.nanmax(np.abs(c - c_old))
@@ -504,7 +510,7 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
                 break
         
         # Check if the solution is oscillating?
-        if (niter > 1):
+        if niter > 1:
             
             dcrit_m = np.nanmax(np.abs(m - m_older))
             dcrit_c = np.nanmax(np.abs(c - c_older))
@@ -512,7 +518,7 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
             if (dcrit_m < dtol) & (dcrit_c < dtol):
                 break
         
-        if (niter > 0):
+        if niter > 0:
             m_older = np.copy(m_old)
             c_older = np.copy(c_old)
         
@@ -524,14 +530,15 @@ def cdecor_temporal(idx_i, idx_t, mag, emag, sig_m, sig_c, m=None, maxiter=100, 
     chisq = np.sum(chisq)
     
     return m, c, sig_m, sig_c, Quality(niter, chisq, npoints, npars)
-    
+
+
 def worker_spatial(in_queue, out_queue, kwargs):
     
     while True:
         
         item = in_queue.get()
     
-        if (item == 'DONE'):
+        if item == 'DONE':
             break
         else:
             n, k, l, idx_k, idx_l, mag, emag, b_mat = item
@@ -539,14 +546,15 @@ def worker_spatial(in_queue, out_queue, kwargs):
             out_queue.put((n, k, l, T_kn, a_ln, quality))
 
     return    
-    
+
+
 def worker_temporal(in_queue, out_queue, kwargs):
     
     while True:
         
         item = in_queue.get()
         
-        if (item == 'DONE'):
+        if item == 'DONE':
             break
         else:
             q, i, t, idx_i, idx_t, mag, emag, sig_i, sig_qt, m_i = item
@@ -554,6 +562,7 @@ def worker_temporal(in_queue, out_queue, kwargs):
             out_queue.put((q, i, t, m_i, c_qt, sig_i, sig_qt, quality))
 
     return
+
 
 class CoarseDecorrelation(object):
 
@@ -600,7 +609,8 @@ class CoarseDecorrelation(object):
                                                                                           self.maglim)
             data_t = data_t - self.clouds['lstmin']
 
-            if (len(mag) == 0): continue
+            if len(mag) == 0:
+                continue
 
             mag = mag - self.magnitudes['mag'][data_i]
 
@@ -658,7 +668,8 @@ class CoarseDecorrelation(object):
                                                                                           self.maglim)
             data_t = data_t - self.clouds['lstmin']
 
-            if (len(mag) == 0): continue
+            if len(mag) == 0:
+                continue
 
             # Apply known spatial correction.
             mag = mag - self.trans['trans'][data_k, data_n]
@@ -792,16 +803,16 @@ class CoarseDecorrelation(object):
         self.got_sky = False
 
         # Perform the coarse decorrelation.
-        print 'Performing coarse decorrelation for aperture {} of: {}'.format(self.aper, self.photfile)
-        print 'Writing results to: {}'.format(self.sysfile)
+        print('Performing coarse decorrelation for aperture {} of: {}'.format(self.aper, self.photfile))
+        print('Writing results to: {}'.format(self.sysfile))
 
         for niter in range(self.outer_maxiter):
-            print 'Iteration {} out of {}:'.format(niter + 1, self.outer_maxiter)
+            print('Iteration {} out of {}:'.format(niter + 1, self.outer_maxiter))
 
-            print '    Calculating spatial systematics...'
+            print('    Calculating spatial systematics...')
             self._spatial()
 
-            print '    Calculating temporal systematics...'
+            print('    Calculating temporal systematics...')
             self._temporal()
 
         # Write the results to file.
@@ -809,6 +820,7 @@ class CoarseDecorrelation(object):
                              self.intrapix, self.clouds)
 
         return self.sysfile
+
 
 class CoarseDecorPolar(object):
     
@@ -849,24 +861,27 @@ class CoarseDecorPolar(object):
         for n in self.spatial['n']:
             
             # Read data.
-            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data_polar(self.photfile, self.aper, self.stars, n, 'spatial', self.camgrid, self.ipxgrid, self.maglim)
+            result = _read_data_polar(self.photfile, self.aper, self.stars, n,
+                                      'spatial', self.camgrid, self.ipxgrid, self.maglim)
+            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = result
 
-            if (len(mag) == 0): continue
+            if len(mag) == 0:
+                continue
         
             mag = mag - self.magnitudes['mag'][data_i]
         
             # Apply known temporal correction.
             if self.got_sky:
                 args = np.searchsorted(self.clouds['lstseq'], data_t)
-                mag = mag - self.clouds['clouds'][data_q,args]
-                emag = np.sqrt(emag**2 + self.magnitudes['sigma'][data_i]**2 + self.clouds['sigma'][data_q,args]**2)
+                mag = mag - self.clouds['clouds'][data_q, args]
+                emag = np.sqrt(emag**2 + self.magnitudes['sigma'][data_i]**2 + self.clouds['sigma'][data_q, args]**2)
             
             # Create unique indices.
             k, idx_k = np.unique(data_k, return_inverse=True)
             l, idx_l = np.unique(data_l, return_inverse=True)
             
-            self.trans['nobs'][k,n] = np.bincount(idx_k)
-            self.intrapix['nobs'][l,n] = np.bincount(idx_l)
+            self.trans['nobs'][k, n] = np.bincount(idx_k)
+            self.intrapix['nobs'][l, n] = np.bincount(idx_l)
             
             in_queue.put((n, k, l, idx_k, idx_l, mag, emag, b_mat))            
             
@@ -883,8 +898,8 @@ class CoarseDecorPolar(object):
             n, k, l, T_kn, a_ln, quality = item        
             
             # Store results.
-            self.trans['trans'][k,n] = T_kn
-            self.intrapix['amplitudes'][l,n] = a_ln
+            self.trans['trans'][k, n] = T_kn
+            self.intrapix['amplitudes'][l, n] = a_ln
             
             self.spatial['niter'][n] = quality.niter
             self.spatial['chisq'][n] = quality.chisq
@@ -904,13 +919,16 @@ class CoarseDecorPolar(object):
         for q in self.temporal['q']:
             
             # Read data.
-            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = _read_data_polar(self.photfile, self.aper, self.stars, q, 'temporal', self.camgrid, self.ipxgrid, self.maglim)
+            result = _read_data_polar(self.photfile, self.aper, self.stars, q,
+                                      'temporal', self.camgrid, self.ipxgrid, self.maglim)
+            mag, emag, b_mat, data_i, data_t, data_n, data_k, data_l, data_q = result
 
-            if (len(mag) == 0): continue
+            if len(mag) == 0:
+                continue
             
             # Apply known spatial correction.
-            mag = mag - self.trans['trans'][data_k,data_n]
-            mag = mag - intrapix.ipxmod(self.intrapix['amplitudes'][data_l,data_n], b_mat)
+            mag = mag - self.trans['trans'][data_k, data_n]
+            mag = mag - intrapix.ipxmod(self.intrapix['amplitudes'][data_l, data_n], b_mat)
             
             # Create unique indices.
             i, idx_i = np.unique(data_i, return_inverse=True)
@@ -918,12 +936,14 @@ class CoarseDecorPolar(object):
             args = np.searchsorted(self.clouds['lstseq'], t)            
             
             self.magnitudes['nobs'][i] = np.bincount(idx_i)
-            self.clouds['nobs'][q,args] = np.bincount(idx_t)
+            self.clouds['nobs'][q, args] = np.bincount(idx_t)
 
             if self.fixed:
-                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,args], self.magnitudes['mag'][i]))
+                in_queue.put((q, i, t, idx_i, idx_t, mag, emag,
+                              self.magnitudes['sigma'][i], self.clouds['sigma'][q, args], self.magnitudes['mag'][i]))
             else:
-                in_queue.put((q, i, t, idx_i, idx_t, mag, emag, self.magnitudes['sigma'][i], self.clouds['sigma'][q,args], None))
+                in_queue.put((q, i, t, idx_i, idx_t, mag, emag,
+                              self.magnitudes['sigma'][i], self.clouds['sigma'][q, args], None))
             
         for i in range(self.nprocs):
             in_queue.put('DONE')
@@ -942,8 +962,8 @@ class CoarseDecorPolar(object):
             self.magnitudes['sigma'][i] = sig_i
             
             args = np.searchsorted(self.clouds['lstseq'], t)
-            self.clouds['clouds'][q,args] = c_qt
-            self.clouds['sigma'][q,args] = sig_qt
+            self.clouds['clouds'][q, args] = c_qt
+            self.clouds['sigma'][q, args] = sig_qt
             
             self.temporal['niter'][q] = quality.niter
             self.temporal['chisq'][q] = quality.chisq
@@ -981,8 +1001,9 @@ class CoarseDecorPolar(object):
             raise IOError('Systematics file already exists: {}'.format(self.sysfile))
 
         # Read the required header data.
-        self.stars, settings, lstmin, lstmax, lstseq, ring = _read_header_polar(self.photfile, self.camgrid, self.skygrid)
-        
+        result = _read_header_polar(self.photfile, self.camgrid, self.skygrid)
+        self.stars, settings, lstmin, lstmax, lstseq, ring = result
+
         settings['outer_maxiter'] = self.outer_maxiter
         settings['inner_maxiter'] = self.inner_maxiter
         settings['dtol'] = self.dtol
@@ -1043,23 +1064,25 @@ class CoarseDecorPolar(object):
         self.got_sky = False
         
         # Perform the coarse decorrelation.
-        print 'Performing coarse decorrelation for aperture {} of: {}'.format(self.aper, self.photfile)
-        print 'Writing results to: {}'.format(self.sysfile) 
+        print('Performing coarse decorrelation for aperture {} of: {}'.format(self.aper, self.photfile))
+        print('Writing results to: {}'.format(self.sysfile))
         
         for niter in range(self.outer_maxiter):
         
-            print 'Iteration {} out of {}:'.format(niter + 1, self.outer_maxiter)
+            print('Iteration {} out of {}:'.format(niter + 1, self.outer_maxiter))
             
-            print '    Calculating spatial systematics...'
+            print('    Calculating spatial systematics...')
             self._spatial()
             
-            print '    Calculating temporal systematics...'
+            print('    Calculating temporal systematics...')
             self._temporal()
         
         # Write the results to file.
-        io.write_calibration(self.sysfile, settings, self.spatial, self.temporal, self.magnitudes, self.trans, self.intrapix, self.clouds, mode='polar')
+        io.write_calibration(self.sysfile, settings, self.spatial, self.temporal,
+                             self.magnitudes, self.trans, self.intrapix, self.clouds, mode='polar')
         
         return self.sysfile
+
 
 class ApplyDecorrelation(object):
 
@@ -1170,9 +1193,9 @@ class ApplyDecorrelation(object):
         if os.path.isfile(redfile):
             raise IOError('Reduced lightcurves file already exists: {}'.format(redfile))
 
-        print 'Reading corrections from: {}'.format(self.sysfile)
-        print 'Applying corrections to aperture {} of file: {}'.format(aper, photfile)
-        print 'Writing results to: {}'.format(redfile)
+        print('Reading corrections from: {}'.format(self.sysfile))
+        print('Applying corrections to aperture {} of file: {}'.format(aper, photfile))
+        print('Writing results to: {}'.format(redfile))
 
         # Read the raw photometry.
         f = io.PhotFile(photfile)
@@ -1332,6 +1355,7 @@ class ApplyDecorrelation(object):
 
         return redfile
 
+
 def run_calibration(date, part, aper, cameras, source, dest):
     
     cal = CoarseDecorrelation()
@@ -1348,6 +1372,7 @@ def run_calibration(date, part, aper, cameras, source, dest):
             redfile = sys(photfile, aper)
     
     return
+
 
 def run_polar_calibration(year, quarter, aper, cameras, source, dest):
 
@@ -1380,15 +1405,15 @@ def run_polar_calibration(year, quarter, aper, cameras, source, dest):
 
         # Check that there are valid files.
         if len(filelist) == 0:
-            print 'No valid data found.'
+            print('No valid data found.')
             return None
 
         # Sort the filelist.
         filelist = np.sort(filelist)
 
-        print 'Combining files:'
+        print('Combining files:')
         for filename in filelist:
-            print '    {}'.format(filename)
+            print('    {}'.format(filename))
 
         # Create the destination directory.
         outpath = os.path.join(dest, camera)
@@ -1409,10 +1434,10 @@ def run_polar_calibration(year, quarter, aper, cameras, source, dest):
             # Check that the destination file does not exist.
             photfile = os.path.join(outpath, '{}_r{:02d}_{}{}{}.hdf5'.format(prefix, i, year, quarter, camera))
             if os.path.isfile(photfile):
-                print 'Output file already exists: {}'.format(photfile)
+                print('Output file already exists: {}'.format(photfile))
                 return photfile
             else:
-                print 'Writing results to: {}'.format(photfile)
+                print('Writing results to: {}'.format(photfile))
 
             # Combine the files for ring i.
             photfile = io.make_baseline(photfile, filelist, declims=[grid.yedges[i], grid.yedges[i + 1]])
@@ -1427,9 +1452,8 @@ def run_polar_calibration(year, quarter, aper, cameras, source, dest):
 
     return
 
-def cmd_polar_calibration():
 
-    import argparse
+def cmd_polar_calibration():
 
     parser = argparse.ArgumentParser(description='Perform the polar coarse decorrelation on a baseline.')
     parser.add_argument('year', type=str,
@@ -1437,7 +1461,10 @@ def cmd_polar_calibration():
     parser.add_argument('quarter', type=str, choices=['Q1', 'Q2', 'Q3', 'Q4'],
                         help='the quarter to calibrate')
     parser.add_argument('dest', type=str,
-                        help='Location where the products will be written, e.g. /data3/mascara/reduced/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
+                        help=('Location where the products will be written, '
+                              'e.g. /data3/mascara/reduced/2017Q1. If the path '
+                              'does not exist it will be created. Subdirectories '
+                              'are generated automatically.'))
     parser.add_argument('-c', '--cam', type=str, nargs='+',
                         default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
                         help='the camera(s) to perform the combination for', dest='cameras')
@@ -1451,21 +1478,24 @@ def cmd_polar_calibration():
 
     return
 
+
 def main():
-    
-    import argparse
 
     parser = argparse.ArgumentParser(description='Perform the coarse decorrelation on a baseline.')
     parser.add_argument('date', type=str,
                         help='a date of the form YYYYMM')
-    parser.add_argument('part', type=str, choices=['A','B','C'],
+    parser.add_argument('part', type=str, choices=['A', 'B', 'C'],
                         help='letter indicating which baseline to create') 
     parser.add_argument('dest', type=str,
-                        help='Location where the products will be written, e.g. /data3/mascara/reduced/2017Q1. If the path does not exist it will be created. Subdirectories are generated automatically.')
-    parser.add_argument('-c', '--cam', type=str, nargs='+', default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
-                        help ='the camera(s) to perform the combination for', dest='cameras')                        
-    parser.add_argument('-a', '--aper', type=int, choices=[0,1], default=0,
-                        help ='the aperture to perform the coarse decorrelation on', dest='aper')
+                        help=('Location where the products will be written, '
+                              'e.g. /data3/mascara/reduced/2017Q1. If the path '
+                              'does not exist it will be created. Subdirectories '
+                              'are generated automatically.'))
+    parser.add_argument('-c', '--cam', type=str, nargs='+',
+                        default=['LPN', 'LPE', 'LPS', 'LPW', 'LPC', 'LSN', 'LSE', 'LSS', 'LSW', 'LSC'],
+                        help='the camera(s) to perform the combination for', dest='cameras')
+    parser.add_argument('-a', '--aper', type=int, choices=[0, 1], default=0,
+                        help='the aperture to perform the coarse decorrelation on', dest='aper')
     parser.add_argument('-d', '--data', type=str, default='/data2/mascara/LaPalma',
                         help='Location of the raw data.', dest='source')
     args = parser.parse_args()
@@ -1473,6 +1503,7 @@ def main():
     run_calibration(args.date, args.part, args.aper, args.cameras, args.source, args.dest)
     
     return
+
 
 if __name__ == '__main__':
     

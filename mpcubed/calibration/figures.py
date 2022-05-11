@@ -6,6 +6,7 @@ Created on Tue Apr 25 16:17:22 2017
 """
 
 import os
+import argparse
 
 import numpy as np
 
@@ -67,6 +68,7 @@ def initial_wcs(pars, scale=9e-3/24., lst=0.):
 
     return w
 
+
 def _hadec2xy(pars, ha, dec):
             
     # Perfrom the coordinate transformations.
@@ -76,6 +78,7 @@ def _hadec2xy(pars, ha, dec):
     x, y = w.all_world2pix(ra, dec, 0)
         
     return x, y
+
 
 def wcsgrid(wcspars):
 
@@ -117,9 +120,10 @@ def wcsgrid(wcspars):
     
     return
 
+
 def plot_polar(grid, data, wcspars, **kwargs):
     
-    data = data[1:-1,1:-1]    
+    data = data[1:-1, 1:-1]
     data = np.ma.array(data, mask=np.isnan(data))    
     
     ha, dec = grid.xedges, grid.yedges
@@ -134,6 +138,7 @@ def plot_polar(grid, data, wcspars, **kwargs):
     wcsgrid(wcspars)
 
     return im
+
 
 def fig_magnitudes(filename, figname=None):
     
@@ -150,19 +155,19 @@ def fig_magnitudes(filename, figname=None):
     mag, vmag, sigma = magnitudes['mag'], magnitudes['vmag'], magnitudes['sigma']
     
     # Plot the magitudes.
-    fig = plt.figure(figsize=(14,9))
+    fig = plt.figure(figsize=(14, 9))
     
     plt.suptitle('Magnitudes', size='xx-large')
     
-    gs = gridspec.GridSpec(3, 1, height_ratios = [1,5,5])
+    gs = gridspec.GridSpec(3, 1, height_ratios=[1, 5, 5])
     
-    plt.subplot(gs[1,0])
+    plt.subplot(gs[1, 0])
     
     plt.scatter(vmag, mag - vmag, color='black', marker='.', alpha=.5, edgecolor='none')
     
     plt.ylabel('V - M')
     
-    plt.subplot(gs[2,0])
+    plt.subplot(gs[2, 0])
     
     plt.scatter(vmag, sigma, color='black', marker='.', alpha=.5, edgecolor='none')
     
@@ -178,6 +183,7 @@ def fig_magnitudes(filename, figname=None):
     
     return figname
 
+
 def fig_transmission(filename, wcspars, figname=None):
     
     if figname is None:
@@ -190,32 +196,32 @@ def fig_transmission(filename, wcspars, figname=None):
     # Read the transmission map.
     f = io.SysFile(filename)
     
-    if isinstance(wcspars, basestring):
+    if isinstance(wcspars, str):
         wcspars = fiducial[wcspars]
         
     camgrid, trans = f.read_trans()
     
     trans = trans['trans']
     
-    vmin = np.nanpercentile(trans[:,10:-10], 0.1)
-    vmax = np.nanpercentile(trans[:,10:-10], 99.9)
+    vmin = np.nanpercentile(trans[:, 10:-10], 0.1)
+    vmax = np.nanpercentile(trans[:, 10:-10], 99.9)
     
     # Plot the transmission map.
-    fig = plt.figure(figsize=(14,9))
+    fig = plt.figure(figsize=(14, 9))
     
     plt.suptitle('Transmission', size='xx-large')
     
-    gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,10])
+    gs = gridspec.GridSpec(2, 2, width_ratios=[15, .5], height_ratios=[1, 10])
     
-    plt.subplot(gs[1,0], aspect='equal')
+    plt.subplot(gs[1, 0], aspect='equal')
     
     im = plot_polar(camgrid, trans, wcspars, cmap=plt.cm.viridis, vmin=vmin, vmax=vmax)
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    cax = plt.subplot(gs[1,1])
-    cb = plt.colorbar(im, cax = cax)
+    cax = plt.subplot(gs[1, 1])
+    cb = plt.colorbar(im, cax=cax)
     cb.ax.invert_yaxis()
     cb.set_label('Magnitude')
     
@@ -225,7 +231,8 @@ def fig_transmission(filename, wcspars, figname=None):
     plt.close()
     
     return figname
-    
+
+
 def fig_intrapix(filename, wcspars, figname=None):
     
     if figname is None:
@@ -238,7 +245,7 @@ def fig_intrapix(filename, wcspars, figname=None):
     # Read the intrapixel amplitudes.
     f = io.SysFile(filename)
 
-    if isinstance(wcspars, basestring):
+    if isinstance(wcspars, str):
         wcspars = fiducial[wcspars]
         
     ipxgrid, intrapix = f.read_intrapix() 
@@ -252,42 +259,42 @@ def fig_intrapix(filename, wcspars, figname=None):
     
     plt.suptitle('Intrapixel Amplitudes', size='xx-large')
     
-    gs = gridspec.GridSpec(3, 3, width_ratios = [15,15,.5], height_ratios = [1,10,10])
+    gs = gridspec.GridSpec(3, 3, width_ratios=[15, 15, .5], height_ratios=[1, 10, 10])
     
-    plt.subplot(gs[1,0], aspect='equal')
+    plt.subplot(gs[1, 0], aspect='equal')
     plt.title(r'$\sin(2\pi x)$')
    
-    im = plot_polar(ipxgrid, amplitudes[:,:,0], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
+    im = plot_polar(ipxgrid, amplitudes[:, :, 0], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
    
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(gs[1,1], aspect='equal')
+    plt.subplot(gs[1, 1], aspect='equal')
     plt.title(r'$\cos(2\pi x)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,1], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)   
+    im = plot_polar(ipxgrid, amplitudes[:, :, 1], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(gs[2,0], aspect='equal')
+    plt.subplot(gs[2, 0], aspect='equal')
     plt.title(r'$\sin(2\pi y)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,2], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)  
+    im = plot_polar(ipxgrid, amplitudes[:, :, 2], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    plt.subplot(gs[2,1], aspect='equal')
+    plt.subplot(gs[2, 1], aspect='equal')
     plt.title(r'$\cos(2\pi y)$')
     
-    im = plot_polar(ipxgrid, amplitudes[:,:,3], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)   
+    im = plot_polar(ipxgrid, amplitudes[:, :, 3], wcspars, cmap=plt.cm.coolwarm, vmin=-vlim, vmax=vlim)
     
     plt.xlim(0, 4008)
     plt.ylim(0, 2672)
     
-    cax = plt.subplot(gs[1:,2])
-    cb = plt.colorbar(im, cax = cax)
+    cax = plt.subplot(gs[1:, 2])
+    cb = plt.colorbar(im, cax=cax)
     cb.set_label('Amplitude')
     
     plt.tight_layout()
@@ -296,7 +303,8 @@ def fig_intrapix(filename, wcspars, figname=None):
     plt.close()  
     
     return figname
-    
+
+
 def fig_clouds(filename, figname=None):
     
     if figname is None:
@@ -316,16 +324,16 @@ def fig_clouds(filename, figname=None):
     mask = np.isfinite(clouds)
     q, = np.where(np.any(mask, axis=1))
     t, = np.where(np.any(mask, axis=0))
-    clouds = clouds[q][:,t]
+    clouds = clouds[q][:, t]
     
     # Plot the clouds.
     fig = plt.figure(figsize=(10, 16))
     
     plt.suptitle('Clouds', size='xx-large')
     
-    gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,20])
+    gs = gridspec.GridSpec(2, 2, width_ratios=[15, .5], height_ratios=[1, 20])
     
-    plt.subplot(gs[1,0], xticks=[], yticks=[])
+    plt.subplot(gs[1, 0], xticks=[], yticks=[])
         
     im = plt.imshow(clouds.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=-.1, vmax=1.5)
     
@@ -336,8 +344,8 @@ def fig_clouds(filename, figname=None):
     plt.ylabel('Time')
     plt.xlabel('Sky Patch')
     
-    cax = plt.subplot(gs[1,1])
-    cb = plt.colorbar(im, cax = cax)
+    cax = plt.subplot(gs[1, 1])
+    cb = plt.colorbar(im, cax=cax)
     cb.ax.invert_yaxis()
     cb.set_label('Magnitude')
     
@@ -347,7 +355,8 @@ def fig_clouds(filename, figname=None):
     plt.close()    
     
     return figname
-    
+
+
 def fig_sigma(filename, figname=None):
     
     if figname is None:
@@ -367,16 +376,16 @@ def fig_sigma(filename, figname=None):
     mask = np.isfinite(sigma)
     idx1, = np.where(np.any(mask, axis=1))
     idx2, = np.where(np.any(mask, axis=0))
-    sigma = sigma[idx1][:,idx2]  
+    sigma = sigma[idx1][:, idx2]
     
     # Plot the clouds.
     fig = plt.figure(figsize=(10, 16))
     
     plt.suptitle('Sigma', size='xx-large')
     
-    gs = gridspec.GridSpec(2, 2, width_ratios = [15,.5], height_ratios = [1,20])
+    gs = gridspec.GridSpec(2, 2, width_ratios=[15, .5], height_ratios=[1, 20])
     
-    plt.subplot(gs[1,0], xticks=[], yticks=[])
+    plt.subplot(gs[1, 0], xticks=[], yticks=[])
       
     im = plt.imshow(sigma.T, interpolation='None', aspect='auto', cmap=plt.cm.viridis, vmin=0, vmax=0.5)
     
@@ -387,8 +396,8 @@ def fig_sigma(filename, figname=None):
     plt.ylabel('Time')
     plt.xlabel('Sky Patch')
     
-    cax = plt.subplot(gs[1,1])
-    cb = plt.colorbar(im, cax = cax)
+    cax = plt.subplot(gs[1, 1])
+    cb = plt.colorbar(im, cax=cax)
     cb.set_label('Magnitude')
     
     plt.tight_layout()
@@ -397,7 +406,8 @@ def fig_sigma(filename, figname=None):
     plt.close()    
     
     return figname
-    
+
+
 def figs_calibration(filelist, astromaster=None):
     
     for filename in filelist:
@@ -410,9 +420,8 @@ def figs_calibration(filelist, astromaster=None):
     
     return
 
+
 def main():
-    
-    import argparse
 
     parser = argparse.ArgumentParser(description='Make figures of calibration terms.')
     parser.add_argument('files', type=str, nargs='+',
@@ -424,7 +433,8 @@ def main():
     figs_calibration(args.files, args.astro)
     
     return
-    
+
+
 if __name__ == '__main__':
     
     main()

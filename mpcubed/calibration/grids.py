@@ -4,6 +4,7 @@
 import numpy as np
 import healpy
 
+
 class PolarGrid(object):
     """ Create a polar coordinate grid.
     
@@ -199,12 +200,6 @@ class PolarEAGrid(object):
         
         return ring, cell, idx
         
-    def idx2radec(self, idx):
-        
-        print 'Warning: this function has not yet been written.'
-        
-        return 0., 0.
-        
     def values2grid(self, idx, values, fill_value=np.nan):
         """ Given grid indices and values return an array.
         
@@ -314,22 +309,22 @@ class CartesianGrid(object):
     
     """
     
-    def __init__(self, nx, ny, Lx=4008, Ly=2672):
+    def __init__(self, nx, ny, xmax=4008, ymax=2672):
         """ Initialize the coordinate grid.
         
         Args:
             nx (int): The resolution of the grid along the x-axis.
             ny (int): The resolution of the grid along the y-axis.
-            Lx (float): The maximum x-coordinate default 4008.
-            Ly (float): The maximum y-coordinate default 2672.
+            xmax (float): The maximum x-coordinate default 4008.
+            ymax (float): The maximum y-coordinate default 2672.
             
         """
         
         self.nx = nx
         self.ny = ny
         
-        self.xedges = np.linspace(0, Lx, self.nx+1)
-        self.yedges = np.linspace(0, Ly, self.ny+1)
+        self.xedges = np.linspace(0, xmax, self.nx+1)
+        self.yedges = np.linspace(0, ymax, self.ny+1)
         
         self.npix = (nx + 2)*(ny + 2)
         
@@ -368,14 +363,14 @@ class CartesianGrid(object):
     def _idx2x(self, idx):
         
         x = np.full(self.nx+2, fill_value=np.nan)
-        x[1:-1] = (self.bins1[:-1] + self.bins1[1:])/2.
+        x[1:-1] = (self.xedges[:-1] + self.xedges[1:])/2.
         
         return x[idx]
         
     def _idx2y(self, idx):
         
         y = np.full(self.ny+2, fill_value=np.nan)
-        y[1:-1] = (self.bins2[:-1] + self.bins2[1:])/2.
+        y[1:-1] = (self.yedges[:-1] + self.yedges[1:])/2.
         
         return y[idx]
     

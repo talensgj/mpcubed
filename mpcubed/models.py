@@ -890,7 +890,7 @@ def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
     for i in range(npars):
         plot_walkers(chain[:, :, i].T, labels[i])
         
-    plot_walkers(lnprob.T, '$\ln L$')
+    plot_walkers(lnprob.T, r'$\ln L$')
     
     # Plot the acceptance fractions.
     plot_acceptance(f_acc, f_min)
@@ -902,7 +902,7 @@ def results_emcee(labels, chain, lnprob, f_acc, f_min=0.20, fburn=0.4):
 
     # Make the corner plot.
     array = np.column_stack([flatchain, flatlnprob])
-    plot_corner(array, labels + ['$\ln L$'])
+    plot_corner(array, labels + [r'$\ln L$'])
     
     pars, p68, p16, p84 = best_values(flatchain)
     
