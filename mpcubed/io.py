@@ -26,6 +26,25 @@ def ensure_dir(path):
         
     return
 
+
+def ensure_bytestr(array):
+    """Check if an array is of type Unicode and convert to byte-string."""
+
+    if array.dtype.kind == 'U':
+        array = array.astype('S')
+
+    return array
+
+
+def ensure_unicode(array):
+    """Check if an array is of type byte-string and convert to Unicode."""
+
+    if array.dtype.kind == 'S':
+        array = array.astype('U')
+
+    return array
+
+
 ###########################
 # Code for writing files. #
 ###########################
@@ -38,7 +57,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         # Write the header.
         hdr = f.create_group('header')
         
-        hdr.create_dataset('filelist', data=settings['filelist'])
+        hdr.create_dataset('filelist', data=ensure_bytestr(settings['filelist']))
         hdr.attrs['station'] = settings['station']
         hdr.attrs['camera'] = settings['camera']
         
@@ -79,7 +98,7 @@ def write_calibration(filename, settings, spatial, temporal, magnitudes, trans, 
         
         # Write the magnitudes.
         subgrp = grp.create_group('magnitudes')
-        subgrp.create_dataset('ascc', data=magnitudes['ascc'])
+        subgrp.create_dataset('ascc', data=ensure_bytestr(magnitudes['ascc']))
         subgrp.create_dataset('vmag', data=magnitudes['vmag'], dtype='float32')
         subgrp.create_dataset('nobs', data=magnitudes['nobs'])
         subgrp.create_dataset('mag', data=magnitudes['mag'], dtype='float32')
@@ -162,10 +181,10 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
             grp.attrs['skyrad0'] = settings['skyrad0']
             grp.attrs['skyrad1'] = settings['skyrad1']
             
-            grp.create_dataset('filelist', data=settings['filelist'])
-            grp.create_dataset('aversion', data=settings['aversion'])
-            grp.create_dataset('rversion', data=settings['rversion'])
-            grp.create_dataset('cversion', data=settings['cversion'])
+            grp.create_dataset('filelist', data=ensure_bytestr(settings['filelist']))
+            grp.create_dataset('aversion', data=ensure_bytestr(settings['aversion']))
+            grp.create_dataset('rversion', data=ensure_bytestr(settings['rversion']))
+            grp.create_dataset('cversion', data=ensure_bytestr(settings['cversion']))
             grp.attrs['pversion'] = '1.0.0'  # Hardcoded ...
             
         else:
@@ -177,7 +196,7 @@ def write_reduced(filename, settings, stars, lightcurves, siteid):
         
         grp = f.create_group(file_struct['stars'])
         for key in stars.keys():
-            grp.create_dataset(key, data=stars[key][idx])
+            grp.create_dataset(key, data=ensure_bytestr(stars[key][idx]))
             
         # Write the reduced lightcurves.
         grp = f.create_group(file_struct['lightcurves'])
@@ -193,7 +212,7 @@ def write_boxlstsq(filename, ascc, chisq0, box_pars, criteria, freq, dchisq_inc,
         
         # Write the header.
         grp = f.create_group('header')
-        grp.create_dataset('ascc', data=ascc)
+        grp.create_dataset('ascc', data=ensure_bytestr(ascc))
         grp.create_dataset('chisq0', data=chisq0, dtype='float32')
 
         for key in box_pars.dtype.names:
@@ -345,7 +364,7 @@ class PhotFile(object):
             data = dict(data)
             
             for key in grp.keys():
-                data[key] = grp[key][()]
+                data[key] = ensure_unicode(grp[key][()])
         
         return data
         
@@ -363,7 +382,7 @@ class PhotFile(object):
             for field in fields:
             
                 if field in grp.keys():
-                    stars[field] = grp[field][()]
+                    stars[field] = ensure_unicode(grp[field][()])
                 else:
                     print('Warning: skipping field {}, field not found.'.format(field))
                     
@@ -569,7 +588,7 @@ class SysFile(object):
         with h5py.File(self.sysfile, 'r') as f:
             grp = f['data/magnitudes']
 
-            magnitudes['ascc'] = grp['ascc'][()]
+            magnitudes['ascc'] = ensure_unicode(grp['ascc'][()])
             magnitudes['vmag'] = grp['vmag'][()]
             magnitudes['nobs'] = grp['nobs'][()]
             magnitudes['mag'] = grp['mag'][()]
@@ -708,7 +727,7 @@ class BoxlstsqFile(object):
                 fields = grp.keys()            
             
             for field in fields:
-                hdr[field] = grp[field][()]
+                hdr[field] = ensure_unicode(grp[field][()])
                 
         return hdr
         
@@ -892,12 +911,12 @@ def _read_stars(filelist, file_struct):
             
             for key in grp.keys():
                 
-                ascc_ = grp['ascc'][()]
-                
+                ascc_ = ensure_unicode(grp['ascc'][()])
+
                 if key not in stars.keys():
-                    stars[key] = grp[key][()]
+                    stars[key] = ensure_unicode(grp[key][()])
                 else:
-                    stars[key] = np.append(stars[key], grp[key][()])
+                    stars[key] = np.append(stars[key], ensure_unicode(grp[key][()]))
 
             grp = f[file_struct['lightcurves']]
             
@@ -1050,14 +1069,14 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
                 stars['lstsqmin'][j] = tmp['lstseq'][0]
                 stars['lstsqmax'][j] = tmp['lstseq'][-1]
                 
-                f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)    
+                f.create_dataset(file_struct['lightcurves'] + '/{}'.format(stars['ascc'][j]), data=tmp)
 
     # Write the combined "stars" field.
     with h5py.File(filename, 'a') as f:
         
         grp = f.create_group(file_struct['stars'])
         for key in stars.keys():
-            grp.create_dataset(key, data=stars[key])
+            grp.create_dataset(key, data=ensure_bytestr(stars[key]))
        
     lstmin = np.amin(stars['lstsqmin'])
     lstmax = np.amax(stars['lstsqmax'])
@@ -1073,13 +1092,13 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
             grp.attrs['lstmin'] = lstmin
             grp.attrs['lstmax'] = lstmax
             
-            grp.create_dataset('filelist', data=filelist)
+            grp.create_dataset('filelist', data=ensure_bytestr(filelist))
             
             for key, value in attrdict.items():
                 grp.attrs[key] = value
                 
             for key, value in arrdict.items():
-                grp.create_dataset(key, data=value)
+                grp.create_dataset(key, data=ensure_bytestr(value))
         
     else:
         
@@ -1094,7 +1113,7 @@ def make_baseline(filename, filelist, astrometry=False, overwrite=True, declims=
             grp.attrs['lstmin'] = lstmin
             grp.attrs['lstmax'] = lstmax
             
-            grp.create_dataset('filelist', data=filelist)
+            grp.create_dataset('filelist', data=ensure_bytestr(filelist))
             
             for key in header.keys():
                 grp.attrs[key] = header[key]
@@ -1203,7 +1222,7 @@ def make_quarter(filename, filelist, nsteps=1000):
         grp = f.create_group(file_struct['stars'])
         
         for key, value in stars.items():
-            grp.create_dataset(key, data=value[idx])
+            grp.create_dataset(key, data=ensure_bytestr(value[idx]))
 
     return
 
