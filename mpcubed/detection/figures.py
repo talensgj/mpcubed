@@ -12,22 +12,22 @@ import multiprocessing as mp
 
 import numpy as np
 
+from .. import io, statistics
+from . import detrend
+
 import matplotlib
 matplotlib.use('Agg')
 
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.gridspec as gridspec  # noqa: E402
 
-from matplotlib import rcParams
+from matplotlib import rcParams  # noqa: E402
 rcParams['xtick.labelsize'] = 'large'
 rcParams['ytick.labelsize'] = 'large'
 rcParams['axes.labelsize'] = 'x-large'
 rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
-
-from .. import io, statistics
-from . import detrend
 
 
 def plot_periodogram(freq, dchisq, period, zoom=False):

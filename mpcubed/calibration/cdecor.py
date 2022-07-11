@@ -583,7 +583,7 @@ class CoarseDecorrelation(object):
         # General parameters.
         self.dtol = kwargs.pop('dtol', 1e-3)
         self.fixed = kwargs.pop('fixed', True)
-        self.maglim = kwargs.pop('maglim', [None, 8.4])
+        self.maglim = kwargs.pop('maglim', [-np.inf, 8.4])
         self.nprocs = kwargs.pop('nprocs', 4)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
         self.inner_maxiter = kwargs.pop('inner_maxiter', 100)
@@ -841,7 +841,7 @@ class CoarseDecorPolar(object):
         # General parameters.
         self.dtol = kwargs.pop('dtol', 1e-3)
         self.fixed = kwargs.pop('fixed', False)
-        self.maglim = kwargs.pop('maglim', [None, 8.4])
+        self.maglim = kwargs.pop('maglim', [-np.inf, 8.4])
         self.nprocs = kwargs.pop('nprocs', 4)
         self.outer_maxiter = kwargs.pop('outer_maxiter', 5)
         self.inner_maxiter = kwargs.pop('inner_maxiter', 100)        

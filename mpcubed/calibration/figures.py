@@ -12,12 +12,15 @@ import numpy as np
 
 from astropy import wcs
 
+from .. import io
+
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib import rcParams
 
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.gridspec as gridspec  # noqa: E402
+
+from matplotlib import rcParams  # noqa: E402
 rcParams['xtick.labelsize'] = 'large'
 rcParams['ytick.labelsize'] = 'large'
 rcParams['axes.labelsize'] = 'x-large'
@@ -25,7 +28,9 @@ rcParams['image.interpolation'] = 'none'
 rcParams['image.origin'] = 'lower'
 rcParams['axes.titlesize'] = 'xx-large'
 
-from .. import io
+###########################################################################
+# Global parameter for coordinate transformations: [ha, dec, x, y, theta] #
+###########################################################################
 
 fiducial = dict()
 fiducial['LSC'] = np.array([-0.1, -32.5, 2004., 1336., 183.2])
@@ -38,6 +43,10 @@ fiducial['LPN'] = np.array([3.9, 69.8, 2056, 1273, 4.3])
 fiducial['LPE'] = np.array([314.8, 22.3, 2004, 1329, 252.0])
 fiducial['LPS'] = np.array([359.0, -12.1, 2024, 1287, 181.3])
 fiducial['LPW'] = np.array([44.5, 20.0, 2030, 1280, 111])
+
+####################################
+# Helper functions for projections #
+####################################
 
 
 def initial_wcs(pars, scale=9e-3/24., lst=0.):
@@ -138,6 +147,10 @@ def plot_polar(grid, data, wcspars, **kwargs):
     wcsgrid(wcspars)
 
     return im
+
+###########################################
+# Diagnostic figures for the calibration. #
+###########################################
 
 
 def fig_magnitudes(filename, figname=None):

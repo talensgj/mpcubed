@@ -18,9 +18,6 @@ def _par_sigma_function(idx, res, errsq, err):
 @jit(nopython=True)
 def find_par_sigma(idx, res, errsq, maxiter=10):
 
-    if maxiter < 1:
-        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
-
     # Search for a solution between 0 and 2.
     nvals = np.amax(idx) + 1
     err1 = np.zeros(nvals)
@@ -64,9 +61,6 @@ def _sigma_function(idx, ressq, errsq, err):
 
 @jit(nopython=True)
 def find_sigma(idx, residuals, errsq, maxiter=10):
-
-    if maxiter < 1:
-        raise ValueError('maxiter = {}, must be at least 1.'.format(maxiter))
     
     # Search for a solution between 0 and 2.
     nvals = np.amax(idx) + 1
