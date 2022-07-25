@@ -511,6 +511,7 @@ class SysFile(object):
 
         with h5py.File(self.sysfile, 'r') as f:
             data = f['header'].attrs.items()
+            data = dict(data)
 
         return data
 
@@ -1157,9 +1158,8 @@ def make_quarter(filename, filelist, nsteps=1000):
     with h5py.File(filelist[0], 'r') as f:
         
         data = f[file_struct['header']].attrs.items()
-        
-    data = dict(data)
-    
+        data = dict(data)
+
     with h5py.File(filename, 'a') as f:
         
         grp = f.create_group(file_struct['header'])
