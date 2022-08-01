@@ -264,7 +264,7 @@ def table_boxlstsq(blsdir, outfile=None):
     with h5py.File(outfile, 'w-') as f:
     
         for key in hdr.keys():
-            f.create_dataset(key, data=hdr[key])
+            f.create_dataset(key, data=ensure_bytestr(hdr[key]))
             
     return
 

@@ -80,7 +80,7 @@ def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False
     
     # Add phase-binned data.
     if binned:
-        nbins = np.ceil(9*P/T14)
+        nbins = np.ceil(9*P/T14).astype('int')
         bins = np.linspace(-offset, 1-offset, nbins+1)   
         xbin, ybin, eybin = statistics.bin_data(phase, mag, bins, emag)
         plt.errorbar(xbin, ybin, eybin, fmt='o', c=(0./255, 109./255, 219./255))
@@ -90,7 +90,7 @@ def plot_lightcurve(jd, mag, emag, box_pars, offset=0.5, binned=True, zoom=False
         plt.ylim(2*np.abs(delta), -2*np.abs(delta))
     else:
         plt.xlim(-offset, 1-offset)
-        plt.ylim(factor*.05, factor*-.03)
+        plt.ylim(0.05*factor, -0.03*factor)
     
     plt.xlabel('Phase')
     plt.ylabel(r'$\Delta m$') 
@@ -209,7 +209,7 @@ def figs_boxlstsq(blsdir, aper=0, method='legendre', nprocs=6):
     blsfiles = np.sort(blsfiles)
     
     # Get the photometry files.
-    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='S', delimiter=',')
+    filelist = np.genfromtxt(os.path.join(blsdir, 'data.txt'), dtype='U', delimiter=',')
 
     # Create the output directory.
     figdir = os.path.join(blsdir, 'figures')

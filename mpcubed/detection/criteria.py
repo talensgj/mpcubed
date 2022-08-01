@@ -139,7 +139,7 @@ def pink_noise(jd, mag, box_pars):
     sigma_white = statistics.mad(residuals)     
     
     # Bin the data to the transit duration.
-    nbins = np.ceil(np.ptp(jd)/box_pars['duration'])
+    nbins = np.ceil(np.ptp(jd)/box_pars['duration']).astype('int')
     bins = box_pars['duration']*np.arange(nbins+1) + np.amin(jd)
    
     npbin, edges = np.histogram(jd, bins=bins)

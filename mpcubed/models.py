@@ -807,7 +807,7 @@ def plot_transit(lc_pars, lc, nobs, ld_pars=None, ld_type='linear', method='lege
     plt.scatter(phase, lc['mag'] - lc['trend'], c='grey', marker='.', edgecolors='none', alpha=0.5)
     
     # Plot the calibrated data, binned in phase.
-    nbins = np.ceil(9*P/T14)
+    nbins = np.ceil(9*P/T14).astype('int')
     bins = np.linspace(-.5, .5, nbins+1)   
     xbin, ybin, eybin = statistics.bin_data(phase, lc['mag'] - lc['trend'], bins, lc['emag'])
     
